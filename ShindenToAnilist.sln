@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShindenToAnilist", "ShindenToAnilist\ShindenToAnilist.csproj", "{56B7E4BF-A9CA-4ABD-AD28-8D1C7452ABF8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShindenToAnilist.Cli", "ShindenToAnilist.Cli\ShindenToAnilist.Cli.csproj", "{82878476-9CF7-4A3A-8B73-292D9760A7A2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{56B7E4BF-A9CA-4ABD-AD28-8D1C7452ABF8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{56B7E4BF-A9CA-4ABD-AD28-8D1C7452ABF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{56B7E4BF-A9CA-4ABD-AD28-8D1C7452ABF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{56B7E4BF-A9CA-4ABD-AD28-8D1C7452ABF8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{82878476-9CF7-4A3A-8B73-292D9760A7A2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82878476-9CF7-4A3A-8B73-292D9760A7A2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82878476-9CF7-4A3A-8B73-292D9760A7A2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82878476-9CF7-4A3A-8B73-292D9760A7A2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
