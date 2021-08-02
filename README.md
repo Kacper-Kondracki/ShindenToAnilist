@@ -1,2 +1,7 @@
 # ShindenToAnilist
  Przenieś listę Shinden na Anilist lub MyAnimeList
+
+Program po podaniu nazwy użytkownika pobiera listę anime do pliku .xml który jest kompatybilny z MAL i Anilist
+Niektóre anime mogą nie zostać rozpoznane, w tym wypadku program wypisze link do problematycznych anime
+
+[Pobierz](https://github.com/AbdShullah/ShindenToAnilist/releases)
