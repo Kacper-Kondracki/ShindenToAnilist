@@ -105,10 +105,12 @@ namespace ShindenToAnilist.Cli
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("Zakończono konwertowanie do pliku: lista_anime.xml\n" +
                               "Zaimportuj swoją listę\n" +
-                              "MyAnimeList: https://myanimelist.net/import.php\n" +
-                              "Anilist: https://anilist.co/settings/import");
+                              "https://myanimelist.net/import.php\n" +
+                              "https://anilist.co/settings/import");
 
             Console.ResetColor();
+            Console.WriteLine("Wciśnij dowolny klawisz, aby kontynuować...");
+            Console.ReadKey(true);
         }
     }
 }

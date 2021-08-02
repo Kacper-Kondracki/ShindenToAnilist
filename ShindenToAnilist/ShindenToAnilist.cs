@@ -52,8 +52,6 @@ namespace ShindenToAnilist
 
             if (result.Count == 0) throw new InvalidOperationException();
 
-            Console.WriteLine("adkjhkh");
-
             return (from element in result
                 let title = element.Children[1].Children[0].TextContent
                 let link = "https://shinden.pl".AppendPathSegment(element.Children[1].Children[0].GetAttribute("href")!)
