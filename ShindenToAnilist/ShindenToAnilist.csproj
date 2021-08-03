@@ -9,6 +9,7 @@
     <ItemGroup>
       <PackageReference Include="AngleSharp" Version="0.16.0" />
       <PackageReference Include="Flurl" Version="3.0.2" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     </ItemGroup>
 
     <ItemGroup>

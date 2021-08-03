@@ -28,7 +28,7 @@ namespace ShindenToAnilist
             return ParseDocument(document);
         }
 
-        public async Task<int?> GetYearAsync(ShindenAnime anime)
+        public async Task<ShindenAnimeDetails> GetDetailsAsync(ShindenAnime anime)
         {
             using var infoDocument = await _context.GetDocumentAsync(anime.Link);
 
@@ -40,7 +40,14 @@ namespace ShindenToAnilist
 
             int? dateCorrect = date is null ? null : int.Parse(date.Split('.').Last());
 
-            return dateCorrect;
+            var alternativeTitles = infoDocument.All
+                .First(x => x.LocalName == "div" && x.ClassName == "title-other parent-on-hover").TextContent;
+
+
+            var alternativeTitlesCorrect = alternativeTitles.Split(",\n",
+                StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+            return new ShindenAnimeDetails(dateCorrect, alternativeTitlesCorrect.ToList().AsReadOnly());
         }
 
         private static IEnumerable<ShindenAnime> ParseDocument(IDocument document)
@@ -57,7 +64,8 @@ namespace ShindenToAnilist
                 let link = "https://shinden.pl".AppendPathSegment(element.Children[1].Children[0].GetAttribute("href")!)
                 let score = element.Children[2].TextContent
                 let status = element.Children[3].TextContent
-                let progressAndEpisodes = element.Children[4].TextContent.Split('/', 2).Select(x => x.Trim()).ToArray()
+                let progressAndEpisodes = element.Children[4].TextContent.Split('/', 2, StringSplitOptions.TrimEntries)
+                    .ToArray()
                 let type = element.Children[5].TextContent
                 let correctScore = (int?) (score == "?" ? null : int.Parse(score))
                 let progress = int.Parse(progressAndEpisodes[0])

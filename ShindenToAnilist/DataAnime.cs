@@ -4,17 +4,17 @@ using System.Collections.Generic;
 namespace ShindenToAnilist
 {
     public record DataAnime(
-        List<Uri> Sources,
         string Title,
+        IReadOnlyList<Uri> Sources,
         AnimeType Type,
         int Episodes,
         AirStatus Status,
         AnimeSeason AnimeSeason,
         Uri Picture,
         Uri Thumbnail,
-        List<string> Synonyms,
-        List<Uri> Relations,
-        List<string> Tags);
+        IReadOnlyList<string> Synonyms,
+        IReadOnlyList<Uri> Relations,
+        IReadOnlyList<string> Tags);
 
     public record AnimeSeason(Season Season, int? Year);
 

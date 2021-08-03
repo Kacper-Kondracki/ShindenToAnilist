@@ -2,5 +2,5 @@
 
 namespace ShindenToAnilist
 {
-    public record AnimeDatabase(List<DataAnime> Data);
+    public record AnimeDatabase(IReadOnlyList<DataAnime> Data);
 }

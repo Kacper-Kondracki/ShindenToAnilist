@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -26,7 +27,8 @@ namespace ShindenToAnilist.Cli
 
 
             Console.WriteLine("Ładowanie bazy danych");
-            var database = await AnimeListConverter.GetAnimeDatabaseAsync();
+            var database = AnimeListConverter.GetAnimeDatabase();
+
             if (database == null)
             {
                 Console.WriteLine("Nie można wczytać bazy danych anime.");
@@ -52,46 +54,58 @@ namespace ShindenToAnilist.Cli
             }
 
             var found = new List<(ShindenAnime, DataAnime)>();
+            await using var errorFile = File.CreateText("bledne_anime.txt");
 
             Console.WriteLine("Rozpoczynanie wyszukiwania:");
             foreach (var anime in animes)
             {
-                var search = database.Where(x =>
-                    (
-                        x.Title == anime.Title ||
-                        x.Synonyms.Contains(anime.Title)
-                    ) &&
-                    x.Type == anime.AnimeType &&
-                    x.Sources.Any(uri => uri.ToString().Contains("myanimelist")) &&
-                    x.Sources.Any(uri => uri.ToString().Contains("anilist"))).ToList();
+                var search = SearchAnime(database, anime.Title).ToList();
 
-
-                switch (search.Count)
+                if (search.Count == 1)
                 {
-                    case 0:
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"Nie znaleziono: {anime.Title} {anime.Link}");
-                        Console.ResetColor();
-                        break;
-                    case > 1:
-                        var year = await shindenToAnilist.GetYearAsync(anime);
-                        var research = search.Where(x => x.AnimeSeason.Year == year).ToList();
-                        if (research.Count == 1)
-                        {
+                    found.Add((anime, search[0]));
+                }
+                else
+                {
+                    var (year, alternativeTitles) = await shindenToAnilist.GetDetailsAsync(anime);
+                    
+                    var alternative = alternativeTitles
+                        .Select(x => SearchAnime(database, x))
+                        .SelectMany(x => x)
+                        .ToList();
+
+                    search.AddRange(alternative);
+                    search = search.Distinct().ToList();
+
+                    var research = search.Where(x => x.AnimeSeason.Year == year).ToList();
+
+                    if (research.Count > 1)
+                    {
+                        research = research.Where(x => x.Type == anime.AnimeType).ToList();
+                    }
+                    
+                    switch (research.Count)
+                    {
+                        case 1:
                             found.Add((anime, research[0]));
-                        }
-                        else
-                        {
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine($"Wiele wyników: {anime.Title} {anime.Link}");
+                            break;
+                        case 0:
+                            var notFound = $"Nie znaleziono: {anime.Title} {anime.Link}";
+                            await errorFile.WriteLineAsync(notFound);
+                            
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine(notFound);
                             Console.ResetColor();
-                        }
-
-                        break;
-
-                    case 1:
-                        found.Add((anime, search[0]));
-                        break;
+                            break;
+                        case > 1:
+                            var multipleResults = $"Wiele wyników: {anime.Title} {anime.Link}";
+                            await errorFile.WriteLineAsync(multipleResults);
+                            
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine(multipleResults);
+                            Console.ResetColor();
+                            break;
+                    }
                 }
             }
 
@@ -111,6 +125,19 @@ namespace ShindenToAnilist.Cli
             Console.ResetColor();
             Console.WriteLine("Wciśnij dowolny klawisz, aby kontynuować...");
             Console.ReadKey(true);
+        }
+
+        private static IEnumerable<DataAnime> SearchAnime(IEnumerable<DataAnime> database, string title)
+        {
+            var search = database.Where(x =>
+                (
+                    string.Equals(x.Title, title, StringComparison.InvariantCultureIgnoreCase) ||
+                    x.Synonyms.Contains(title, StringComparer.InvariantCultureIgnoreCase)
+                ) &&
+                x.Sources.Any(uri => uri.ToString().Contains("myanimelist", StringComparison.Ordinal)) &&
+                x.Sources.Any(uri => uri.ToString().Contains("anilist", StringComparison.Ordinal))).ToList();
+
+            return search;
         }
     }
 }

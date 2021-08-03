@@ -3,25 +3,22 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 using System.Xml;
+using Newtonsoft.Json;
+using Formatting = System.Xml.Formatting;
 
 namespace ShindenToAnilist
 {
     public static class AnimeListConverter
     {
-        public static async Task<List<DataAnime>?> GetAnimeDatabaseAsync()
+        public static IReadOnlyList<DataAnime>? GetAnimeDatabase()
         {
-            await using var stream = File.OpenRead("anime-offline-database.json");
+            using var stream = File.OpenText("anime-offline-database.json");
+            using var jsonReader = new JsonTextReader(stream);
 
-            var deserialized = await JsonSerializer.DeserializeAsync<AnimeDatabase>(stream,
-                new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    Converters = {new JsonStringEnumConverter(new ScreamingNamePolicy())}
-                });
+            var jsonSerializer = new JsonSerializer();
+            var deserialized = jsonSerializer.Deserialize<AnimeDatabase>(jsonReader);
+
             return deserialized?.Data;
         }
 
@@ -41,7 +38,7 @@ namespace ShindenToAnilist
             {
                 xmlWriter.WriteStartElement("anime");
 
-                var animeId = dataAnime.Sources.First(x => x.ToString().Contains("myanimelist")).ToString().Split('/')
+                var animeId = dataAnime.Sources.First(x => x.ToString().Contains("myanimelist", StringComparison.Ordinal)).ToString().Split('/')
                     .Last();
 
                 xmlWriter.WriteElementString("series_animedb_id", animeId);
