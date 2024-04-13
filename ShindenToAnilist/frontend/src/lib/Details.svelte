@@ -109,7 +109,7 @@
                      {compare(selectedAnime.search_anime.fix, selectedSearchAnime) ? 'bg-base-300' : 'hover'}"
                       on:click={() => {SelectSearchAnime(selectedAnime.search_anime.fix)}}>
                       <th
-                        class="">{selectedAnime.search_anime.fix.title} dupa
+                        class="">{selectedAnime.search_anime.fix.title}
                       </th>
                     </tr>
                   {/if}
