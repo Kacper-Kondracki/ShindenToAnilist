@@ -1,0 +1,28 @@
+{
+  "name": "shinden-to-anilist",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.0.2",
+    "svelte": "^4.2.10",
+    "tailwind-scrollbar": "^3.1.0",
+    "vite": "^5.1.0"
+  },
+  "dependencies": {
+    "@iconify-json/mdi": "^1.1.64",
+    "autoprefixer": "^10.4.17",
+    "daisyui": "^4.6.2",
+    "postcss": "^8.4.35",
+    "prettier": "^3.2.5",
+    "prettier-plugin-svelte": "^3.2.1",
+    "prettier-plugin-tailwindcss": "^0.5.11",
+    "tailwindcss": "^3.4.1",
+    "unplugin-icons": "^0.18.5"
+  }
+}

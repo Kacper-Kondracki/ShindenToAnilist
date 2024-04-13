@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<myanimelist>
+  <myinfo>
+    <user_export_type>1</user_export_type>
+  </myinfo>
+  <anime>
+    <series_animedb_id>52034</series_animedb_id>
+    <my_watched_episodes>11</my_watched_episodes>
+    <my_start_date>0000-00-00</my_start_date>
+    <my_finish_date>0000-00-00</my_finish_date>
+    <my_score>10</my_score>
+    <my_status>Completed</my_status>
+    <update_on_import>1</update_on_import>
+  </anime>
+  <anime>
+    <series_animedb_id>32281</series_animedb_id>
+    <my_watched_episodes>0</my_watched_episodes>
+    <my_start_date>0000-00-00</my_start_date>
+    <my_finish_date>0000-00-00</my_finish_date>
+    <my_score>0</my_score>
+    <my_status>Plan to Watch</my_status>
+    <update_on_import>1</update_on_import>
+  </anime>
+  <anime>
+    <series_animedb_id>28851</series_animedb_id>
+    <my_watched_episodes>0</my_watched_episodes>
+    <my_start_date>0000-00-00</my_start_date>
+    <my_finish_date>0000-00-00</my_finish_date>
+    <my_score>0</my_score>
+    <my_status>Dropped</my_status>
+    <update_on_import>1</update_on_import>
+  </anime>
+  <anime>
+    <series_animedb_id>52991</series_animedb_id>
+    <my_watched_episodes>0</my_watched_episodes>
+    <my_start_date>0000-00-00</my_start_date>
+    <my_finish_date>0000-00-00</my_finish_date>
+    <my_score>0</my_score>
+    <my_status>Watching</my_status>
+    <update_on_import>1</update_on_import>
+  </anime>
+  <anime>
+    <series_animedb_id>33352</series_animedb_id>
+    <my_watched_episodes>0</my_watched_episodes>
+    <my_start_date>0000-00-00</my_start_date>
+    <my_finish_date>0000-00-00</my_finish_date>
+    <my_score>0</my_score>
+    <my_status>On-Hold</my_status>
+    <update_on_import>1</update_on_import>
+  </anime>
+</myanimelist>
