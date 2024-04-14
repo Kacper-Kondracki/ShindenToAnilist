@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"shinden-to-anilist/lib"
+	"shinden-to-anilist/lib/animezone"
 	"shinden-to-anilist/lib/searcher"
 	"shinden-to-anilist/lib/shinden"
 	"strings"
@@ -58,6 +59,10 @@ func Convert(fileName string, anime []searcher.SearchSuccess) error {
 				convertAnime.Score = *shindenAnime.RateTotal
 			}
 
+			if shindenAnime.GetNotes() != nil {
+				convertAnime.Comments = *shindenAnime.GetNotes()
+			}
+
 			switch shindenAnime.WatchStatus {
 			case lib.WatchSkip:
 				convertAnime.Status = "Dropped"
@@ -74,6 +79,20 @@ func Convert(fileName string, anime []searcher.SearchSuccess) error {
 			default:
 				return errors.New("watch status out of range")
 			}
+		case *animezone.Anime:
+			animeZoneAnime := searchAnime.SearchAnime.(*animezone.Anime)
+			switch animeZoneAnime.WatchStatus {
+			case lib.WatchCompleted:
+				convertAnime.Status = "Completed"
+				convertAnime.WatchedEpisodes = searchAnime.DBAnime.Episodes
+			case lib.WatchInProgress:
+				convertAnime.Status = "Watching"
+			case lib.WatchPlan:
+				convertAnime.Status = "Plan to Watch"
+			default:
+				return errors.New("watch status out of range")
+			}
+
 		}
 
 		animeList.Animes = append(animeList.Animes, convertAnime)
@@ -101,6 +120,7 @@ type animeXAML struct {
 	Score           int    `xml:"my_score"`
 	Status          string `xml:"my_status"`
 	Update          int    `xml:"update_on_import"`
+	Comments        string `xml:"my_comments"`
 }
 
 type animeListXAML struct {

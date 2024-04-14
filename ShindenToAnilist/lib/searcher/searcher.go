@@ -12,19 +12,23 @@ import (
 )
 
 type SearchAnimeJSON struct {
-	Title       string          `json:"title"`
-	Year        *int            `json:"year"`
-	TitleStatus lib.TitleStatus `json:"title_status"`
-	Episodes    int             `json:"episodes"`
-	AnimeType   lib.AnimeType   `json:"anime_type"`
+	Title       string           `json:"title"`
+	Year        *int             `json:"year"`
+	TitleStatus *lib.TitleStatus `json:"title_status"`
+	Episodes    *int             `json:"episodes"`
+	AnimeType   *lib.AnimeType   `json:"anime_type"`
+	Source      *string          `json:"source"`
+	Notes       *string          `json:"notes"`
 }
 
 type SearchAnime interface {
 	GetTitle() string
 	GetYear() *int
-	GetTitleStatus() lib.TitleStatus
-	GetEpisodes() int
-	GetAnimeType() lib.AnimeType
+	GetTitleStatus() *lib.TitleStatus
+	GetEpisodes() *int
+	GetAnimeType() *lib.AnimeType
+	GetSource() *string
+	GetNotes() *string
 }
 
 type SearchSuccess struct {

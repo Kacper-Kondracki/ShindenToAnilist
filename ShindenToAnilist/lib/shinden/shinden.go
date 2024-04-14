@@ -50,10 +50,11 @@ func (s *Anime) MarshalJSON() ([]byte, error) {
 		TitleStatus: a.GetTitleStatus(),
 		Episodes:    a.GetEpisodes(),
 		AnimeType:   a.GetAnimeType(),
+		Source:      a.GetSource(),
+		Notes:       a.GetNotes(),
 	}
 	return json.Marshal(j)
 }
-
 func (s *Anime) GetTitle() string {
 	return s.Title
 }
@@ -66,19 +67,29 @@ func (s *Anime) GetYear() *int {
 	return &year
 }
 
-func (s *Anime) GetTitleStatus() lib.TitleStatus {
-	return s.TitleStatus
+func (s *Anime) GetTitleStatus() *lib.TitleStatus {
+	return &s.TitleStatus
 }
 
-func (s *Anime) GetEpisodes() int {
+func (s *Anime) GetEpisodes() *int {
 	if s.Episodes == nil {
-		return 0
+		tmp := 0
+		return &tmp
 	}
-	return *s.Episodes
+	return s.Episodes
 }
 
-func (s *Anime) GetAnimeType() lib.AnimeType {
-	return s.AnimeType
+func (s *Anime) GetAnimeType() *lib.AnimeType {
+	return &s.AnimeType
+}
+
+func (s *Anime) GetSource() *string {
+	url := fmt.Sprintf("https://shinden.pl/series/%d", s.TitleID)
+	return &url
+}
+
+func (s *Anime) GetNotes() *string {
+	return s.UserNote
 }
 
 /*

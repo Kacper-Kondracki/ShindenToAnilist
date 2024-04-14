@@ -1,6 +1,8 @@
 package tests
 
 import (
+	json2 "encoding/json"
+	"shinden-to-anilist/lib/animezone"
 	"shinden-to-anilist/lib/converter"
 	"shinden-to-anilist/lib/db"
 	"shinden-to-anilist/lib/searcher"
@@ -47,5 +49,17 @@ func TestFullShinden(t *testing.T) {
 	err = converter.Convert("lista_anime.xml", results)
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestAnimeZone(t *testing.T) {
+	animes, err := animezone.GetList("Darneta")
+	if err != nil {
+		t.Error(err)
+	}
+
+	for _, anime := range animes {
+		json, _ := json2.MarshalIndent(anime, "", "  ")
+		t.Log(string(json))
 	}
 }
