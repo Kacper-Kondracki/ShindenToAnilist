@@ -321,3 +321,6 @@ package
 # .pnp.*
 
 # End of https://www.toptal.com/developers/gitignore/api/go,goland,visualstudiocode,node,svelte,yarn
+
+lista_anime.xaml
+anime.json

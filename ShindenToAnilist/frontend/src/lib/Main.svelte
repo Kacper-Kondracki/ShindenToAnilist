@@ -134,7 +134,7 @@
       {#if selected === Sites.SHINDEN}
         <span>Podaj ID lub link profilu użytkownika Shindena.</span>
       {:else if selected === Sites.ANIMEZONE}
-        <span>W budowie.</span>
+        <span>Podaj nazwę lub link profilu użytkownika Anime Zone.</span>
       {:else if selected === Sites.OGLADAJANIME}
         <span>W budowie.</span>
       {:else}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"shinden-to-anilist/lib/animezone"
 	"shinden-to-anilist/lib/converter"
 	"shinden-to-anilist/lib/db"
 	"shinden-to-anilist/lib/searcher"
@@ -137,6 +138,8 @@ func (a *App) Export(fixed string) string {
 var results ConvertResultJSON
 
 func (a *App) Convert(name string, site string) ConvertResultJSON {
+	search := make([]searcher.SearchAnime, 0)
+
 	switch site {
 	case "shinden":
 		shindenId, err := strconv.Atoi(name)
@@ -160,33 +163,47 @@ func (a *App) Convert(name string, site string) ConvertResultJSON {
 		if err != nil {
 			return ConvertResultJSON{Status: "SHINDEN_ERR"}
 		}
+		for _, anime := range list {
+			search = append(search, &anime)
+		}
+	case "animezone":
+		split := strings.Split(name, "/")
+		var username string
+		if len(split) > 0 {
+			username = split[len(split)-1]
+		} else {
+			username = name
+		}
 
-		animeDB, err := GetAnimeDb()
+		list, err := animezone.GetList(username)
 		if err != nil {
-			return ConvertResultJSON{Status: "DB_ERR"}
+			return ConvertResultJSON{Status: "ANIMEZONE_ERR"}
 		}
-
-		search := make([]searcher.SearchAnime, len(list))
-		for i, anime := range list {
-			search[i] = &anime
+		for _, anime := range list {
+			search = append(search, &anime)
 		}
-
-		success, multiple, fail := searcher.Search(search, animeDB.Data)
-
-		results = ConvertResultJSON{
-			Status:        "OK",
-			SuccessCount:  len(success),
-			MultipleCount: len(multiple),
-			FailCount:     len(fail),
-			SuccessAnime:  success,
-			MultipleAnime: multiple,
-			FailAnime:     fail,
-		}
-
-		return results
+	default:
+		return ConvertResultJSON{Status: "SITE_ERR"}
 	}
 
-	return ConvertResultJSON{Status: "SITE_ERR"}
+	animeDB, err := GetAnimeDb()
+	if err != nil {
+		return ConvertResultJSON{Status: "DB_ERR"}
+	}
+
+	success, multiple, fail := searcher.Search(search, animeDB.Data)
+
+	results = ConvertResultJSON{
+		Status:        "OK",
+		SuccessCount:  len(success),
+		MultipleCount: len(multiple),
+		FailCount:     len(fail),
+		SuccessAnime:  success,
+		MultipleAnime: multiple,
+		FailAnime:     fail,
+	}
+
+	return results
 }
 
 type ConvertResultJSON struct {

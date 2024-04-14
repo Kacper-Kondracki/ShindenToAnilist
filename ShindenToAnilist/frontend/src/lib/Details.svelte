@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import SearchIcon from "virtual:icons/mdi/Search";
   import { Export, Search } from "../../wailsjs/go/main/App.js";
+  import { BrowserOpenURL } from "../../wailsjs/runtime/runtime.js";
 
   export let anime;
   let selectedAnime = null;
@@ -89,6 +90,12 @@
                    placeholder="Szukaj anime" />
             <SearchIcon></SearchIcon>
           </label>
+          {#if selectedAnime?.search_anime?.source != null}
+            <!--{}-->
+            <button on:click={() => BrowserOpenURL(selectedAnime.search_anime.source)} class="text-sm text-blue-500 mt-2 cursor-pointer text-left">
+              {selectedAnime.search_anime.source}
+            </button>
+          {/if}
         </div>
         <div class="min-h-0">
           {#if searchPromise != null}
