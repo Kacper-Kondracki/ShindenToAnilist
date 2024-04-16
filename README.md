@@ -1,7 +1,7 @@
 # ShindenToAnilist
 Przenieś listę Shinden na Anilist lub MyAnimeList!
 
-Wsparcie dla Anime Zone i Oglądaj Anime w budowie.
+Wsparcie dla Anime Zone już działa, a Oglądaj Anime jest w budowie.
 ## Nowa odsłona programu, możliwość ręcznego dopasowania nieznalezionych tytułów.
 
 ![image](https://github.com/Kacper-Kondracki/ShindenToAnilist/assets/43544435/aaa97a00-3e4d-40f1-ad88-f1f0f42a7136)
