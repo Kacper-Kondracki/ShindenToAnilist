@@ -59,7 +59,7 @@ func Read() (*Root, error) {
 }
 
 func Download() (*Root, error) {
-	const uri = "https://github.com/manami-project/anime-offline-database/raw/master/anime-offline-database-minified.json"
+	const uri = "https://github.com/manami-project/anime-offline-database/releases/latest/download/anime-offline-database-minified.json"
 
 	res, err := http.Get(uri)
 	if err != nil {
