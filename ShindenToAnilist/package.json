@@ -1,0 +1,41 @@
+{
+	"name": "shinden-to-anilist",
+	"version": "0.1.0",
+	"description": "",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"format": "prettier --write .",
+		"lint": "prettier --check .",
+		"tauri": "tauri"
+	},
+	"license": "MIT",
+	"dependencies": {
+		"@tauri-apps/api": "^2.9.1",
+		"@tauri-apps/plugin-opener": "^2.5.3"
+	},
+	"devDependencies": {
+		"@catppuccin/daisyui": "^2.1.1",
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.50.0",
+		"@sveltejs/vite-plugin-svelte": "^5.1.1",
+		"@tailwindcss/forms": "^0.5.11",
+		"@tailwindcss/typography": "^0.5.19",
+		"@tailwindcss/vite": "^4.1.18",
+		"@tauri-apps/cli": "^2.9.6",
+		"daisyui": "^5.5.14",
+		"prettier": "^3.8.0",
+		"prettier-plugin-svelte": "^3.4.1",
+		"prettier-plugin-tailwindcss": "^0.7.2",
+		"svelte": "^5.46.4",
+		"svelte-check": "^4.3.5",
+		"tailwindcss": "^4.1.18",
+		"typescript": "~5.6.3",
+		"vite": "^6.4.1",
+		"vite-plugin-devtools-json": "^1.0.0"
+	}
+}
