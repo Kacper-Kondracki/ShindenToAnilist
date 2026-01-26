@@ -1,0 +1,2 @@
+[build]
+rustflags = ["-Ctarget_cpu=x86-64-v3"]
