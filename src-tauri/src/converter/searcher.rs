@@ -1,5 +1,6 @@
 use crate::converter::database;
-use crate::ngram::NGramIndex;
+use crate::ngram;
+use crate::ngram::{NGramIndex, NGramIndexBuilder};
 use crate::utils::NormalizeStr;
 use ahash::AHashMap;
 
@@ -18,7 +19,7 @@ pub struct SearchResult<'db> {
 
 impl<'db> Searcher<'db> {
     pub fn new(db: &'db [database::AnimeEntry]) -> Self {
-        let mut index = NGramIndex::new();
+        let mut index = NGramIndexBuilder::default();
         let mut db_map = AHashMap::new();
 
         for entry in db {
@@ -28,14 +29,15 @@ impl<'db> Searcher<'db> {
                 index.add_alias(synonym.as_str().normalize().as_str(), id);
             }
         }
+        let index = index.build();
 
         Self { db, index, db_map }
     }
 
     pub fn search(&'_ self, query: &str, limit: usize, threshold: f32) -> Vec<SearchResult<'_>> {
-        let results = self
-            .index
-            .search(query.normalize().as_str(), limit, threshold);
+        let results =
+            self.index
+                .search::<ngram::RecallJaccard>(query.normalize().as_str(), limit, threshold);
 
         results
             .iter()

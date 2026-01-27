@@ -1,43 +1,118 @@
 use ahash::{AHashMap, AHashSet};
 use ordered_float::OrderedFloat;
 use roaring::RoaringBitmap;
-use std::cmp::Reverse;
+use smallvec::SmallVec;
 use std::collections::BinaryHeap;
 use std::iter;
 
-pub fn ngrams<const N: usize>(s: &[u8]) -> impl Iterator<Item = u32> + '_ {
-    s.windows(N).map(|w| {
-        let mut x = 0u32;
-        w.iter().for_each(|&b| {
-            x = (x << 8) | b as u32;
-        });
-        x
-    })
+#[inline(always)]
+pub fn ngrams<const N: usize>(s: &[u8]) -> impl Iterator<Item = u32> {
+    s.windows(N)
+        .map(|w| w.iter().fold(0u32, |acc, &x| (acc << 8) | x as u32))
 }
 
-pub fn dedup_ngrams(ngrams: impl Iterator<Item = u32>) -> impl Iterator<Item = u32> {
-    let mut seen = AHashSet::new();
-    ngrams.into_iter().filter(move |x| seen.insert(*x))
+pub trait DedupNgram {
+    fn dedup_ngram(self) -> impl Iterator<Item = u32>;
 }
 
-pub fn pad(s: &str, pad_len: usize) -> Vec<u8> {
-    let mut padded = Vec::with_capacity(s.len() + 2 * pad_len);
-    padded.extend(iter::repeat_n(b'^', pad_len));
-    padded.extend_from_slice(s.as_bytes());
-    padded.extend(iter::repeat_n(b'$', pad_len));
-    padded
+impl<T: Iterator<Item = u32>> DedupNgram for T {
+    #[inline(always)]
+    fn dedup_ngram(self) -> impl Iterator<Item = u32> {
+        let mut seen = AHashSet::new();
+        self.into_iter().filter(move |x| seen.insert(*x))
+    }
 }
 
-pub fn ngrams_dedup<const N: usize>(s: &[u8]) -> impl Iterator<Item = u32> {
-    dedup_ngrams(ngrams::<N>(s))
+pub trait PadNgram {
+    fn pad_ngram(&self, ngram_size: usize) -> SmallVec<[u8; 32]>;
+}
+
+impl PadNgram for str {
+    #[inline(always)]
+    fn pad_ngram(&self, ngram_size: usize) -> SmallVec<[u8; 32]> {
+        let pad_len = ngram_size - 1;
+        let mut padded = SmallVec::with_capacity(self.len() + 2 * pad_len);
+        padded.extend(iter::repeat_n(b'^', pad_len));
+        padded.extend_from_slice(self.as_bytes());
+        padded.extend(iter::repeat_n(b'$', pad_len));
+        padded
+    }
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+struct DocData {
+    pub len: u32,
+    pub canonical: u32,
+}
+
+#[derive(Debug, Default)]
+struct Posting {
+    item: RoaringBitmap,
+    df: u32,
+}
+
+pub trait Scorer {
+    fn score(matched: u32, query_len: u32, doc_len: u32, idf_sum: f32) -> f32;
+}
+
+pub struct RecallJaccard;
+
+impl Scorer for RecallJaccard {
+    #[inline(always)]
+    fn score(m: u32, q: u32, d: u32, _: f32) -> f32 {
+        let alpha = 0.8;
+        let beta = 1.0 - alpha;
+        let recall = m as f32 / q as f32;
+        let union = q + d - m;
+        let jaccard = m as f32 / union as f32;
+        alpha * recall + beta * jaccard
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct NGramIndexBuilder<const N: usize> {
+    postings: AHashMap<u32, Posting>,
+    docs: Vec<DocData>,
+}
+
+impl<const N: usize> NGramIndexBuilder<N> {
+    pub fn add_ngram(&mut self, text: &str) -> u32 {
+        let id = self.docs.len() as u32;
+        let len = ngrams::<N>(&text.pad_ngram(N))
+            .dedup_ngram()
+            .fold(0u32, |acc, ngram| {
+                self.postings.entry(ngram).or_default().item.insert(id);
+                acc + 1
+            });
+
+        self.docs.push(DocData { len, canonical: id });
+        id
+    }
+
+    pub fn add_alias(&mut self, text: &str, id: u32) -> u32 {
+        let alias_id = self.add_ngram(text);
+        self.docs[alias_id as usize].canonical = id;
+        alias_id
+    }
+
+    pub fn precalculate_dfs(&mut self) {
+        for (_, posting) in self.postings.iter_mut() {
+            posting.df = posting.item.len() as u32;
+        }
+    }
+
+    pub fn build(mut self) -> NGramIndex<N> {
+        self.precalculate_dfs();
+
+        let NGramIndexBuilder { postings, docs } = self;
+        NGramIndex { postings, docs }
+    }
 }
 
 #[derive(Debug, Default)]
 pub struct NGramIndex<const N: usize> {
-    postings: AHashMap<u32, RoaringBitmap>,
-    aliases: AHashMap<u32, u32>,
-    count: u32,
-    ngram_count: Vec<usize>,
+    postings: AHashMap<u32, Posting>,
+    docs: Vec<DocData>,
 }
 
 impl<const N: usize> NGramIndex<N> {
@@ -45,94 +120,111 @@ impl<const N: usize> NGramIndex<N> {
         Self::default()
     }
 
-    pub fn add_ngram(&mut self, text: &str) -> u32 {
-        let id = self.count;
-        self.count += 1;
-        let mut ngram_count = 0;
-        for ngram in ngrams_dedup::<N>(&pad(text, N - 1)) {
-            ngram_count += 1;
-            self.postings.entry(ngram).or_default().insert(id);
-        }
-        self.ngram_count.push(ngram_count);
-        id
-    }
+    #[inline(always)]
+    fn select_candidates(terms: &[&Posting]) -> Option<RoaringBitmap> {
+        const MAX_CANDIDATES: usize = 5_000;
+        const MAX_RARE_TERMS: usize = 7;
 
-    pub fn add_alias(&mut self, text: &str, id: u32) -> u32 {
-        let alias_id = self.add_ngram(text);
-        self.aliases.insert(alias_id, id);
-        alias_id
-    }
+        let mut candidates = terms[0].item.clone();
 
-    pub fn search(&self, query: &str, limit: usize, threshold: f32) -> Vec<(u32, f32)> {
-        if self.count == 0 || limit == 0 {
-            return Vec::new();
-        }
+        for posting in terms.iter().copied().skip(1) {
+            candidates &= &posting.item;
 
-        let mut terms: Vec<(&RoaringBitmap, usize)> = Vec::new();
-        let mut query_ngram_count = 0;
-        for ngram in ngrams_dedup::<N>(&pad(query, N - 1)) {
-            query_ngram_count += 1;
-            if let Some(bitmap) = self.postings.get(&ngram) {
-                terms.push((bitmap, bitmap.len() as usize));
+            if candidates.is_empty() {
+                break;
             }
         }
 
-        if terms.is_empty() {
-            return Vec::new();
+        let rare_terms = terms.len().min(MAX_RARE_TERMS);
+        let min_matches = 5;
+        let mut counts = vec![0u8; MAX_CANDIDATES.min(100_000)];
+        let mut soft_candidates = candidates;
+        for posting in terms.iter().copied().take(rare_terms) {
+            for doc in posting.item.iter() {
+                let idx = doc as usize;
+                if idx < counts.len() {
+                    counts[idx] += 1;
+                    if counts[idx] == min_matches as u8 {
+                        soft_candidates.insert(doc);
+                    }
+                }
+            }
         }
 
-        terms.sort_unstable_by_key(|(_, df)| *df);
-        let seed_terms = match terms.len() {
-            0..=2 => 1,
-            3..=6 => 2,
-            7..=10 => 3,
-            _ => 4,
-        };
-        let mut candidates: Option<RoaringBitmap> = None;
+        if !soft_candidates.is_empty() {
+            return Some(soft_candidates);
+        }
 
-        for (bitmap, _) in terms.iter().copied().take(seed_terms) {
-            candidates = Some(match candidates {
-                None => bitmap.clone(),
-                Some(acc) => &acc | bitmap,
+        let mut fallback = terms[0].item.clone();
+        let seed_terms = (terms.len() / 3).clamp(1, 4);
+        for posting in terms.iter().skip(1).copied().take(seed_terms) {
+            fallback |= &posting.item;
+            if fallback.len() as usize > MAX_CANDIDATES {
+                break;
+            }
+        }
+
+        (!fallback.is_empty()).then_some(fallback)
+    }
+
+    pub fn search<S: Scorer>(&self, query: &str, limit: usize, threshold: f32) -> Vec<(u32, f32)> {
+        const DF_CUTOFF_RATIO: f32 = 1.0;
+
+        if self.docs.is_empty() || limit == 0 {
+            return Vec::new();
+        }
+        let mut terms: Vec<&Posting> = Vec::new();
+        let q_len = ngrams::<N>(&query.pad_ngram(N))
+            .dedup_ngram()
+            .fold(0u32, |acc, ngram| {
+                if let Some(posting) = self.postings.get(&ngram)
+                    && posting.df as f32 <= DF_CUTOFF_RATIO * self.docs.len() as f32
+                {
+                    terms.push(posting);
+                }
+                acc + 1
             });
+
+        if terms.is_empty() || q_len == 0 {
+            return Vec::new();
         }
 
-        let Some(candidates) = candidates else {
+        terms.sort_unstable_by_key(|posting| posting.df);
+
+        let Some(candidates) = Self::select_candidates(&terms) else {
             return Vec::new();
         };
 
-        if candidates.is_empty() {
-            return Vec::new();
-        }
+        let mut matches = vec![0u32; self.docs.len()];
 
-        let mut matched: AHashMap<u32, usize> = AHashMap::new();
-
-        for (bitmap, _) in terms.iter().copied() {
-            let intersect = &candidates & bitmap;
-            for doc in intersect {
-                *matched.entry(doc).or_insert(0) += 1;
+        for posting in terms.iter().copied() {
+            let intersect = &candidates & &posting.item;
+            for doc in intersect.iter() {
+                matches[doc as usize] += 1;
             }
         }
 
         let mut score_map: AHashMap<u32, f32> = AHashMap::new();
 
-        for (doc, matched_count) in matched {
-            let ngram_count = self.ngram_count[doc as usize];
-            if ngram_count == 0 {
+        for doc in candidates.iter() {
+            let doc_data = self.docs[doc as usize];
+            let m = matches[doc as usize];
+            let d_len = doc_data.len;
+            if d_len == 0 || m == 0 {
                 continue;
             }
 
-            let recall = matched_count as f32 / query_ngram_count as f32;
-            let union_count = query_ngram_count + ngram_count - matched_count;
-            let jaccard = matched_count as f32 / union_count as f32;
+            let max_recall = m as f32 / q_len as f32;
+            if max_recall < threshold {
+                continue;
+            }
 
-            let alpha = 0.8;
-            let score = alpha * recall + (1.0 - alpha) * jaccard;
+            let score = S::score(m, q_len, d_len, 0.0);
 
             if score < threshold {
                 continue;
             }
-            let canonical_id = self.aliases.get(&doc).copied().unwrap_or(doc);
+            let canonical_id = doc_data.canonical;
 
             score_map
                 .entry(canonical_id)
@@ -142,25 +234,17 @@ impl<const N: usize> NGramIndex<N> {
                 .or_insert(score);
         }
 
-        let mut heap: BinaryHeap<Reverse<(OrderedFloat<f32>, u32)>> =
-            BinaryHeap::with_capacity(limit);
-
+        let mut heap = BinaryHeap::new();
         for (doc, score) in score_map {
             let score = OrderedFloat(score);
-            if heap.len() < limit {
-                heap.push(Reverse((score, doc)));
-            } else if let Some(&Reverse((min_score, _))) = heap.peek()
-                && score > min_score
-            {
+            heap.push((score, doc));
+            if heap.len() > limit {
                 heap.pop();
-                heap.push(Reverse((score, doc)));
             }
         }
 
-        let mut results: Vec<(u32, f32)> = heap
-            .into_iter()
-            .map(|Reverse((score, doc))| (doc, *score))
-            .collect();
+        let mut results: Vec<(u32, f32)> =
+            heap.into_iter().map(|(score, doc)| (doc, *score)).collect();
 
         results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 

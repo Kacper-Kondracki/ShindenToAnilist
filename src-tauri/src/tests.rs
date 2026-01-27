@@ -52,7 +52,9 @@ async fn searcher_test() {
     // Shingeki no Kyojin
     // let shinden_entry = shinden.items.iter().find(|x| x.title_id == 14418).unwrap();
 
+    let start = Instant::now();
     let searcher = Searcher::new(&db.data);
+    let init_elapsed = start.elapsed();
 
     let start = Instant::now();
     let matches = shinden
@@ -60,7 +62,7 @@ async fn searcher_test() {
         .par_iter()
         .map(|entry| (entry, searcher.search(entry.title.as_str(), 50, 0.65)))
         .collect::<Vec<_>>();
-    let elapsed = start.elapsed();
+    let search_elapsed = start.elapsed();
 
     for (entry, results) in &matches {
         println!("======== {} ========", entry.title);
@@ -86,7 +88,7 @@ async fn searcher_test() {
         shinden.items.len(),
         shinden.items.len() - match_count
     );
-    println!("{:.2?}", elapsed);
+    println!("Init: {:.2?}\nSearch: {:.2?}", init_elapsed, search_elapsed);
 }
 
 #[tokio::test]

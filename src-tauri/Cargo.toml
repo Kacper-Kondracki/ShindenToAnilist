@@ -33,6 +33,7 @@ roaring = "0.11"
 unicode-normalization = "0.1"
 regex = "1"
 smol_str = { version = "0.3", features = ["serde"] }
+smallvec = "1.15.1"
 bon = "3"
 
 [profile.test]
