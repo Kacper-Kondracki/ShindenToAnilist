@@ -1,9 +1,10 @@
 use crate::converter::database;
+use crate::converter::regexes;
 use crate::converter::searcher::Searcher;
 use crate::converter::shinden;
-use itertools::Itertools;
 use mimalloc::MiMalloc;
 use rayon::prelude::*;
+use regex::Regex;
 use std::fs::File;
 use std::hint::black_box;
 use std::io::{BufReader, BufWriter};
@@ -69,4 +70,64 @@ async fn searcher_test() {
     }
 
     println!("{:.2?}", elapsed);
+}
+
+#[tokio::test]
+async fn regex_test() {
+    let regexes = [
+        ("YEAR", &*regexes::YEAR),
+        ("SEASON_DECIMAL", &*regexes::SEASON_DECIMAL),
+        ("SEASON_ROMAN", &*regexes::SEASON_ROMAN),
+        ("SEASON_NUMERAL", &*regexes::SEASON_NUMERAL),
+        ("DECIMAL_SEASON", &*regexes::DECIMAL_SEASON),
+        ("ROMAN_SEASON", &*regexes::ROMAN_SEASON),
+        ("NUMERAL_SEASON", &*regexes::NUMERAL_SEASON),
+        ("SEASON_DECIMAL_END", &*regexes::SEASON_DECIMAL_END),
+        ("SEASON_ROMAN_END", &*regexes::SEASON_ROMAN_END),
+        ("SEASON_NUMERAL_END", &*regexes::SEASON_NUMERAL_END),
+        ("PART_DECIMAL", &*regexes::PART_DECIMAL),
+        ("PART_ROMAN", &*regexes::PART_ROMAN),
+        ("PART_NUMERAL", &*regexes::PART_NUMERAL),
+        ("DECIMAL_PART", &*regexes::DECIMAL_PART),
+        ("ROMAN_PART", &*regexes::ROMAN_PART),
+        ("NUMERAL_PART", &*regexes::NUMERAL_PART),
+        ("ANIME_TYPE", &*regexes::ANIME_TYPE),
+    ];
+    fn check_regex(regexes: &[(&str, &Regex)], title: &str) {
+        println!("=========\t{title}\t=========\n");
+
+        for regex in regexes {
+            let name = regex.0;
+            let regex = regex.1;
+
+            let matches = regex
+                .captures_iter(title)
+                .map(|x| x.get(1).unwrap().as_str())
+                .last();
+
+            let Some(matches) = matches else {
+                continue;
+            };
+            let replaced = regex.replace_all(title, "<!!>");
+            println!("{name} => {replaced} => ({matches})");
+        }
+    }
+
+    let mut shinden_reader = BufReader::new(File::open("shinden-test.json").unwrap());
+    let shinden = serde_json::from_reader::<_, shinden::AnimeList>(&mut shinden_reader).unwrap();
+
+    let titles = shinden
+        .items
+        .iter()
+        .map(|x| x.title.clone())
+        .filter(|x| {
+            ["shingeki no", "boku no hero", "jojo"]
+                .iter()
+                .any(|test| x.to_lowercase().contains(test))
+        })
+        .collect::<Vec<_>>();
+
+    for title in &titles {
+        check_regex(&regexes, title);
+    }
 }
