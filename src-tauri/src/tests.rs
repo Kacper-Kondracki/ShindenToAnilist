@@ -62,13 +62,30 @@ async fn searcher_test() {
         .collect::<Vec<_>>();
     let elapsed = start.elapsed();
 
-    for (entry, results) in matches {
+    for (entry, results) in &matches {
         println!("======== {} ========", entry.title);
         for result in results {
             println!("{:.2} = {}", result.score, result.item.title);
         }
     }
 
+    let match_count = matches
+        .iter()
+        .filter(|(_, results)| !results.is_empty())
+        .count();
+
+    let strong_count = matches
+        .iter()
+        .filter(|(_, results)| results.iter().any(|x| x.score >= 0.95))
+        .count();
+
+    println!(
+        ">=0.95: {}\nFOUND: {}/{}\nNOT FOUND: {}",
+        strong_count,
+        match_count,
+        shinden.items.len(),
+        shinden.items.len() - match_count
+    );
     println!("{:.2?}", elapsed);
 }
 
