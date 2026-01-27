@@ -168,7 +168,7 @@ impl<const N: usize> NGramIndex<N> {
     }
 
     pub fn search<S: Scorer>(&self, query: &str, limit: usize, threshold: f32) -> Vec<(u32, f32)> {
-        const DF_CUTOFF_RATIO: f32 = 1.0;
+        const DF_CUTOFF_RATIO: f32 = 0.15;
 
         if self.docs.is_empty() || limit == 0 {
             return Vec::new();
@@ -178,7 +178,7 @@ impl<const N: usize> NGramIndex<N> {
             .dedup_ngram()
             .fold(0u32, |acc, ngram| {
                 if let Some(posting) = self.postings.get(&ngram)
-                    && posting.df as f32 <= DF_CUTOFF_RATIO * self.docs.len() as f32
+                    && posting.df < (DF_CUTOFF_RATIO * self.docs.len() as f32) as u32
                 {
                     terms.push(posting);
                 }
