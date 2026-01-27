@@ -123,7 +123,6 @@ impl<const N: usize> NGramIndex<N> {
     #[inline(always)]
     fn select_candidates(terms: &[&Posting]) -> Option<RoaringBitmap> {
         const MAX_CANDIDATES: usize = 5_000;
-        const MAX_RARE_TERMS: usize = 7;
 
         let mut candidates = terms[0].item.clone();
 
@@ -135,24 +134,8 @@ impl<const N: usize> NGramIndex<N> {
             }
         }
 
-        let rare_terms = terms.len().min(MAX_RARE_TERMS);
-        let min_matches = 5;
-        let mut counts = vec![0u8; MAX_CANDIDATES.min(100_000)];
-        let mut soft_candidates = candidates;
-        for posting in terms.iter().copied().take(rare_terms) {
-            for doc in posting.item.iter() {
-                let idx = doc as usize;
-                if idx < counts.len() {
-                    counts[idx] += 1;
-                    if counts[idx] == min_matches as u8 {
-                        soft_candidates.insert(doc);
-                    }
-                }
-            }
-        }
-
-        if !soft_candidates.is_empty() {
-            return Some(soft_candidates);
+        if !candidates.is_empty() {
+            return Some(candidates);
         }
 
         let mut fallback = terms[0].item.clone();
