@@ -60,7 +60,12 @@ async fn searcher_test() {
     let matches = shinden
         .items
         .par_iter()
-        .map(|entry| (entry, searcher.search(entry.title.as_str(), 50, 0.65)))
+        .map(|entry| {
+            (
+                entry,
+                searcher.search(&db.data, entry.title.as_str(), 50, 0.65, true),
+            )
+        })
         .collect::<Vec<_>>();
     let search_elapsed = start.elapsed();
 

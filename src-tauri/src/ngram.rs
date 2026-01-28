@@ -2,6 +2,7 @@ use ahash::{AHashMap, AHashSet};
 use ordered_float::OrderedFloat;
 use roaring::RoaringBitmap;
 use smallvec::SmallVec;
+use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::iter;
 
@@ -121,54 +122,39 @@ impl<const N: usize> NGramIndex<N> {
     }
 
     #[inline(always)]
-    fn select_candidates(terms: &[&Posting]) -> Option<RoaringBitmap> {
-        const MAX_CANDIDATES: usize = 5_000;
-        const MAX_RARE_TERMS: usize = 7;
+    fn select_candidates(terms: &[&Posting], is_and: bool) -> Option<RoaringBitmap> {
+        if is_and {
+            let mut candidates = terms[0].item.clone();
+            for posting in terms.iter().copied().skip(1) {
+                candidates &= &posting.item;
 
-        let mut candidates = terms[0].item.clone();
-
-        for posting in terms.iter().copied().skip(1) {
-            candidates &= &posting.item;
-
-            if candidates.is_empty() {
-                break;
-            }
-        }
-
-        let rare_terms = terms.len().min(MAX_RARE_TERMS);
-        let min_matches = 5;
-        let mut counts = vec![0u8; MAX_CANDIDATES.min(100_000)];
-        let mut soft_candidates = candidates;
-        for posting in terms.iter().copied().take(rare_terms) {
-            for doc in posting.item.iter() {
-                let idx = doc as usize;
-                if idx < counts.len() {
-                    counts[idx] += 1;
-                    if counts[idx] == min_matches as u8 {
-                        soft_candidates.insert(doc);
-                    }
+                if candidates.is_empty() {
+                    break;
                 }
             }
-        }
 
-        if !soft_candidates.is_empty() {
-            return Some(soft_candidates);
-        }
-
-        let mut fallback = terms[0].item.clone();
-        let seed_terms = (terms.len() / 3).clamp(1, 4);
-        for posting in terms.iter().skip(1).copied().take(seed_terms) {
-            fallback |= &posting.item;
-            if fallback.len() as usize > MAX_CANDIDATES {
-                break;
+            if !candidates.is_empty() {
+                return Some(candidates);
             }
         }
 
-        (!fallback.is_empty()).then_some(fallback)
+        let mut candidates = terms[0].item.clone();
+        let seed_terms = (terms.len() / 3).clamp(1, 4);
+        for posting in terms.iter().copied().skip(1).take(seed_terms) {
+            candidates |= &posting.item;
+        }
+
+        (!candidates.is_empty()).then_some(candidates)
     }
 
-    pub fn search<S: Scorer>(&self, query: &str, limit: usize, threshold: f32) -> Vec<(u32, f32)> {
-        const DF_CUTOFF_RATIO: f32 = 0.15;
+    pub fn search<S: Scorer>(
+        &self,
+        query: &str,
+        limit: usize,
+        threshold: f32,
+        is_and: bool,
+    ) -> Vec<(u32, f32)> {
+        const DF_CUTOFF_RATIO: f32 = 0.2;
 
         if self.docs.is_empty() || limit == 0 {
             return Vec::new();
@@ -191,7 +177,7 @@ impl<const N: usize> NGramIndex<N> {
 
         terms.sort_unstable_by_key(|posting| posting.df);
 
-        let Some(candidates) = Self::select_candidates(&terms) else {
+        let Some(candidates) = Self::select_candidates(&terms, is_and) else {
             return Vec::new();
         };
 
@@ -234,17 +220,25 @@ impl<const N: usize> NGramIndex<N> {
                 .or_insert(score);
         }
 
-        let mut heap = BinaryHeap::new();
+        let mut heap: BinaryHeap<Reverse<(OrderedFloat<f32>, u32)>> =
+            BinaryHeap::with_capacity(limit);
+
         for (doc, score) in score_map {
             let score = OrderedFloat(score);
-            heap.push((score, doc));
-            if heap.len() > limit {
+            if heap.len() < limit {
+                heap.push(Reverse((score, doc)));
+            } else if let Some(&Reverse((min_score, _))) = heap.peek()
+                && score > min_score
+            {
                 heap.pop();
+                heap.push(Reverse((score, doc)));
             }
         }
 
-        let mut results: Vec<(u32, f32)> =
-            heap.into_iter().map(|(score, doc)| (doc, *score)).collect();
+        let mut results: Vec<(u32, f32)> = heap
+            .into_iter()
+            .map(|Reverse((score, doc))| (doc, *score))
+            .collect();
 
         results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
