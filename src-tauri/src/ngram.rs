@@ -181,20 +181,19 @@ impl<const N: usize> NGramIndex<N> {
             return Vec::new();
         };
 
-        let mut matches = vec![0u32; self.docs.len()];
+        let mut matches: AHashMap<u32, u32> = AHashMap::new();
 
         for posting in terms.iter().copied() {
             let intersect = &candidates & &posting.item;
             for doc in intersect.iter() {
-                matches[doc as usize] += 1;
+                *matches.entry(doc).or_default() += 1;
             }
         }
 
         let mut score_map: AHashMap<u32, f32> = AHashMap::new();
 
-        for doc in candidates.iter() {
+        for (doc, m) in matches {
             let doc_data = self.docs[doc as usize];
-            let m = matches[doc as usize];
             let d_len = doc_data.len;
             if d_len == 0 || m == 0 {
                 continue;
