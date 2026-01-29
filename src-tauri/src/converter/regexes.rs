@@ -17,6 +17,11 @@ const WORD_NUM: &str = r"(\bone\b|\btwo\b|\bthree\b|\bfour\b|\bfive\b|\bsix\b|\b
 const NUMERAL_NUM: &str = r"(\bfirst\b|\bsecond\b|\bthird\b|\bfourth\b|\bfifth\b|\bsixth\b|\bseventh\b|\beighth\b|\bninth\b|\blast\b|\bfinal\b)";
 const ALL_NUM: &str = r"(\bone\b|\btwo\b|\bthree\b|\bfour\b|\bfive\b|\bsix\b|\bseven\b|\beight\b|\bnine\b|\bfirst\b|\bsecond\b|\bthird\b|\bfourth\b|\bfifth\b|\bsixth\b|\bseventh\b|\beighth\b|\bninth\b|\blast\b|\bfinal\b)";
 
+pub static SEASON: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!(r"(?i){}", SEASON_WORD)).unwrap());
+pub static PART: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!(r"(?i){}", PART_WORD)).unwrap());
+
 pub static YEAR: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"{OPT_BRACKET_PREFIX}((?:19|20)\d{{2}}){OPT_BRACKET_SUFFIX}"

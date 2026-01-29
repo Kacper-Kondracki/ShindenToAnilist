@@ -1,4 +1,5 @@
 use crate::converter::database;
+use crate::converter::matcher::*;
 use crate::converter::regexes;
 use crate::converter::searcher::Searcher;
 use crate::converter::shinden;
@@ -15,6 +16,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 #[tokio::test]
 async fn shinden_test() {
     let start = Instant::now();
+    // 196402
     let list = shinden::get(196402).await.unwrap();
     let elapsed = start.elapsed();
 
@@ -48,7 +50,9 @@ async fn searcher_test() {
     let db = database::DatabaseRoot::from_reader(&mut db_reader).unwrap();
 
     let mut shinden_reader = BufReader::new(File::open("shinden-test.json").unwrap());
-    let shinden = serde_json::from_reader::<_, shinden::AnimeList>(&mut shinden_reader).unwrap();
+    let mut shinden =
+        serde_json::from_reader::<_, shinden::AnimeList>(&mut shinden_reader).unwrap();
+    shinden.items.sort_by(|x, y| x.title.cmp(&y.title));
     // Shingeki no Kyojin
     // let shinden_entry = shinden.items.iter().find(|x| x.title_id == 14418).unwrap();
 
@@ -63,7 +67,7 @@ async fn searcher_test() {
         .map(|entry| {
             (
                 entry,
-                searcher.search(&db.data, entry.title.as_str(), 50, 0.65, true),
+                searcher.search(&db.data, entry.title.as_str(), 50, 0.65, false),
             )
         })
         .collect::<Vec<_>>();
@@ -94,6 +98,73 @@ async fn searcher_test() {
         shinden.items.len() - match_count
     );
     println!("Init: {:.2?}\nSearch: {:.2?}", init_elapsed, search_elapsed);
+}
+
+#[tokio::test]
+async fn matcher_test() {
+    let mut db_reader = BufReader::new(File::open("anime-offline-database.jsonl").unwrap());
+    let db = database::DatabaseRoot::from_reader(&mut db_reader).unwrap();
+
+    let mut shinden_reader = BufReader::new(File::open("shinden-test.json").unwrap());
+    let mut shinden =
+        serde_json::from_reader::<_, shinden::AnimeList>(&mut shinden_reader).unwrap();
+    shinden.items.sort_by(|x, y| x.title.cmp(&y.title));
+
+    let mut shinden_metadata_cache = Vec::new();
+    for entry in &shinden.items {
+        shinden_metadata_cache.push(extract_metadata(entry.title.as_str()));
+    }
+
+    let searcher = Searcher::new(&db.data);
+
+    let start = Instant::now();
+    let matches = shinden
+        .items
+        .iter()
+        .zip(shinden_metadata_cache)
+        .par_bridge()
+        .map(|(entry, metadata)| {
+            (
+                entry,
+                searcher.search_shinden(&db.data, metadata, entry, 50, 0.65, true),
+            )
+        })
+        .collect::<Vec<_>>();
+    let match_elapsed = start.elapsed();
+
+    for (entry, results) in &matches {
+        println!("======== {} ========", entry.title);
+        for result in results {
+            println!(
+                "{} = {}",
+                result.score_breakdown.final_score, result.candidate.title
+            );
+        }
+    }
+
+    let single_matches_count = matches
+        .iter()
+        .filter(|(_, cands)| cands.iter().filter(|x| x.likely_match).count() == 1)
+        .count();
+
+    let strong_matches_count = matches
+        .iter()
+        .filter(|(_, cands)| cands.iter().filter(|x| x.likely_match).count() > 0)
+        .count();
+
+    println!(
+        "STRONG MATCHES: {}/{}",
+        strong_matches_count,
+        shinden.items.len(),
+    );
+
+    println!(
+        "SINGLE MATCHES: {}/{}",
+        single_matches_count,
+        shinden.items.len(),
+    );
+
+    println!("Match: {:.2?}", match_elapsed);
 }
 
 #[tokio::test]

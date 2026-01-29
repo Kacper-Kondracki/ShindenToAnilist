@@ -46,7 +46,7 @@ struct DocData {
     pub canonical: u32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct Posting {
     item: RoaringBitmap,
     df: u32,
@@ -70,7 +70,7 @@ impl Scorer for RecallJaccard {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct NGramIndexBuilder<const N: usize> {
     postings: AHashMap<u32, Posting>,
     docs: Vec<DocData>,
@@ -110,7 +110,7 @@ impl<const N: usize> NGramIndexBuilder<N> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct NGramIndex<const N: usize> {
     postings: AHashMap<u32, Posting>,
     docs: Vec<DocData>,
@@ -214,9 +214,9 @@ impl<const N: usize> NGramIndex<N> {
             score_map
                 .entry(canonical_id)
                 .and_modify(|current_score| {
-                    *current_score = current_score.max(score);
+                    *current_score = current_score.max(score.clamp(0.0, 1.0));
                 })
-                .or_insert(score);
+                .or_insert(score.clamp(0.0, 1.0));
         }
 
         let mut heap: BinaryHeap<Reverse<(OrderedFloat<f32>, u32)>> =

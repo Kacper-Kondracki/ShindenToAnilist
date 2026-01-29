@@ -43,7 +43,7 @@ pub struct AnimeEntry {
     pub description_pl: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Deserialize, Serialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum AnimeType {
     Music,
     #[serde(rename = "OVA")]
@@ -56,7 +56,7 @@ pub enum AnimeType {
     Movie,
 }
 
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Deserialize, Serialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum TitleStatus {
     #[serde(rename = "Finished Airing")]
     FinishedAiring,
@@ -67,7 +67,7 @@ pub enum TitleStatus {
     #[serde(rename = "Not yet aired")]
     NotYetAired,
 }
-#[derive(Deserialize, Serialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Deserialize, Serialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum WatchStatus {
     #[serde(rename = "completed")]
     Completed,

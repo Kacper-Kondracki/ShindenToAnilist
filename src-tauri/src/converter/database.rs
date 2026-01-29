@@ -35,7 +35,7 @@ impl DatabaseRoot {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseRoot {
     pub last_update: NaiveDate,
@@ -45,7 +45,7 @@ pub struct DatabaseRoot {
 
 /// Valid for every single line from the *.jsonl file except the first line which contains the meta data.
 /// anime-offline-database
-#[derive(Serialize, Deserialize, Debug, Eq, Hash, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Eq, Hash, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimeEntry {
     /// URLs to the pages of the meta data providers for this anime.
@@ -81,7 +81,7 @@ pub struct AnimeEntry {
 }
 
 /// Data on when the anime was first distributed.
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash, Clone)]
 pub struct AnimeSeason {
     /// Season.
     pub season: Season,
@@ -89,7 +89,7 @@ pub struct AnimeSeason {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub year: Option<i32>,
 }
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Season {
     Spring,
@@ -99,7 +99,7 @@ pub enum Season {
     Undefined,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum AnimeType {
     Tv,
@@ -110,7 +110,7 @@ pub enum AnimeType {
     Unknown,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum AnimeStatus {
     Finished,
@@ -119,7 +119,7 @@ pub enum AnimeStatus {
     Unknown,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Duration {
     pub value: i32,
 }
