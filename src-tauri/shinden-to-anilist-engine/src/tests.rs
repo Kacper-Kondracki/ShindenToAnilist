@@ -1,6 +1,7 @@
 use crate::{
-    converter::database, converter::matcher::*, converter::regexes, converter::searcher::Searcher,
-    converter::shinden, converter::shinden::ShindenList,
+    converter::database, converter::exporter::export_shinden, converter::matcher::*,
+    converter::regexes, converter::searcher::Searcher, converter::shinden,
+    converter::shinden::ShindenList,
 };
 use egobox_ego::EgorBuilder;
 use indexmap::IndexMap;
@@ -15,8 +16,7 @@ use std::{
     fs,
     fs::File,
     hint::black_box,
-    io::Write,
-    io::{BufReader, BufWriter},
+    io::{BufReader, BufWriter, Write},
     iter,
     path::Path,
     sync::Arc,
@@ -75,33 +75,26 @@ async fn searcher_test() {
     let matches = shinden
         .items
         .par_iter()
-        .map(|(&id, entry)| {
-            (
-                id,
-                (
-                    entry,
-                    searcher.search(entry.title.as_str(), 50, 0.65, false),
-                ),
-            )
-        })
+        .map(|(&id, entry)| (id, searcher.search(entry.title.as_str(), 50, 0.65, false)))
         .collect::<IndexMap<_, _>>();
     let search_elapsed = start.elapsed();
 
-    for (_, (entry, results)) in &matches {
+    for (id, results) in &matches {
+        let entry = &shinden.items[id];
         println!("======== {} ========", entry.title);
-        for result in results {
-            println!("{:.2} = {}", result.score, result.item.title);
+        for (id, score) in results {
+            println!("{:.2} = {}", score, db.data[id].title);
         }
     }
 
     let match_count = matches
-        .iter()
-        .filter(|(_, (_, results))| !results.is_empty())
+        .values()
+        .filter(|results| !results.is_empty())
         .count();
 
     let strong_count = matches
-        .iter()
-        .filter(|(_, (_, results))| results.iter().any(|x| x.score >= 0.95))
+        .values()
+        .filter(|results| results.values().any(|&x| x >= 0.95))
         .count();
 
     println!(
@@ -122,24 +115,14 @@ async fn matcher_test() {
     let searcher = Searcher::new(db.clone());
 
     let start = Instant::now();
-    let matches = shinden
-        .items
-        .par_iter()
-        .map(|(&id, entry)| {
-            (
-                id,
-                (
-                    entry,
-                    searcher.search_shinden(entry, 50, 0.65, true, MatcherConfig::and_preset()),
-                ),
-            )
-        })
-        .collect::<IndexMap<_, _>>();
+    let matches = searcher.search_shinden_all(&shinden, 50, 0.65, true, None);
     let match_elapsed = start.elapsed();
 
-    for (_, (entry, results)) in &matches {
+    for (id, results) in &matches {
+        let entry = &shinden.items[id];
         println!("======== {} ========", entry.title);
-        for result in results {
+        for (id, result) in results {
+            let cand = &db.data[id];
             let color = if result.likely_match {
                 owo_colors::AnsiColors::Green
             } else {
@@ -148,19 +131,19 @@ async fn matcher_test() {
             println!(
                 "{:.2} = {}",
                 result.score_breakdown.final_score.color(color),
-                result.candidate.title.color(color)
+                cand.title.color(color)
             );
         }
     }
 
     let single_matches_count = matches
-        .iter()
-        .filter(|(_, (_, cands))| cands.iter().filter(|x| x.likely_match).count() == 1)
+        .values()
+        .filter(|cands| cands.values().filter(|x| x.likely_match).count() == 1)
         .count();
 
     let strong_matches_count = matches
-        .iter()
-        .filter(|(_, (_, cands))| cands.iter().filter(|x| x.likely_match).count() > 0)
+        .values()
+        .filter(|cands| cands.values().filter(|x| x.likely_match).count() > 0)
         .count();
 
     println!(
@@ -178,6 +161,25 @@ async fn matcher_test() {
     println!("Match: {:.2?}", match_elapsed);
 }
 
+#[tokio::test]
+async fn exporter_test() {
+    let db = Arc::new(database::DatabaseRoot::from_path("anime-offline-database.jsonl").unwrap());
+    let shinden = deserialize_from_file::<ShindenList>("shinden-test.json");
+    let searcher = Searcher::new(db.clone());
+
+    let matches = searcher.search_shinden_all(&shinden, 50, 0.65, true, None);
+
+    let matches = matches
+        .iter()
+        .step_by(50)
+        .filter_map(|(&id, cands)| cands.keys().next().map(|&id2| (id, id2)))
+        .collect::<IndexMap<_, _>>();
+
+    let exported = export_shinden(&shinden, &db, &matches);
+
+    println!("{}", serde_xml_rs::to_string(&exported).unwrap());
+}
+
 fn matcher_objective(
     x: &ArrayView2<f64>,
     shinden: &ShindenList,
@@ -190,11 +192,8 @@ fn matcher_objective(
         .par_bridge()
         .map(|i| {
             let params = x.row(i);
-
             let weights = &mut params.to_vec()[..8];
-
             let sum: f64 = weights.iter().sum();
-
             if sum > 0.0 {
                 weights.iter_mut().for_each(|x| *x /= sum);
             } else {
@@ -211,26 +210,15 @@ fn matcher_objective(
                 month_season_weight: weights[6] as f32,
                 episode_weight: weights[7] as f32,
                 match_threshold: params[8] as f32,
-                ..Default::default()
+                single_threshold: params[8] as f32,
+                delta_threshold: 0f32,
             };
 
-            let matches = shinden
-                .items
-                .par_iter()
-                .map(|(&id, entry)| {
-                    (
-                        id,
-                        (
-                            entry,
-                            searcher.search_shinden(entry, 100, 0.60, use_and, config),
-                        ),
-                    )
-                })
-                .collect::<IndexMap<_, _>>();
+            let matches = searcher.search_shinden_all(shinden, 100, 0.60, use_and, Some(config));
 
             let single_matches_count = matches
                 .par_iter()
-                .filter(|(_, (_, cands))| cands.iter().filter(|x| x.likely_match).count() == 1)
+                .filter(|(_, cands)| cands.values().filter(|x| x.likely_match).count() == 1)
                 .count();
 
             let score: f64 = single_matches_count as f64 / matches.len() as f64;
@@ -325,9 +313,9 @@ async fn matcher_optimize_and() {
     let shinden = deserialize_from_file::<ShindenList>("shinden-test.json");
     let searcher = Searcher::new(db.clone());
 
-    for _ in 0..20 {
+    for _ in 0..50 {
         let previous = extract_score_from_file("matcher-opt-and.txt");
-        run_optimize(&shinden, &searcher, true, previous, 125);
+        run_optimize(&shinden, &searcher, true, previous, 200);
     }
 }
 
@@ -337,9 +325,9 @@ async fn matcher_optimize_or() {
     let shinden = deserialize_from_file::<ShindenList>("shinden-test.json");
     let searcher = Searcher::new(db.clone());
 
-    for _ in 0..20 {
+    for _ in 0..50 {
         let previous = extract_score_from_file("matcher-opt-or.txt");
-        run_optimize(&shinden, &searcher, false, previous, 150);
+        run_optimize(&shinden, &searcher, false, previous, 200);
     }
 }
 

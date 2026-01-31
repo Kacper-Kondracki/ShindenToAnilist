@@ -414,8 +414,7 @@ pub struct ScoreBreakdown {
 }
 
 #[derive(Serialize, Debug, Clone)]
-pub struct MatchCandidate<'db> {
-    pub candidate: &'db database::AnimeEntry,
+pub struct MatchCandidate {
     pub score_breakdown: ScoreBreakdown,
     pub likely_match: bool,
 }
@@ -487,12 +486,12 @@ impl MatcherConfig {
     }
 }
 
-pub fn score_shinden_candidate<'db>(
+pub fn score_shinden_candidate(
     shinden: &shinden::AnimeEntry,
-    candidate: &'db database::AnimeEntry,
+    candidate: &database::AnimeEntry,
     ngram_score: f32,
     config: MatcherConfig,
-) -> MatchCandidate<'db> {
+) -> MatchCandidate {
     let sim_score = iter::once(&candidate.title)
         .chain(&candidate.synonyms)
         .map(|x| strsim::jaro_winkler(shinden.title.as_str(), x.as_str()))
@@ -564,7 +563,6 @@ pub fn score_shinden_candidate<'db>(
     };
 
     MatchCandidate {
-        candidate,
         score_breakdown,
         likely_match: final_score >= config.match_threshold,
     }

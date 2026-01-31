@@ -41,7 +41,7 @@ impl DatabaseRoot {
             }
         });
 
-        for entry in entries {
+        for mut entry in entries {
             let Some(id) = entry.sources.iter().find_map(|x| {
                 x.contains("myanimelist")
                     .then(|| x.split("/").last().map(|x| x.parse::<u32>()))
@@ -52,6 +52,7 @@ impl DatabaseRoot {
                 .ok_or_eyre("no id in mal source")?
                 .wrap_err("invalid mal id")?;
 
+            entry.id = id;
             if root.data.insert(id, entry).is_some() {
                 return Err(eyre!("found duplicate mal id"));
             }
@@ -83,7 +84,7 @@ pub struct AnimeEntry {
     #[serde(default)]
     pub metadata: Vec<ExtractedMetadata>,
     #[serde(default)]
-    pub index: u32,
+    pub id: u32,
     /// URLs to the pages of the meta data providers for this anime.
     pub sources: Vec<String>,
     /// Main title.

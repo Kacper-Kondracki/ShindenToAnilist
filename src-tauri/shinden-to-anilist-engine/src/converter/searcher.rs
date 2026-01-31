@@ -1,13 +1,16 @@
 use crate::{
     converter::database::DatabaseRoot,
     converter::matcher::{MatchCandidate, MatcherConfig, score_shinden_candidate},
-    converter::{database, shinden},
+    converter::shinden,
+    converter::shinden::ShindenList,
     ngram,
     ngram::{NGramIndex, NGramIndexBuilder},
     utils::NormalizeStr,
 };
 use ahash::AHashMap;
+use indexmap::IndexMap;
 use itertools::Itertools;
+use rayon::prelude::*;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -15,12 +18,6 @@ pub struct Searcher {
     db: Arc<DatabaseRoot>,
     db_map: AHashMap<u32, u32>,
     index: NGramIndex<3>,
-}
-
-#[derive(Debug, Clone)]
-pub struct SearchResult<'db> {
-    pub item: &'db database::AnimeEntry,
-    pub score: f32,
 }
 
 impl Searcher {
@@ -48,7 +45,7 @@ impl Searcher {
         limit: usize,
         threshold: f32,
         use_and: bool,
-    ) -> Vec<SearchResult<'_>> {
+    ) -> IndexMap<u32, f32> {
         let results = self.index.search::<ngram::RecallJaccard>(
             query.normalize().as_str(),
             limit,
@@ -59,12 +56,24 @@ impl Searcher {
         results
             .iter()
             .copied()
-            .map(|(id, score)| SearchResult {
-                item: &self.db.data[&self.db_map[&id]],
-                score,
-            })
-            .sorted_by(|x, y| x.item.title.cmp(&y.item.title))
-            .sorted_by(|x, y| y.score.total_cmp(&x.score))
+            .map(|(id, score)| (&self.db.data[&self.db_map[&id]], score))
+            .sorted_by(|(x, _), (y, _)| x.title.cmp(&y.title))
+            .sorted_by(|(_, x), (_, y)| y.total_cmp(x))
+            .map(|(x, score)| (x.id, score))
+            .collect()
+    }
+
+    pub fn search_all(
+        &self,
+        query: &[&str],
+        limit: usize,
+        threshold: f32,
+        use_and: bool,
+    ) -> Vec<IndexMap<u32, f32>> {
+        query
+            .par_iter()
+            .copied()
+            .map(|x| self.search(x, limit, threshold, use_and))
             .collect()
     }
 
@@ -74,8 +83,8 @@ impl Searcher {
         limit: usize,
         threshold: f32,
         use_and: bool,
-        config: MatcherConfig,
-    ) -> Vec<MatchCandidate<'_>> {
+        config: Option<MatcherConfig>,
+    ) -> IndexMap<u32, MatchCandidate> {
         let results = self.index.search::<ngram::RecallJaccard>(
             query.title.as_str().normalize().as_str(),
             limit,
@@ -83,27 +92,35 @@ impl Searcher {
             use_and,
         );
 
-        let mut results = results
+        let config = match config {
+            None if use_and => MatcherConfig::and_preset(),
+            None if !use_and => MatcherConfig::or_preset(),
+            Some(config) => config,
+            None => MatcherConfig::default(),
+        };
+
+        let (entries_results, mut cand_results) = results
             .iter()
             .copied()
             .map(|(id, score)| {
-                score_shinden_candidate(query, &self.db.data[&self.db_map[&id]], score, config)
+                let cand = &self.db.data[&self.db_map[&id]];
+                (cand, score_shinden_candidate(query, cand, score, config))
             })
-            .sorted_by(|x, y| x.candidate.title.cmp(&y.candidate.title))
-            .sorted_by(|x, y| {
+            .sorted_by(|(x, _), (y, _)| x.title.cmp(&y.title))
+            .sorted_by(|(_, x), (_, y)| {
                 y.score_breakdown
                     .final_score
                     .total_cmp(&x.score_breakdown.final_score)
             })
-            .collect::<Vec<_>>();
+            .collect::<(Vec<_>, Vec<_>)>();
 
-        match &mut results[..] {
+        match &mut cand_results[..] {
             [x] if x.score_breakdown.final_score >= config.single_threshold => {
                 x.likely_match = true;
             }
             [x, y, rest @ ..]
                 if (x.score_breakdown.final_score - y.score_breakdown.final_score)
-                    >= config.delta_threshold
+                    > config.delta_threshold
                     && x.score_breakdown.final_score >= config.single_threshold =>
             {
                 x.likely_match = true;
@@ -113,6 +130,30 @@ impl Searcher {
             _ => {}
         };
 
-        results
+        entries_results
+            .into_iter()
+            .zip(cand_results)
+            .map(|(x, y)| (x.id, y))
+            .collect::<IndexMap<_, _>>()
+    }
+
+    pub fn search_shinden_all(
+        &self,
+        query: &ShindenList,
+        limit: usize,
+        threshold: f32,
+        use_and: bool,
+        config: Option<MatcherConfig>,
+    ) -> IndexMap<u32, IndexMap<u32, MatchCandidate>> {
+        query
+            .items
+            .par_iter()
+            .map(|(&id, entry)| {
+                (
+                    id,
+                    self.search_shinden(entry, limit, threshold, use_and, config),
+                )
+            })
+            .collect::<IndexMap<_, IndexMap<_, _>>>()
     }
 }
