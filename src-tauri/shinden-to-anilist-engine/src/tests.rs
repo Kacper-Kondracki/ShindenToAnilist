@@ -46,7 +46,7 @@ fn deserialize_from_file<T: DeserializeOwned>(path: impl AsRef<Path>) -> T {
 async fn shinden_test() {
     let start = Instant::now();
     // 196402
-    let list = shinden::get(300263).await.unwrap();
+    let list = shinden::get(196402).await.unwrap();
     let elapsed = start.elapsed();
     serialize_to_file("shinden-test.json", &list);
     println!("Loading Shinden took: {elapsed:.2?}");
