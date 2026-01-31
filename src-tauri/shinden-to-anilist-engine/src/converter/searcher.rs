@@ -120,7 +120,7 @@ impl Searcher {
             }
             [x, y, rest @ ..]
                 if (x.score_breakdown.final_score - y.score_breakdown.final_score)
-                    > config.delta_threshold
+                    >= config.delta_threshold
                     && x.score_breakdown.final_score >= config.single_threshold =>
             {
                 x.likely_match = true;

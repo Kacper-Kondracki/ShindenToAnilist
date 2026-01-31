@@ -211,7 +211,7 @@ fn matcher_objective(
                 episode_weight: weights[7] as f32,
                 match_threshold: params[8] as f32,
                 single_threshold: params[8] as f32,
-                delta_threshold: 0f32,
+                delta_threshold: 99.0,
             };
 
             let matches = searcher.search_shinden_all(shinden, 100, 0.60, use_and, Some(config));
