@@ -1,17 +1,19 @@
-use crate::converter::matcher::{
-    ExtractedMetadata, MatchCandidate, MatcherConfig, extract_metadata_db, score_shinden_candidate,
+use crate::{
+    converter::database::DatabaseRoot,
+    converter::matcher::{MatchCandidate, MatcherConfig, score_shinden_candidate},
+    converter::{database, shinden},
+    ngram,
+    ngram::{NGramIndex, NGramIndexBuilder},
+    utils::NormalizeStr,
 };
-use crate::converter::{database, shinden};
-use crate::ngram;
-use crate::ngram::{NGramIndex, NGramIndexBuilder};
-use crate::utils::NormalizeStr;
 use ahash::AHashMap;
 use itertools::Itertools;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct Searcher {
-    db_map: AHashMap<u32, usize>,
-    db_metadata: Vec<Vec<ExtractedMetadata>>,
+    db: Arc<DatabaseRoot>,
+    db_map: AHashMap<u32, u32>,
     index: NGramIndex<3>,
 }
 
@@ -22,26 +24,14 @@ pub struct SearchResult<'db> {
 }
 
 impl Searcher {
-    pub fn new(db: &[database::AnimeEntry]) -> Self {
+    pub fn new(db: Arc<DatabaseRoot>) -> Self {
+        let db_entries = &db.data;
         let mut index = NGramIndexBuilder::default();
         let mut db_map = AHashMap::new();
-        let mut db_metadata = vec![Vec::new(); db.len()];
 
-        for (i, entry) in db.iter().enumerate().filter(|(_, x)| {
-            let (mal, ani) = x
-                .sources
-                .iter()
-                .fold((false, false), |(mut mal, mut ani), x| {
-                    mal |= x.contains("myanimelist");
-                    ani |= x.contains("anilist") | true;
-
-                    (mal, ani)
-                });
-            mal && ani
-        }) {
+        for (&i, entry) in db_entries.iter() {
             let id = index.add_ngram(entry.title.as_str().normalize().as_str());
             db_map.insert(id, i);
-            db_metadata[i] = extract_metadata_db(entry);
 
             for synonym in &entry.synonyms {
                 index.add_alias(synonym.as_str().normalize().as_str(), id);
@@ -49,21 +39,16 @@ impl Searcher {
         }
         let index = index.build();
 
-        Self {
-            index,
-            db_metadata,
-            db_map,
-        }
+        Self { index, db, db_map }
     }
 
-    pub fn search<'db>(
+    pub fn search(
         &self,
-        db: &'db [database::AnimeEntry],
         query: &str,
         limit: usize,
         threshold: f32,
         use_and: bool,
-    ) -> Vec<SearchResult<'db>> {
+    ) -> Vec<SearchResult<'_>> {
         let results = self.index.search::<ngram::RecallJaccard>(
             query.normalize().as_str(),
             limit,
@@ -75,7 +60,7 @@ impl Searcher {
             .iter()
             .copied()
             .map(|(id, score)| SearchResult {
-                item: &db[self.db_map[&id]],
+                item: &self.db.data[&self.db_map[&id]],
                 score,
             })
             .sorted_by(|x, y| x.item.title.cmp(&y.item.title))
@@ -83,15 +68,14 @@ impl Searcher {
             .collect()
     }
 
-    pub fn search_shinden<'db>(
+    pub fn search_shinden(
         &self,
-        db: &'db [database::AnimeEntry],
-        shinden_metadata: ExtractedMetadata,
         query: &shinden::AnimeEntry,
         limit: usize,
         threshold: f32,
         use_and: bool,
-    ) -> Vec<MatchCandidate<'db>> {
+        config: MatcherConfig,
+    ) -> Vec<MatchCandidate<'_>> {
         let results = self.index.search::<ngram::RecallJaccard>(
             query.title.as_str().normalize().as_str(),
             limit,
@@ -99,18 +83,11 @@ impl Searcher {
             use_and,
         );
 
-        results
+        let mut results = results
             .iter()
             .copied()
             .map(|(id, score)| {
-                score_shinden_candidate(
-                    query,
-                    &db[self.db_map[&id]],
-                    score,
-                    shinden_metadata,
-                    &self.db_metadata[self.db_map[&id]],
-                    MatcherConfig::default(),
-                )
+                score_shinden_candidate(query, &self.db.data[&self.db_map[&id]], score, config)
             })
             .sorted_by(|x, y| x.candidate.title.cmp(&y.candidate.title))
             .sorted_by(|x, y| {
@@ -118,6 +95,24 @@ impl Searcher {
                     .final_score
                     .total_cmp(&x.score_breakdown.final_score)
             })
-            .collect()
+            .collect::<Vec<_>>();
+
+        match &mut results[..] {
+            [x] if x.score_breakdown.final_score >= config.single_threshold => {
+                x.likely_match = true;
+            }
+            [x, y, rest @ ..]
+                if (x.score_breakdown.final_score - y.score_breakdown.final_score)
+                    >= config.delta_threshold
+                    && x.score_breakdown.final_score >= config.single_threshold =>
+            {
+                x.likely_match = true;
+                y.likely_match = false;
+                rest.iter_mut().for_each(|x| x.likely_match = false);
+            }
+            _ => {}
+        };
+
+        results
     }
 }

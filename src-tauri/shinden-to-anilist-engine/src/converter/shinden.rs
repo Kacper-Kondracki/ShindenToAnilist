@@ -1,10 +1,13 @@
-use crate::utils::*;
+use crate::{converter::matcher, converter::matcher::ExtractedMetadata, utils::*};
 use chrono::NaiveDate;
 use eyre::OptionExt;
+use indexmap::IndexMap;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
+use std::cmp::Ordering;
 
-pub async fn request(user: u64, limit: u64, offset: u64) -> eyre::Result<AnimeList> {
+pub async fn request(user: u64, limit: u64, offset: u64) -> eyre::Result<ShindenList> {
     let response: Response = reqwest::get(format!(
         "https://lista.shinden.pl/api/userlist/{}/anime?limit={}&offset={}",
         user, limit, offset
@@ -13,17 +16,41 @@ pub async fn request(user: u64, limit: u64, offset: u64) -> eyre::Result<AnimeLi
     .json()
     .await?;
 
-    response.result.ok_or_eyre(response.message)
+    response
+        .result
+        .ok_or_eyre(response.message)
+        .map(|mut list| {
+            list.items.sort_by(|x, y| x.title.cmp(&y.title));
+            list.items
+                .sort_by(|x, y| match (x.premiere_date, y.premiere_date) {
+                    (None, None) => Ordering::Equal,
+                    (None, Some(_)) => Ordering::Less,
+                    (Some(_), None) => Ordering::Greater,
+                    (Some(x), Some(y)) => y.cmp(&x),
+                });
+
+            list.items
+                .par_iter_mut()
+                .for_each(|x| x.metadata = matcher::extract_metadata(x.title.as_str()));
+
+            let mut shinden_list = ShindenList::default();
+            for entry in list.items {
+                shinden_list.items.insert(entry.title_id, entry);
+            }
+            shinden_list
+        })
 }
 
-pub async fn get(user: u64) -> eyre::Result<AnimeList> {
+pub async fn get(user: u64) -> eyre::Result<ShindenList> {
     request(user, 999999, 0).await
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimeEntry {
-    pub title_id: i32,
+    #[serde(default)]
+    pub metadata: ExtractedMetadata,
+    pub title_id: u32,
     pub watch_status: WatchStatus,
     #[serde(deserialize_with = "de_bool_from_num")]
     pub is_favourite: bool,
@@ -83,16 +110,21 @@ pub enum WatchStatus {
     Dropped,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
-pub struct AnimeList {
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct AnimeList {
     pub count: usize,
     pub items: Vec<AnimeEntry>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
-pub struct Response {
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Default)]
+pub struct ShindenList {
+    pub items: IndexMap<u32, AnimeEntry>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct Response {
     #[serde(deserialize_with = "de_bool_from_num")]
-    pub success: bool,
-    pub message: String,
-    pub result: Option<AnimeList>,
+    success: bool,
+    message: String,
+    result: Option<AnimeList>,
 }

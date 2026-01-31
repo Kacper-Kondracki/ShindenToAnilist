@@ -1,7 +1,6 @@
 use chrono::{Days, NaiveDate};
 use itertools::Itertools;
-use serde::de::Error;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::Error};
 use unicode_normalization::UnicodeNormalization;
 
 pub fn de_timestamp<'de, T, D>(deserializer: D) -> Result<T, D::Error>

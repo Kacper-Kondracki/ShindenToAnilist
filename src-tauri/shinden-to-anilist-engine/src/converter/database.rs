@@ -1,13 +1,19 @@
+use crate::{converter::matcher, converter::matcher::ExtractedMetadata};
 use chrono::NaiveDate;
-use eyre::eyre;
+use eyre::{OptionExt, WrapErr, eyre};
+use indexmap::IndexMap;
 use itertools::Itertools;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
-use std::io::BufRead;
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
+};
 
 impl DatabaseRoot {
-    pub fn from_reader(reader: &mut (impl BufRead + Send)) -> eyre::Result<DatabaseRoot> {
+    pub fn from_reader(reader: &mut (impl BufRead + Send)) -> eyre::Result<Self> {
         let mut lines = reader.lines();
 
         let Some(root_line) = lines.next() else {
@@ -16,7 +22,7 @@ impl DatabaseRoot {
 
         let mut root: DatabaseRoot = serde_json::from_str(&root_line?)?;
 
-        let entries = lines
+        let mut entries = lines
             .chunks(500)
             .into_iter()
             .map(|chunk| {
@@ -29,9 +35,35 @@ impl DatabaseRoot {
             .flatten_ok()
             .collect::<eyre::Result<Vec<AnimeEntry>>>()?;
 
-        root.data = entries;
+        entries.par_iter_mut().for_each(|x| {
+            if x.sources.iter().any(|x| x.contains("myanimelist")) {
+                x.metadata = matcher::extract_metadata_db(x);
+            }
+        });
+
+        for entry in entries {
+            let Some(id) = entry.sources.iter().find_map(|x| {
+                x.contains("myanimelist")
+                    .then(|| x.split("/").last().map(|x| x.parse::<u32>()))
+            }) else {
+                continue;
+            };
+            let id = id
+                .ok_or_eyre("no id in mal source")?
+                .wrap_err("invalid mal id")?;
+
+            if root.data.insert(id, entry).is_some() {
+                return Err(eyre!("found duplicate mal id"));
+            }
+        }
 
         Ok(root)
+    }
+
+    pub fn from_path(path: impl AsRef<Path>) -> eyre::Result<Self> {
+        let file = File::open(path)?;
+        let mut buf_reader = BufReader::new(file);
+        Self::from_reader(&mut buf_reader)
     }
 }
 
@@ -39,15 +71,19 @@ impl DatabaseRoot {
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseRoot {
     pub last_update: NaiveDate,
-    #[serde(skip)]
-    pub data: Vec<AnimeEntry>,
+    #[serde(default)]
+    pub data: IndexMap<u32, AnimeEntry>,
 }
 
 /// Valid for every single line from the *.jsonl file except the first line which contains the meta data.
 /// anime-offline-database
-#[derive(Serialize, Deserialize, Debug, Eq, Hash, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimeEntry {
+    #[serde(default)]
+    pub metadata: Vec<ExtractedMetadata>,
+    #[serde(default)]
+    pub index: u32,
     /// URLs to the pages of the meta data providers for this anime.
     pub sources: Vec<String>,
     /// Main title.

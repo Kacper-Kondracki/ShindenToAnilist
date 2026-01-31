@@ -2,9 +2,7 @@ use ahash::{AHashMap, AHashSet};
 use ordered_float::OrderedFloat;
 use roaring::RoaringBitmap;
 use smallvec::SmallVec;
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
-use std::iter;
+use std::{cmp::Reverse, collections::BinaryHeap, iter};
 
 #[inline(always)]
 pub fn ngrams<const N: usize>(s: &[u8]) -> impl Iterator<Item = u32> {

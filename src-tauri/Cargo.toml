@@ -9,32 +9,20 @@ edition = "2024"
 name = "shinden_to_anilist_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[workspace]
+resolver = "3"
+members = ["shinden-to-anilist-engine"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+shinden-to-anilist-engine = { path = "shinden-to-anilist-engine" }
+
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-reqwest = { version = "0.13", features = ["json"] }
-itertools = "0.14"
-chrono = { version = "0.4", features = ["serde"] }
 eyre = { version = "0.6", features = ["auto-install"] }
-rayon = "1"
-strsim = "0.11"
-tracing = "0.1"
-tracing-subscriber = "0.3"
 mimalloc = { version = "0.1", features = ["v3"] }
-ahash = "0.8"
-ordered-float = "5"
-roaring = "0.11"
-unicode-normalization = "0.1"
-regex = "1"
-smol_str = { version = "0.3", features = ["serde"] }
-smallvec = "1.15.1"
-bon = "3"
 
 [profile.test]
-opt-level = 3
+opt-level = 1

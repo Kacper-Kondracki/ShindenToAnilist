@@ -3,8 +3,7 @@ use chrono::Datelike;
 use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::iter;
-use std::ops::Range;
+use std::{iter, ops::Range};
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub struct ExtractedMetadata {
@@ -158,11 +157,7 @@ fn extract_season(title: &str) -> Vec<(Range<usize>, u8)> {
         &regexes::NUMERAL_SEASON,
     ];
 
-    let end_regexes: &[&Regex] = &[
-        &regexes::SEASON_DECIMAL_END,
-        &regexes::SEASON_ROMAN_END,
-        &regexes::SEASON_NUMERAL_END,
-    ];
+    let end_regexes: &[&Regex] = &[&regexes::SEASON_DECIMAL_END, &regexes::SEASON_ROMAN_END];
 
     let mut matches = Vec::new();
 
@@ -228,21 +223,21 @@ fn score_anime_status(x: impl Into<database::AnimeStatus>, y: database::AnimeSta
     match (x, y) {
         (database::AnimeStatus::Finished, y) => match y {
             database::AnimeStatus::Finished => 1.0,
-            database::AnimeStatus::Ongoing => 0.7,
+            database::AnimeStatus::Ongoing => 0.6,
             database::AnimeStatus::Upcoming => 0.2,
-            database::AnimeStatus::Unknown => 0.5,
+            database::AnimeStatus::Unknown => 0.2,
         },
         (database::AnimeStatus::Ongoing, y) => match y {
-            database::AnimeStatus::Finished => 0.7,
+            database::AnimeStatus::Finished => 0.2,
             database::AnimeStatus::Ongoing => 1.0,
-            database::AnimeStatus::Upcoming => 0.7,
-            database::AnimeStatus::Unknown => 0.5,
+            database::AnimeStatus::Upcoming => 0.6,
+            database::AnimeStatus::Unknown => 0.2,
         },
         (database::AnimeStatus::Upcoming, y) => match y {
             database::AnimeStatus::Finished => 0.2,
-            database::AnimeStatus::Ongoing => 0.7,
+            database::AnimeStatus::Ongoing => 0.2,
             database::AnimeStatus::Upcoming => 1.0,
-            database::AnimeStatus::Unknown => 0.5,
+            database::AnimeStatus::Unknown => 0.4,
         },
         (database::AnimeStatus::Unknown, _) => 0.5,
     }
@@ -279,7 +274,7 @@ fn score_anime_type(x: impl Into<database::AnimeType>, y: database::AnimeType) -
 
     for group in similar_groups {
         if group.contains(&x) && group.contains(&y) {
-            return 0.6;
+            return 0.7;
         }
     }
 
@@ -296,8 +291,8 @@ fn score_year(x: Option<i32>, y: Option<i32>) -> f32 {
             let diff = (sy - dy).abs();
             match diff {
                 0 => 1.0,
-                1 => 0.8,
-                2 => 0.5,
+                1 => 0.6,
+                2 => 0.25,
                 _ => 0.2,
             }
         }
@@ -318,14 +313,14 @@ fn score_season_part(x: ExtractedMetadata, y: ExtractedMetadata) -> f32 {
         }
         (Some(x), None) => {
             if x == 1 {
-                score += 0.4;
+                score += 0.5;
             } else {
                 score -= 0.4;
             }
         }
         (None, Some(y)) => {
             if y == 1 {
-                score += 0.4;
+                score += 0.5;
             } else {
                 score -= 0.4;
             }
@@ -345,16 +340,16 @@ fn score_season_part(x: ExtractedMetadata, y: ExtractedMetadata) -> f32 {
         }
         (Some(x), None) => {
             if x == 1 {
-                score += 0.2;
+                score += 0.3;
             } else {
-                score -= 0.2;
+                score -= 0.3;
             }
         }
         (None, Some(y)) => {
             if y == 1 {
-                score += 0.2;
+                score += 0.3;
             } else {
-                score -= 0.2;
+                score -= 0.3;
             }
         }
         _ => {}
@@ -367,7 +362,7 @@ fn score_episodes(x: Option<i32>, y: i32) -> f32 {
     match (x, y) {
         (Some(x), y) if x > 0 && y > 0 => {
             let ratio = (x.min(y) as f32) / (x.max(y) as f32);
-            (ratio * ratio).sqrt()
+            ratio.powf(1.15).max(0.2)
         }
         _ => 0.5,
     }
@@ -396,8 +391,8 @@ fn score_month_season(x: Option<i32>, y: database::Season) -> f32 {
             let diff = circular_month_distance(x, y);
             match diff {
                 0..=3 => 1.0,
-                4 => 0.8,
-                5..=6 => 0.5,
+                4 => 0.5,
+                5..=6 => 0.3,
                 _ => 0.2,
             }
         }
@@ -408,6 +403,7 @@ fn score_month_season(x: Option<i32>, y: database::Season) -> f32 {
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Default)]
 pub struct ScoreBreakdown {
     pub ngram_score: f32,
+    pub sim_score: f32,
     pub season_part_score: f32,
     pub year_score: f32,
     pub type_score: f32,
@@ -420,8 +416,6 @@ pub struct ScoreBreakdown {
 #[derive(Serialize, Debug, Clone)]
 pub struct MatchCandidate<'db> {
     pub candidate: &'db database::AnimeEntry,
-    pub entry_metadata: ExtractedMetadata,
-    pub candidate_metadata: Vec<ExtractedMetadata>,
     pub score_breakdown: ScoreBreakdown,
     pub likely_match: bool,
 }
@@ -429,6 +423,7 @@ pub struct MatchCandidate<'db> {
 #[derive(Debug, Clone, Copy)]
 pub struct MatcherConfig {
     pub ngram_weight: f32,
+    pub sim_weight: f32,
     pub season_part_weight: f32,
     pub year_weight: f32,
     pub type_weight: f32,
@@ -436,12 +431,15 @@ pub struct MatcherConfig {
     pub month_season_weight: f32,
     pub episode_weight: f32,
     pub match_threshold: f32,
+    pub delta_threshold: f32,
+    pub single_threshold: f32,
 }
 
 impl Default for MatcherConfig {
     fn default() -> Self {
         Self {
-            ngram_weight: 0.45,
+            ngram_weight: 0.30,
+            sim_weight: 0.15,
             season_part_weight: 0.10,
             year_weight: 0.10,
             type_weight: 0.10,
@@ -449,6 +447,42 @@ impl Default for MatcherConfig {
             month_season_weight: 0.05,
             episode_weight: 0.10,
             match_threshold: 0.85,
+            delta_threshold: 0.18,
+            single_threshold: 0.75,
+        }
+    }
+}
+
+impl MatcherConfig {
+    pub fn and_preset() -> Self {
+        Self {
+            ngram_weight: 0.18,
+            sim_weight: 0.19,
+            season_part_weight: 0.06,
+            year_weight: 0.19,
+            type_weight: 0.13,
+            status_weight: 0.06,
+            month_season_weight: 0.14,
+            episode_weight: 0.06,
+            match_threshold: 0.89,
+            delta_threshold: 0.18,
+            single_threshold: 0.74,
+        }
+    }
+
+    pub fn or_preset() -> Self {
+        Self {
+            ngram_weight: 0.30,
+            sim_weight: 0.10,
+            season_part_weight: 0.04,
+            year_weight: 0.11,
+            type_weight: 0.08,
+            status_weight: 0.19,
+            month_season_weight: 0.12,
+            episode_weight: 0.06,
+            match_threshold: 0.93,
+            delta_threshold: 0.18,
+            single_threshold: 0.80,
         }
     }
 }
@@ -457,17 +491,35 @@ pub fn score_shinden_candidate<'db>(
     shinden: &shinden::AnimeEntry,
     candidate: &'db database::AnimeEntry,
     ngram_score: f32,
-    shinden_metadata: ExtractedMetadata,
-    db_metadata: &[ExtractedMetadata],
     config: MatcherConfig,
 ) -> MatchCandidate<'db> {
-    let season_part_score = db_metadata
+    let sim_score = iter::once(&candidate.title)
+        .chain(&candidate.synonyms)
+        .map(|x| strsim::jaro_winkler(shinden.title.as_str(), x.as_str()))
+        .reduce(f64::max)
+        .unwrap_or_default() as f32;
+
+    let season_part_score = candidate
+        .metadata
         .iter()
         .copied()
-        .map(|y| score_season_part(shinden_metadata, y))
-        .fold(0.0f32, |acc, x| acc.max(x));
+        .map(|y| score_season_part(shinden.metadata, y))
+        .reduce(f32::max)
+        .unwrap_or_default();
 
-    let year_score = score_year(
+    let year_score = (0..=4)
+        .map(|x| {
+            score_year(
+                shinden
+                    .premiere_date
+                    .map(|y| (y + chrono::Months::new(x) - chrono::Months::new(2)).year()),
+                candidate.anime_season.year,
+            )
+        })
+        .reduce(f32::max)
+        .unwrap_or_default();
+
+    score_year(
         shinden.premiere_date.map(|x| x.year()),
         candidate.anime_season.year,
     );
@@ -479,7 +531,17 @@ pub fn score_shinden_candidate<'db>(
     );
     let episode_score = score_episodes(shinden.episodes, candidate.episodes);
 
+    let ngram_score = ngram_score.clamp(0.0, 1.0);
+    let sim_score = sim_score.clamp(0.0, 1.0);
+    let season_part_score = season_part_score.clamp(0.0, 1.0);
+    let year_score = year_score.clamp(0.0, 1.0);
+    let type_score = type_score.clamp(0.0, 1.0);
+    let status_score = status_score.clamp(0.0, 1.0);
+    let month_season_score = month_season_score.clamp(0.0, 1.0);
+    let episode_score = episode_score.clamp(0.0, 1.0);
+
     let final_score = ngram_score * config.ngram_weight
+        + sim_score * config.sim_weight
         + season_part_score * config.season_part_weight
         + year_score * config.year_weight
         + type_score * config.type_weight
@@ -487,17 +549,11 @@ pub fn score_shinden_candidate<'db>(
         + month_season_score * config.month_season_weight
         + episode_score * config.episode_weight;
 
-    let ngram_score = ngram_score.clamp(0.0, 1.0);
-    let season_part_score = season_part_score.clamp(0.0, 1.0);
-    let year_score = year_score.clamp(0.0, 1.0);
-    let type_score = type_score.clamp(0.0, 1.0);
-    let status_score = status_score.clamp(0.0, 1.0);
-    let month_season_score = month_season_score.clamp(0.0, 1.0);
-    let episode_score = episode_score.clamp(0.0, 1.0);
     let final_score = final_score.clamp(0.0, 1.0);
 
     let score_breakdown = ScoreBreakdown {
         ngram_score,
+        sim_score,
         season_part_score,
         year_score,
         type_score,
@@ -509,8 +565,6 @@ pub fn score_shinden_candidate<'db>(
 
     MatchCandidate {
         candidate,
-        entry_metadata: shinden_metadata,
-        candidate_metadata: db_metadata.into(),
         score_breakdown,
         likely_match: final_score >= config.match_threshold,
     }

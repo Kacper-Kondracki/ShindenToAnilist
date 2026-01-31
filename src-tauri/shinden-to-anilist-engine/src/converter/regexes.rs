@@ -8,7 +8,7 @@ const OPT_SEP_MIDDLE: &str = r"\s*[.,-:]?\s*";
 const OPT_PUNCT: &str = r"[.!?]?";
 const OPT_BRACKET_SUFFIX: &str = r"(?:\s*[)\]>])?";
 const SEASON_WORD: &str = r"(?:\bseason\b|\bmovie\b|\bova\b|\bs(?:eries)?\b)";
-const PART_WORD: &str = r"(?:\bpart\b)";
+const PART_WORD: &str = r"(?:\bpart\b|\bcour\b)";
 
 const NUMERAL_END: &str = r"\s*(?:st\b|nd\b|rd\b|th\b)?";
 const DECIMAL_NUM: &str = r"(\d)";
