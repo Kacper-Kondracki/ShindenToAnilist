@@ -26,6 +26,7 @@ regex = "1"
 smol_str = { version = "0.3", features = ["serde"] }
 smallvec = { version = "1", features = ["serde"] }
 indexmap = { version = "2", features = ["serde", "rayon"] }
+wana_kana = "4"
 
 [dev-dependencies]
 egobox-ego = "0.35"

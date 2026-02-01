@@ -2,10 +2,11 @@ use crate::{
     converter::database::DatabaseRoot,
     converter::view::AnimeList,
     converter::view::{AnimeId, ExportView},
+    utils::ser_mal_date,
 };
 use chrono::NaiveDate;
 use indexmap::IndexMap;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use std::fmt::{Display, Formatter};
 
 pub fn export_list(
@@ -92,19 +93,6 @@ pub struct AnimeXml {
     pub update: i32,
     #[serde(rename = "my_comments")]
     pub comments: String,
-}
-
-fn ser_mal_date<S>(date: &Option<NaiveDate>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let date = if let Some(date) = date {
-        date.to_string()
-    } else {
-        "0000-00-00".to_string()
-    };
-
-    serializer.serialize_str(&date)
 }
 
 #[derive(Serialize, Debug, Clone, Default, Eq, PartialEq)]

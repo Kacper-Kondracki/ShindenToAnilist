@@ -1,7 +1,8 @@
 use chrono::{Days, NaiveDate};
 use itertools::Itertools;
-use serde::{Deserialize, Deserializer, de::Error};
+use serde::{Deserialize, Deserializer, Serializer, de::Error};
 use unicode_normalization::UnicodeNormalization;
+use wana_kana::ConvertJapanese;
 
 pub fn de_timestamp<'de, T, D>(deserializer: D) -> Result<T, D::Error>
 where
@@ -63,12 +64,27 @@ where
     })
 }
 
+pub fn ser_mal_date<S>(date: &Option<NaiveDate>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let date = if let Some(date) = date {
+        date.to_string()
+    } else {
+        "0000-00-00".to_string()
+    };
+
+    serializer.serialize_str(&date)
+}
+
 pub trait NormalizeStr {
     fn normalize(&self) -> String;
 }
-impl NormalizeStr for &str {
+impl<T: AsRef<str>> NormalizeStr for T {
     fn normalize(&self) -> String {
-        self.nfc()
+        self.as_ref()
+            .to_romaji()
+            .nfc()
             .collect::<String>()
             .chars()
             .filter(|x| x.is_ascii())

@@ -28,11 +28,11 @@ impl Searcher {
         let mut db_map = AHashMap::new();
 
         for (&i, entry) in db_entries.iter() {
-            let id = index.add_ngram(entry.title.as_str().normalize().as_str());
+            let id = index.add_ngram(entry.title.normalize().as_str());
             db_map.insert(id, i);
 
             for synonym in &entry.synonyms {
-                index.add_alias(synonym.as_str().normalize().as_str(), id);
+                index.add_alias(synonym.normalize().as_str(), id);
             }
         }
         let index = index.build();
