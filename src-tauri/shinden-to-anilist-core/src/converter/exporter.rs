@@ -1,49 +1,49 @@
 use crate::{
     converter::database::DatabaseRoot,
-    converter::shinden,
-    converter::shinden::{ShindenList, WatchStatus},
+    converter::view::AnimeList,
+    converter::view::{AnimeId, ExportView},
 };
 use chrono::NaiveDate;
 use indexmap::IndexMap;
 use serde::{Serialize, Serializer};
 use std::fmt::{Display, Formatter};
 
-pub fn export_shinden(
-    shinden: &ShindenList,
+pub fn export_list(
+    list: &AnimeList<impl ExportView>,
     db: &DatabaseRoot,
-    match_map: &IndexMap<u32, u32>,
-) -> ListRootXaml {
-    let mut list = ListRootXaml {
-        info: InfoXaml {
+    match_map: &IndexMap<AnimeId, AnimeId>,
+) -> ListRootXml {
+    let mut result = ListRootXml {
+        info: InfoXml {
             user_export_type: 1,
         },
         anime: vec![],
     };
 
-    for (&shinden_id, &db_id) in match_map {
-        let shinden_entry = &shinden.items[&shinden_id];
+    for (&entry_id, &db_id) in match_map {
+        let entry = &list[&entry_id];
         let _db_entry = &db.data[&db_id];
 
-        let item = AnimeXaml {
+        let item = AnimeXml {
             id: db_id,
-            watched_episodes: shinden_entry.watched_episodes_cnt,
-            start_date: shinden_entry.premiere_date,
-            finish_date: shinden_entry.finish_date,
-            score: shinden_entry.rate_total.unwrap_or_default(),
-            status: shinden_entry.watch_status.into(),
+            watched_episodes: entry.watched_episodes(),
+            start_date: entry.start_date(),
+            finish_date: entry.finish_date(),
+            score: entry.score(),
+            status: entry.status(),
             update: 1,
-            comments: shinden_entry.user_note.clone().unwrap_or_default(),
+            comments: entry.comments().unwrap_or_default().to_string(),
         };
 
-        list.anime.push(item);
+        result.anime.push(item);
     }
 
-    list
+    result
 }
 
 #[derive(Serialize, Debug, Clone, Default, Eq, PartialEq)]
 #[serde(into = "String")]
-pub enum StatusXaml {
+pub enum StatusXml {
     Dropped,
     Completed,
     Watching,
@@ -54,43 +54,30 @@ pub enum StatusXaml {
     PlanToWatch,
 }
 
-impl Display for StatusXaml {
+impl Display for StatusXml {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let x = match self {
-            StatusXaml::Dropped => "Dropped",
-            StatusXaml::Completed => "Completed",
-            StatusXaml::Watching => "Watching",
-            StatusXaml::OnHold => "On-Hold",
-            StatusXaml::PlanToWatch => "Plan to Watch",
+            StatusXml::Dropped => "Dropped",
+            StatusXml::Completed => "Completed",
+            StatusXml::Watching => "Watching",
+            StatusXml::OnHold => "On-Hold",
+            StatusXml::PlanToWatch => "Plan to Watch",
         };
         write!(f, "{x}")
     }
 }
 
-impl From<StatusXaml> for String {
-    fn from(value: StatusXaml) -> Self {
+impl From<StatusXml> for String {
+    fn from(value: StatusXml) -> Self {
         value.to_string()
-    }
-}
-
-impl From<shinden::WatchStatus> for StatusXaml {
-    fn from(value: WatchStatus) -> Self {
-        match value {
-            WatchStatus::Completed => StatusXaml::Completed,
-            WatchStatus::Plan => StatusXaml::PlanToWatch,
-            WatchStatus::InProgress => StatusXaml::Watching,
-            WatchStatus::Skip => StatusXaml::Dropped,
-            WatchStatus::Hold => StatusXaml::OnHold,
-            WatchStatus::Dropped => StatusXaml::Dropped,
-        }
     }
 }
 
 #[derive(Serialize, Debug, Clone, Default, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub struct AnimeXaml {
+pub struct AnimeXml {
     #[serde(rename = "series_animedb_id")]
-    pub id: u32,
+    pub id: AnimeId,
     #[serde(rename = "my_watched_episodes")]
     pub watched_episodes: i32,
     #[serde(rename = "my_start_date", serialize_with = "ser_mal_date")]
@@ -100,7 +87,7 @@ pub struct AnimeXaml {
     #[serde(rename = "my_score")]
     pub score: i32,
     #[serde(rename = "my_status")]
-    pub status: StatusXaml,
+    pub status: StatusXml,
     #[serde(rename = "update_on_import")]
     pub update: i32,
     #[serde(rename = "my_comments")]
@@ -122,16 +109,16 @@ where
 
 #[derive(Serialize, Debug, Clone, Default, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub struct InfoXaml {
+pub struct InfoXml {
     pub user_export_type: i32,
 }
 
 #[derive(Serialize, Debug, Clone, Default, Eq, PartialEq)]
 #[serde(rename = "myanimelist")]
 #[serde(rename_all = "snake_case")]
-pub struct ListRootXaml {
+pub struct ListRootXml {
     #[serde(rename = "myinfo")]
-    pub info: InfoXaml,
+    pub info: InfoXml,
     #[serde(rename = "anime")]
-    pub anime: Vec<AnimeXaml>,
+    pub anime: Vec<AnimeXml>,
 }

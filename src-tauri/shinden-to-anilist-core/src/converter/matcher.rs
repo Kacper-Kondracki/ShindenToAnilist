@@ -1,4 +1,8 @@
-use crate::converter::{database, regexes, shinden};
+use crate::converter::view::{AnimeId, AnimeList};
+use crate::{
+    converter::view::MatchView,
+    converter::{database, regexes},
+};
 use chrono::Datelike;
 use itertools::Itertools;
 use regex::Regex;
@@ -206,17 +210,6 @@ fn collect_matches(title: &str, regexes: &[&Regex]) -> Vec<(Range<usize>, u8)> {
     matches
 }
 
-impl From<shinden::TitleStatus> for database::AnimeStatus {
-    fn from(value: shinden::TitleStatus) -> Self {
-        match value {
-            shinden::TitleStatus::FinishedAiring => database::AnimeStatus::Finished,
-            shinden::TitleStatus::CurrentlyAiring => database::AnimeStatus::Ongoing,
-            shinden::TitleStatus::NotYetAired => database::AnimeStatus::Upcoming,
-            shinden::TitleStatus::Proposal => database::AnimeStatus::Upcoming,
-        }
-    }
-}
-
 fn score_anime_status(x: impl Into<database::AnimeStatus>, y: database::AnimeStatus) -> f32 {
     let x = x.into();
 
@@ -240,19 +233,6 @@ fn score_anime_status(x: impl Into<database::AnimeStatus>, y: database::AnimeSta
             database::AnimeStatus::Unknown => 0.4,
         },
         (database::AnimeStatus::Unknown, _) => 0.5,
-    }
-}
-
-impl From<shinden::AnimeType> for database::AnimeType {
-    fn from(value: shinden::AnimeType) -> Self {
-        match value {
-            shinden::AnimeType::Music => database::AnimeType::Special,
-            shinden::AnimeType::Ova => database::AnimeType::Ova,
-            shinden::AnimeType::Special => database::AnimeType::Special,
-            shinden::AnimeType::Tv => database::AnimeType::Tv,
-            shinden::AnimeType::Ona => database::AnimeType::Ona,
-            shinden::AnimeType::Movie => database::AnimeType::Movie,
-        }
     }
 }
 
@@ -413,10 +393,61 @@ pub struct ScoreBreakdown {
     pub final_score: f32,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, Copy)]
 pub struct MatchCandidate {
     pub score_breakdown: ScoreBreakdown,
     pub likely_match: bool,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct MatchCandidates {
+    pub items: AnimeList<MatchCandidate>,
+    pub strong: AnimeList<MatchCandidate>,
+    pub single: Option<(AnimeId, MatchCandidate)>,
+}
+impl MatchCandidates {
+    pub fn new(mut value: AnimeList<MatchCandidate>, config: MatcherConfig) -> Self {
+        if value.is_empty() {
+            return Self {
+                items: Default::default(),
+                strong: Default::default(),
+                single: None,
+            };
+        }
+
+        if value.len() == 1 {
+            let (_, v) = value.first_mut().unwrap();
+            v.likely_match = v.score_breakdown.final_score >= config.single_threshold;
+        } else {
+            let mut iter = (&mut value).into_iter();
+            let (_, first) = iter.next().unwrap();
+            let (_, second) = iter.next().unwrap();
+
+            if (first.score_breakdown.final_score - second.score_breakdown.final_score)
+                >= config.delta_threshold
+                && first.score_breakdown.final_score >= config.single_threshold
+            {
+                first.likely_match = true;
+                second.likely_match = false;
+                iter.for_each(|(_, x)| x.likely_match = false);
+            }
+        }
+
+        Self {
+            single: value
+                .iter()
+                .filter(|(_, x)| x.likely_match)
+                .map(|(&id, &x)| (id, x))
+                .exactly_one()
+                .ok(),
+            strong: value
+                .iter()
+                .filter(|(_, x)| x.likely_match)
+                .map(|(&id, &x)| (id, x))
+                .collect(),
+            items: value,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -446,7 +477,7 @@ impl Default for MatcherConfig {
             month_season_weight: 0.05,
             episode_weight: 0.10,
             match_threshold: 0.85,
-            delta_threshold: 0.18,
+            delta_threshold: 0.15,
             single_threshold: 0.75,
         }
     }
@@ -464,7 +495,7 @@ impl MatcherConfig {
             month_season_weight: 0.14,
             episode_weight: 0.06,
             match_threshold: 0.89,
-            delta_threshold: 0.18,
+            delta_threshold: 0.15,
             single_threshold: 0.74,
         }
     }
@@ -480,21 +511,21 @@ impl MatcherConfig {
             month_season_weight: 0.12,
             episode_weight: 0.06,
             match_threshold: 0.93,
-            delta_threshold: 0.18,
+            delta_threshold: 0.15,
             single_threshold: 0.80,
         }
     }
 }
 
-pub fn score_shinden_candidate(
-    shinden: &shinden::AnimeEntry,
+pub fn score_candidate(
+    entry: &impl MatchView,
     candidate: &database::AnimeEntry,
     ngram_score: f32,
     config: MatcherConfig,
 ) -> MatchCandidate {
     let sim_score = iter::once(&candidate.title)
         .chain(&candidate.synonyms)
-        .map(|x| strsim::jaro_winkler(shinden.title.as_str(), x.as_str()))
+        .map(|x| strsim::jaro_winkler(entry.title(), x.as_str()))
         .reduce(f64::max)
         .unwrap_or_default() as f32;
 
@@ -502,33 +533,46 @@ pub fn score_shinden_candidate(
         .metadata
         .iter()
         .copied()
-        .map(|y| score_season_part(shinden.metadata, y))
-        .reduce(f32::max)
-        .unwrap_or_default();
-
-    let year_score = (0..=4)
-        .map(|x| {
-            score_year(
-                shinden
-                    .premiere_date
-                    .map(|y| (y + chrono::Months::new(x) - chrono::Months::new(2)).year()),
-                candidate.anime_season.year,
+        .map(|y| {
+            score_season_part(
+                entry
+                    .extracted_metadata()
+                    .unwrap_or_else(|| extract_metadata(entry.title())),
+                y,
             )
         })
         .reduce(f32::max)
         .unwrap_or_default();
 
-    score_year(
-        shinden.premiere_date.map(|x| x.year()),
-        candidate.anime_season.year,
-    );
-    let type_score = score_anime_type(shinden.anime_type, candidate.anime_type);
-    let status_score = score_anime_status(shinden.title_status, candidate.status);
+    let year_score = if entry.date().is_some() {
+        (0..=4)
+            .map(|x| {
+                score_year(
+                    entry
+                        .date()
+                        .map(|y| (y + chrono::Months::new(x) - chrono::Months::new(2)).year()),
+                    candidate.anime_season.year,
+                )
+            })
+            .reduce(f32::max)
+            .unwrap_or_default()
+    } else {
+        score_year(entry.year(), candidate.anime_season.year)
+    };
+
+    let type_score = entry
+        .anime_type()
+        .map(|t| score_anime_type(t, candidate.anime_type))
+        .unwrap_or(0.5);
+    let status_score = entry
+        .status()
+        .map(|s| score_anime_status(s, candidate.status))
+        .unwrap_or(0.5);
     let month_season_score = score_month_season(
-        shinden.premiere_date.map(|x| x.month() as i32),
+        entry.date().map(|d| d.month() as i32),
         candidate.anime_season.season,
     );
-    let episode_score = score_episodes(shinden.episodes, candidate.episodes);
+    let episode_score = score_episodes(entry.episodes(), candidate.episodes);
 
     let ngram_score = ngram_score.clamp(0.0, 1.0);
     let sim_score = sim_score.clamp(0.0, 1.0);

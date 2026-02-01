@@ -1,4 +1,4 @@
-use crate::{converter::matcher, converter::matcher::ExtractedMetadata};
+use crate::{converter::matcher, converter::matcher::ExtractedMetadata, converter::view::AnimeId};
 use chrono::NaiveDate;
 use eyre::{OptionExt, WrapErr, eyre};
 use indexmap::IndexMap;
@@ -44,7 +44,7 @@ impl DatabaseRoot {
         for mut entry in entries {
             let Some(id) = entry.sources.iter().find_map(|x| {
                 x.contains("myanimelist")
-                    .then(|| x.split("/").last().map(|x| x.parse::<u32>()))
+                    .then(|| x.split("/").last().map(|x| x.parse::<AnimeId>()))
             }) else {
                 continue;
             };
@@ -73,7 +73,7 @@ impl DatabaseRoot {
 pub struct DatabaseRoot {
     pub last_update: NaiveDate,
     #[serde(default)]
-    pub data: IndexMap<u32, AnimeEntry>,
+    pub data: IndexMap<AnimeId, AnimeEntry>,
 }
 
 /// Valid for every single line from the *.jsonl file except the first line which contains the meta data.
@@ -84,7 +84,7 @@ pub struct AnimeEntry {
     #[serde(default)]
     pub metadata: Vec<ExtractedMetadata>,
     #[serde(default)]
-    pub id: u32,
+    pub id: AnimeId,
     /// URLs to the pages of the meta data providers for this anime.
     pub sources: Vec<String>,
     /// Main title.

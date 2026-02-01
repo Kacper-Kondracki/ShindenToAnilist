@@ -150,7 +150,7 @@ impl<const N: usize> NGramIndex<N> {
         query: &str,
         limit: usize,
         threshold: f32,
-        is_and: bool,
+        mode: SearchMode,
     ) -> Vec<(u32, f32)> {
         const DF_CUTOFF_RATIO: f32 = 0.2;
 
@@ -175,7 +175,7 @@ impl<const N: usize> NGramIndex<N> {
 
         terms.sort_unstable_by_key(|posting| posting.df);
 
-        let Some(candidates) = Self::select_candidates(&terms, is_and) else {
+        let Some(candidates) = Self::select_candidates(&terms, mode == SearchMode::And) else {
             return Vec::new();
         };
 
@@ -241,4 +241,11 @@ impl<const N: usize> NGramIndex<N> {
 
         results
     }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
+pub enum SearchMode {
+    #[default]
+    And,
+    Or,
 }

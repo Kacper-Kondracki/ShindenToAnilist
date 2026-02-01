@@ -4640,14 +4640,14 @@ version = "0.1.0"
 dependencies = [
  "eyre",
  "mimalloc",
- "shinden-to-anilist-engine",
+ "shinden-to-anilist-core",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
 ]
 
 [[package]]
-name = "shinden-to-anilist-engine"
+name = "shinden-to-anilist-core"
 version = "0.1.0"
 dependencies = [
  "ahash",

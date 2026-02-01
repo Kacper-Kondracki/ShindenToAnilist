@@ -1,5 +1,13 @@
-use crate::{converter::matcher, converter::matcher::ExtractedMetadata, utils::*};
-use chrono::NaiveDate;
+use crate::{
+    converter::database,
+    converter::exporter::StatusXml,
+    converter::matcher,
+    converter::matcher::ExtractedMetadata,
+    converter::view::MatchView,
+    converter::view::{AnimeId, ExportView},
+    utils::*,
+};
+use chrono::{Datelike, NaiveDate};
 use eyre::OptionExt;
 use indexmap::IndexMap;
 use rayon::prelude::*;
@@ -50,7 +58,7 @@ pub async fn get(user: u64) -> eyre::Result<ShindenList> {
 pub struct AnimeEntry {
     #[serde(default)]
     pub metadata: ExtractedMetadata,
-    pub title_id: u32,
+    pub title_id: AnimeId,
     pub watch_status: WatchStatus,
     #[serde(deserialize_with = "de_bool_from_num")]
     pub is_favourite: bool,
@@ -118,7 +126,7 @@ struct AnimeList {
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Default)]
 pub struct ShindenList {
-    pub items: IndexMap<u32, AnimeEntry>,
+    pub items: IndexMap<AnimeId, AnimeEntry>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -127,4 +135,89 @@ struct Response {
     success: bool,
     message: String,
     result: Option<AnimeList>,
+}
+
+impl MatchView for AnimeEntry {
+    fn title(&self) -> &str {
+        self.title.as_str()
+    }
+    fn extracted_metadata(&self) -> Option<ExtractedMetadata> {
+        Some(self.metadata)
+    }
+    fn year(&self) -> Option<i32> {
+        self.premiere_date.map(|d| d.year())
+    }
+    fn date(&self) -> Option<NaiveDate> {
+        self.premiere_date
+    }
+    fn anime_type(&self) -> Option<database::AnimeType> {
+        Some(self.anime_type.into())
+    }
+    fn status(&self) -> Option<database::AnimeStatus> {
+        Some(self.title_status.into())
+    }
+    fn episodes(&self) -> Option<i32> {
+        self.episodes
+    }
+}
+
+impl ExportView for AnimeEntry {
+    fn watched_episodes(&self) -> i32 {
+        self.watched_episodes_cnt
+    }
+    fn start_date(&self) -> Option<NaiveDate> {
+        self.premiere_date
+    }
+    fn finish_date(&self) -> Option<NaiveDate> {
+        self.finish_date
+    }
+
+    fn score(&self) -> i32 {
+        self.rate_total.unwrap_or_default()
+    }
+
+    fn status(&self) -> StatusXml {
+        self.watch_status.into()
+    }
+
+    fn comments(&self) -> Option<&str> {
+        self.user_note.as_deref()
+    }
+}
+
+impl From<AnimeType> for database::AnimeType {
+    fn from(value: AnimeType) -> Self {
+        match value {
+            AnimeType::Music => database::AnimeType::Special,
+            AnimeType::Ova => database::AnimeType::Ova,
+            AnimeType::Special => database::AnimeType::Special,
+            AnimeType::Tv => database::AnimeType::Tv,
+            AnimeType::Ona => database::AnimeType::Ona,
+            AnimeType::Movie => database::AnimeType::Movie,
+        }
+    }
+}
+
+impl From<TitleStatus> for database::AnimeStatus {
+    fn from(value: TitleStatus) -> Self {
+        match value {
+            TitleStatus::FinishedAiring => database::AnimeStatus::Finished,
+            TitleStatus::CurrentlyAiring => database::AnimeStatus::Ongoing,
+            TitleStatus::NotYetAired => database::AnimeStatus::Upcoming,
+            TitleStatus::Proposal => database::AnimeStatus::Upcoming,
+        }
+    }
+}
+
+impl From<WatchStatus> for StatusXml {
+    fn from(value: WatchStatus) -> Self {
+        match value {
+            WatchStatus::Completed => StatusXml::Completed,
+            WatchStatus::Plan => StatusXml::PlanToWatch,
+            WatchStatus::InProgress => StatusXml::Watching,
+            WatchStatus::Skip => StatusXml::Dropped,
+            WatchStatus::Hold => StatusXml::OnHold,
+            WatchStatus::Dropped => StatusXml::Dropped,
+        }
+    }
 }
