@@ -16,7 +16,10 @@ use rayon::prelude::*;
 use thiserror::Error;
 
 pub use self::models::*;
-use crate::converter::common::AnimeId;
+use crate::converter::common::{
+    AnimeId,
+    JsonError,
+};
 
 mod json;
 
@@ -29,7 +32,7 @@ mod tests;
 #[error(transparent)]
 pub enum DatabaseError {
     Io(#[from] io::Error),
-    Json(#[from] serde_json::Error),
+    Json(#[from] JsonError),
     #[error("can not parse empty file")]
     Empty,
 }

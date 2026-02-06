@@ -1,23 +1,25 @@
-use chrono::NaiveDate;
 use serde::Deserialize;
-use url::Url;
 
 use super::models;
 use crate::converter::{
-    common::AnimeId,
+    common::{
+        AnimeId,
+        NaiveDate,
+        Url,
+    },
     extractor::TitleProcessor,
 };
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct DatabaseRoot {
-    pub(super) last_update: NaiveDate,
+pub(crate) struct DatabaseRoot {
+    pub(crate) last_update: NaiveDate,
     #[serde(default)]
-    pub(super) data: Vec<AnimeEntry>,
+    pub(crate) data: Vec<AnimeEntry>,
 }
 
 impl DatabaseRoot {
-    pub(super) fn into_model(self) -> models::AnimeDatabase {
+    pub(crate) fn into_model(self) -> models::AnimeDatabase {
         let DatabaseRoot { last_update, data } = self;
         models::AnimeDatabase {
             last_update,
@@ -28,24 +30,24 @@ impl DatabaseRoot {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct AnimeEntry {
-    pub(super) sources: Vec<Url>,
-    pub(super) title: String,
+pub(crate) struct AnimeEntry {
+    pub(crate) sources: Vec<Url>,
+    pub(crate) title: String,
     #[serde(rename = "type")]
-    pub(super) anime_type: AnimeType,
-    pub(super) episodes: i32,
-    pub(super) status: AnimeStatus,
-    pub(super) anime_season: AnimeSeason,
-    pub(super) picture: Url,
-    pub(super) thumbnail: Url,
-    pub(super) duration: Option<Duration>,
-    pub(super) synonyms: Vec<String>,
-    pub(super) studios: Vec<String>,
-    pub(super) producers: Vec<String>,
-    pub(super) related_anime: Vec<Url>,
-    pub(super) tags: Vec<String>,
+    pub(crate) anime_type: AnimeType,
+    pub(crate) episodes: i32,
+    pub(crate) status: AnimeStatus,
+    pub(crate) anime_season: AnimeSeason,
+    pub(crate) picture: Url,
+    pub(crate) thumbnail: Url,
+    pub(crate) duration: Option<Duration>,
+    pub(crate) synonyms: Vec<String>,
+    pub(crate) studios: Vec<String>,
+    pub(crate) producers: Vec<String>,
+    pub(crate) related_anime: Vec<Url>,
+    pub(crate) tags: Vec<String>,
 }
-pub(super) fn extract_id_from_mal_url(url: &Url) -> Option<AnimeId> {
+pub(crate) fn extract_id_from_mal_url(url: &Url) -> Option<AnimeId> {
     url.domain()
         .is_some_and(|d| d.contains("myanimelist"))
         .then(|| {
@@ -56,7 +58,7 @@ pub(super) fn extract_id_from_mal_url(url: &Url) -> Option<AnimeId> {
 }
 
 impl AnimeEntry {
-    pub(super) fn into_model(self) -> Option<models::AnimeEntry> {
+    pub(crate) fn into_model(self) -> Option<models::AnimeEntry> {
         let id = self.sources.iter().find_map(extract_id_from_mal_url)?;
         let metadata = TitleProcessor::process(&self.title);
         let synonyms_metadata = self.synonyms.iter().map(|s| TitleProcessor::process(s)).collect();
@@ -84,14 +86,14 @@ impl AnimeEntry {
 }
 
 #[derive(Deserialize, Debug, Copy, Clone)]
-pub(super) struct AnimeSeason {
-    pub(super) season: Season,
-    pub(super) year: Option<i32>,
+pub(crate) struct AnimeSeason {
+    pub(crate) season: Season,
+    pub(crate) year: Option<i32>,
 }
 
 impl AnimeSeason {
-    pub(super) fn season(&self) -> Option<models::Season> { self.season.to_model() }
-    pub(super) fn year(&self) -> Option<i32> { self.year }
+    pub(crate) fn season(&self) -> Option<models::Season> { self.season.to_model() }
+    pub(crate) fn year(&self) -> Option<i32> { self.year }
 }
 
 #[derive(Deserialize, Debug, Copy, Clone)]

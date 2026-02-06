@@ -1,15 +1,13 @@
+#![deny(unreachable_pub)]
+
 use std::sync::LazyLock;
 
-use mimalloc::MiMalloc;
 use reqwest::Client;
 
 pub(crate) mod ngram;
 
 pub mod converter;
 pub mod utils;
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 pub(crate) static HTTP_CLIENT: LazyLock<Client> =
     LazyLock::new(|| Client::builder().http2_prior_knowledge().zstd(true).build().unwrap());

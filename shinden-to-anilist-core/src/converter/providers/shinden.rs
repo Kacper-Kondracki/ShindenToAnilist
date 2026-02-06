@@ -3,7 +3,14 @@ use std::io;
 use thiserror::Error;
 
 pub use self::models::*;
-use crate::http_client;
+use crate::{
+    converter::common::{
+        JsonError,
+        RequestError,
+        TaskError,
+    },
+    http_client,
+};
 
 mod json;
 pub mod models;
@@ -15,9 +22,9 @@ mod tests;
 #[error(transparent)]
 pub enum ShindenError {
     Io(#[from] io::Error),
-    Json(#[from] serde_json::Error),
-    Request(#[from] reqwest::Error),
-    TaskError(#[from] tokio::task::JoinError),
+    Json(#[from] JsonError),
+    Request(#[from] RequestError),
+    TaskError(#[from] TaskError),
     #[error("shinden api returned error: {0}")]
     Shinden(String),
 }

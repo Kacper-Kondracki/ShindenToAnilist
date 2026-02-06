@@ -1,19 +1,19 @@
 use std::ops::Index;
 
 use ambassador::Delegate;
-use chrono::NaiveDate;
 use indexmap::IndexMap;
 use rayon::prelude::*;
 use serde::{
     Deserialize,
     Serialize,
 };
-use url::Url;
 
 use crate::converter::{
     common::{
         AnimeId,
         AnimeList,
+        NaiveDate,
+        Url,
         ambassador_impl_AnimeList,
     },
     database::ParallelIterator,
@@ -23,8 +23,8 @@ use crate::converter::{
 #[derive(Serialize, Deserialize, Debug, Clone, Delegate)]
 #[delegate(AnimeList, target = "entries")]
 pub struct AnimeDatabase {
-    pub(super) last_update: NaiveDate,
-    pub(super) entries: IndexMap<AnimeId, AnimeEntry>,
+    pub(crate) last_update: NaiveDate,
+    pub(crate) entries: IndexMap<AnimeId, AnimeEntry>,
 }
 
 impl Index<AnimeId> for AnimeDatabase {
@@ -34,24 +34,24 @@ impl Index<AnimeId> for AnimeDatabase {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnimeEntry {
-    pub(super) id: AnimeId,
-    pub(super) metadata: TitleMetadata,
-    pub(super) synonyms_metadata: Vec<TitleMetadata>,
-    pub(super) sources: Vec<Url>,
-    pub(super) title: String,
-    pub(super) anime_type: Option<AnimeType>,
-    pub(super) episodes: i32,
-    pub(super) status: Option<AnimeStatus>,
-    pub(super) season: Option<Season>,
-    pub(super) year: Option<i32>,
-    pub(super) picture: Url,
-    pub(super) thumbnail: Url,
-    pub(super) duration: Option<i32>,
-    pub(super) synonyms: Vec<String>,
-    pub(super) studios: Vec<String>,
-    pub(super) producers: Vec<String>,
-    pub(super) related_anime: Vec<Url>,
-    pub(super) tags: Vec<String>,
+    pub(crate) id: AnimeId,
+    pub(crate) metadata: TitleMetadata,
+    pub(crate) synonyms_metadata: Vec<TitleMetadata>,
+    pub(crate) sources: Vec<Url>,
+    pub(crate) title: String,
+    pub(crate) anime_type: Option<AnimeType>,
+    pub(crate) episodes: i32,
+    pub(crate) status: Option<AnimeStatus>,
+    pub(crate) season: Option<Season>,
+    pub(crate) year: Option<i32>,
+    pub(crate) picture: Url,
+    pub(crate) thumbnail: Url,
+    pub(crate) duration: Option<i32>,
+    pub(crate) synonyms: Vec<String>,
+    pub(crate) studios: Vec<String>,
+    pub(crate) producers: Vec<String>,
+    pub(crate) related_anime: Vec<Url>,
+    pub(crate) tags: Vec<String>,
 }
 
 impl AnimeEntry {

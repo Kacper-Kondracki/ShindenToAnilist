@@ -57,12 +57,12 @@ struct Posting {
     df: u32,
 }
 
-pub trait Scorer {
+pub(crate) trait Scorer {
     fn score(matched: u32, query_len: u32, doc_len: u32, idf_sum: f32) -> f32;
 }
 
 #[derive(Debug, Default)]
-pub struct RecallJaccard;
+pub(crate) struct RecallJaccard;
 impl Scorer for RecallJaccard {
     #[inline(always)]
     fn score(m: u32, q: u32, d: u32, _: f32) -> f32 {
@@ -76,24 +76,24 @@ impl Scorer for RecallJaccard {
     }
 }
 
-pub trait Normalizer {
+pub(crate) trait Normalizer {
     fn normalize(s: &str) -> String;
 }
 
 #[derive(Debug, Default)]
-pub struct DefaultNormalizer;
+pub(crate) struct DefaultNormalizer;
 impl Normalizer for DefaultNormalizer {
     fn normalize(s: &str) -> String { normalize_str(s) }
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct NGramIndexBuilder<const N: usize, Norm: Normalizer> {
+pub(crate) struct NGramIndexBuilder<const N: usize, Norm: Normalizer> {
     postings: AHashMap<u32, Posting>,
     docs: Vec<DocData>,
     _norm: PhantomData<Norm>,
 }
 impl<const N: usize, Norm: Normalizer> NGramIndexBuilder<N, Norm> {
-    pub fn add_ngram(&mut self, text: &str) -> u32 {
+    pub(crate) fn add_ngram(&mut self, text: &str) -> u32 {
         let id = self.docs.len() as u32;
 
         let len = ngrams::<N>(&Norm::normalize(text).pad_ngram(N)).dedup_ngram().fold(
@@ -109,7 +109,7 @@ impl<const N: usize, Norm: Normalizer> NGramIndexBuilder<N, Norm> {
         id
     }
 
-    pub fn add_alias(&mut self, text: &str, id: u32) -> u32 {
+    pub(crate) fn add_alias(&mut self, text: &str, id: u32) -> u32 {
         let alias_id = self.add_ngram(text);
 
         self.docs[alias_id as usize].canonical = id;
@@ -123,7 +123,7 @@ impl<const N: usize, Norm: Normalizer> NGramIndexBuilder<N, Norm> {
         }
     }
 
-    pub fn build(mut self) -> NGramIndex<N, Norm> {
+    pub(crate) fn build(mut self) -> NGramIndex<N, Norm> {
         self.precalculate_dfs();
 
         NGramIndex { postings: self.postings, docs: self.docs, _norm: self._norm }
@@ -131,7 +131,7 @@ impl<const N: usize, Norm: Normalizer> NGramIndexBuilder<N, Norm> {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct NGramIndex<const N: usize, Norm: Normalizer> {
+pub(crate) struct NGramIndex<const N: usize, Norm: Normalizer> {
     postings: AHashMap<u32, Posting>,
     docs: Vec<DocData>,
     _norm: PhantomData<Norm>,
@@ -163,7 +163,7 @@ impl<const N: usize, Norm: Normalizer> NGramIndex<N, Norm> {
         (!candidates.is_empty()).then_some(candidates)
     }
 
-    pub fn search<S: Scorer>(
+    pub(crate) fn search<S: Scorer>(
         &self,
         query: &str,
         limit: usize,
@@ -266,7 +266,7 @@ impl<const N: usize, Norm: Normalizer> NGramIndex<N, Norm> {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
-pub enum SearchMode {
+pub(crate) enum SearchMode {
     #[default]
     And,
     Or,

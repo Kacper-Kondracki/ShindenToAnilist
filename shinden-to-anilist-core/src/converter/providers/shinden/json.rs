@@ -1,13 +1,15 @@
 use std::cmp::Ordering;
 
-use chrono::NaiveDate;
 use indexmap::IndexMap;
 use rayon::prelude::*;
 use serde::Deserialize;
 
 use crate::{
     converter::{
-        common::AnimeId,
+        common::{
+            AnimeId,
+            NaiveDate,
+        },
         database,
         exporter,
         extractor::TitleProcessor,
@@ -18,29 +20,29 @@ use crate::{
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct AnimeEntry {
-    pub(super) title_id: AnimeId,
-    pub(super) watch_status: WatchStatus,
+pub(crate) struct AnimeEntry {
+    pub(crate) title_id: AnimeId,
+    pub(crate) watch_status: WatchStatus,
     #[serde(deserialize_with = "de_bool_from_num")]
-    pub(super) is_favourite: bool,
-    pub(super) title: String,
-    pub(super) cover_id: Option<i32>,
+    pub(crate) is_favourite: bool,
+    pub(crate) title: String,
+    pub(crate) cover_id: Option<i32>,
     #[serde(deserialize_with = "de_timestamp")]
-    pub(super) premiere_date: Option<NaiveDate>,
+    pub(crate) premiere_date: Option<NaiveDate>,
     #[serde(deserialize_with = "de_timestamp")]
-    pub(super) finish_date: Option<NaiveDate>,
-    pub(super) title_status: TitleStatus,
-    pub(super) episodes: Option<i32>,
-    pub(super) anime_type: AnimeType,
+    pub(crate) finish_date: Option<NaiveDate>,
+    pub(crate) title_status: TitleStatus,
+    pub(crate) episodes: Option<i32>,
+    pub(crate) anime_type: AnimeType,
     #[serde(deserialize_with = "de_from_string")]
-    pub(super) watched_episodes_cnt: i32,
-    pub(super) rate_total: Option<i32>,
-    pub(super) user_note: Option<String>,
-    pub(super) description_pl: Option<String>,
+    pub(crate) watched_episodes_cnt: i32,
+    pub(crate) rate_total: Option<i32>,
+    pub(crate) user_note: Option<String>,
+    pub(crate) description_pl: Option<String>,
 }
 
 impl AnimeEntry {
-    pub(super) fn into_model(self) -> models::AnimeEntry {
+    pub(crate) fn into_model(self) -> models::AnimeEntry {
         let metadata = TitleProcessor::process(&self.title);
         models::AnimeEntry {
             id: self.title_id,
@@ -63,7 +65,7 @@ impl AnimeEntry {
 }
 
 #[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
-pub(super) enum AnimeType {
+pub(crate) enum AnimeType {
     Music,
     #[serde(rename = "OVA")]
     Ova,
@@ -76,7 +78,7 @@ pub(super) enum AnimeType {
 }
 
 impl AnimeType {
-    pub(super) fn to_model(self) -> database::AnimeType {
+    pub(crate) fn to_model(self) -> database::AnimeType {
         match self {
             AnimeType::Music => database::AnimeType::Ova,
             AnimeType::Ova => database::AnimeType::Ova,
@@ -89,7 +91,7 @@ impl AnimeType {
 }
 
 #[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
-pub(super) enum TitleStatus {
+pub(crate) enum TitleStatus {
     #[serde(rename = "Finished Airing")]
     FinishedAiring,
     #[serde(rename = "Currently Airing")]
@@ -101,7 +103,7 @@ pub(super) enum TitleStatus {
 }
 
 impl TitleStatus {
-    pub(super) fn to_model(self) -> database::AnimeStatus {
+    pub(crate) fn to_model(self) -> database::AnimeStatus {
         match self {
             TitleStatus::FinishedAiring => database::AnimeStatus::Finished,
             TitleStatus::CurrentlyAiring => database::AnimeStatus::Ongoing,
@@ -112,7 +114,7 @@ impl TitleStatus {
 }
 
 #[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
-pub(super) enum WatchStatus {
+pub(crate) enum WatchStatus {
     #[serde(rename = "completed")]
     Completed,
     #[serde(rename = "plan")]
@@ -128,7 +130,7 @@ pub(super) enum WatchStatus {
 }
 
 impl WatchStatus {
-    pub(super) fn to_model(self) -> exporter::WatchStatus {
+    pub(crate) fn to_model(self) -> exporter::WatchStatus {
         match self {
             WatchStatus::Completed => exporter::WatchStatus::Completed,
             WatchStatus::Plan => exporter::WatchStatus::PlanToWatch,

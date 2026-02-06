@@ -6,7 +6,6 @@ use std::{
     io::Write,
 };
 
-use chrono::NaiveDate;
 use serde::{
     Serialize,
     Serializer,
@@ -18,6 +17,8 @@ use crate::converter::{
         AnimeId,
         AnimeList,
         ExportView,
+        NaiveDate,
+        XmlError,
     },
     exporter::{
         Exporter,
@@ -28,7 +29,7 @@ use crate::converter::{
 #[derive(Error, Debug)]
 #[error(transparent)]
 pub enum XmlExportError {
-    Xml(#[from] serde_xml_rs::Error),
+    Xml(#[from] XmlError),
     #[error("id {0} for {1} is out of index")]
     OutOfIndex(AnimeId, &'static str),
 }
@@ -56,7 +57,7 @@ impl Exporter for XmlExporter {
     }
 }
 
-pub(super) fn ser_mal_date<S>(date: &Option<NaiveDate>, serializer: S) -> Result<S::Ok, S::Error>
+pub(crate) fn ser_mal_date<S>(date: &Option<NaiveDate>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -66,7 +67,7 @@ where
 
 #[derive(Serialize, Debug, Copy, Clone, Eq, PartialEq)]
 #[serde(into = "String")]
-pub(super) enum AnimeStatus {
+pub(crate) enum AnimeStatus {
     Dropped,
     Completed,
     Watching,
@@ -107,23 +108,23 @@ impl From<AnimeStatus> for String {
 
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
-pub(super) struct AnimeXml {
+pub(crate) struct AnimeXml {
     #[serde(rename = "series_animedb_id")]
-    pub(super) id: AnimeId,
+    pub(crate) id: AnimeId,
     #[serde(rename = "my_watched_episodes")]
-    pub(super) watched_episodes: i32,
+    pub(crate) watched_episodes: i32,
     #[serde(rename = "my_start_date", serialize_with = "ser_mal_date")]
-    pub(super) start_date: Option<NaiveDate>,
+    pub(crate) start_date: Option<NaiveDate>,
     #[serde(rename = "my_finish_date")]
-    pub(super) finish_date: Option<NaiveDate>,
+    pub(crate) finish_date: Option<NaiveDate>,
     #[serde(rename = "my_score")]
-    pub(super) score: i32,
+    pub(crate) score: i32,
     #[serde(rename = "my_status")]
-    pub(super) status: AnimeStatus,
+    pub(crate) status: AnimeStatus,
     #[serde(rename = "update_on_import")]
-    pub(super) update: i32,
+    pub(crate) update: i32,
     #[serde(rename = "my_comments")]
-    pub(super) comments: String,
+    pub(crate) comments: String,
 }
 
 impl AnimeXml {
@@ -143,16 +144,16 @@ impl AnimeXml {
 
 #[derive(Serialize, Debug, Clone, Default, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub(super) struct InfoXml {
-    pub(super) user_export_type: i32,
+pub(crate) struct InfoXml {
+    pub(crate) user_export_type: i32,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename = "myanimelist")]
 #[serde(rename_all = "snake_case")]
-pub(super) struct ListRootXml {
+pub(crate) struct ListRootXml {
     #[serde(rename = "myinfo")]
-    pub(super) info: InfoXml,
+    pub(crate) info: InfoXml,
     #[serde(rename = "anime")]
-    pub(super) anime: Vec<AnimeXml>,
+    pub(crate) anime: Vec<AnimeXml>,
 }

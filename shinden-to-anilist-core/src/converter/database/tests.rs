@@ -13,7 +13,7 @@ use crate::converter::{
     },
 };
 
-pub fn save_database(database: &AnimeDatabase) {
+fn save_database(database: &AnimeDatabase) {
     File::options()
         .create_new(true)
         .write(true)

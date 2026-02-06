@@ -1,7 +1,6 @@
 use std::ops::Index;
 
 use ambassador::Delegate;
-use chrono::NaiveDate;
 use indexmap::IndexMap;
 use rayon::prelude::*;
 use serde::{
@@ -15,6 +14,7 @@ use crate::converter::{
         AnimeList,
         ExportView,
         MatchView,
+        NaiveDate,
         ambassador_impl_AnimeList,
     },
     database::{
@@ -28,7 +28,7 @@ use crate::converter::{
 #[derive(Serialize, Deserialize, Debug, Clone, Delegate)]
 #[delegate(AnimeList, target = "entries")]
 pub struct ShindenList {
-    pub(super) entries: IndexMap<AnimeId, AnimeEntry>,
+    pub(crate) entries: IndexMap<AnimeId, AnimeEntry>,
 }
 
 impl Index<AnimeId> for ShindenList {
@@ -38,21 +38,21 @@ impl Index<AnimeId> for ShindenList {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnimeEntry {
-    pub(super) id: AnimeId,
-    pub(super) cover_id: Option<i32>,
-    pub(super) title: String,
-    pub(super) metadata: TitleMetadata,
-    pub(super) anime_status: AnimeStatus,
-    pub(super) anime_type: AnimeType,
-    pub(super) premiere_date: Option<NaiveDate>,
-    pub(super) finish_date: Option<NaiveDate>,
-    pub(super) episodes: Option<i32>,
-    pub(super) is_favourite: bool,
-    pub(super) watch_status: WatchStatus,
-    pub(super) watched_episodes: i32,
-    pub(super) score: Option<i32>,
-    pub(super) note: Option<String>,
-    pub(super) description: Option<String>,
+    pub(crate) id: AnimeId,
+    pub(crate) cover_id: Option<i32>,
+    pub(crate) title: String,
+    pub(crate) metadata: TitleMetadata,
+    pub(crate) anime_status: AnimeStatus,
+    pub(crate) anime_type: AnimeType,
+    pub(crate) premiere_date: Option<NaiveDate>,
+    pub(crate) finish_date: Option<NaiveDate>,
+    pub(crate) episodes: Option<i32>,
+    pub(crate) is_favourite: bool,
+    pub(crate) watch_status: WatchStatus,
+    pub(crate) watched_episodes: i32,
+    pub(crate) score: Option<i32>,
+    pub(crate) note: Option<String>,
+    pub(crate) description: Option<String>,
 }
 
 impl AnimeEntry {
