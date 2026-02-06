@@ -1,162 +1,97 @@
-use crate::{converter::matcher, converter::matcher::ExtractedMetadata, converter::view::AnimeId};
-use chrono::NaiveDate;
-use eyre::{OptionExt, WrapErr, eyre};
-use indexmap::IndexMap;
-use itertools::Itertools;
-use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
 use std::{
     fs::File,
-    io::{BufRead, BufReader},
+    io::{
+        self,
+        BufRead,
+        BufReader,
+        Read,
+    },
     path::Path,
 };
 
-impl DatabaseRoot {
-    pub fn from_reader(reader: &mut (impl BufRead + Send)) -> eyre::Result<Self> {
-        let mut lines = reader.lines();
+use indexmap::IndexMap;
+use itertools::Itertools;
+use memmap2::Mmap;
+use rayon::prelude::*;
+use thiserror::Error;
 
-        let Some(root_line) = lines.next() else {
-            return Err(eyre!("database contains no entries"));
-        };
+pub use self::models::*;
+use crate::converter::common::AnimeId;
 
-        let mut root: DatabaseRoot = serde_json::from_str(&root_line?)?;
+mod json;
 
-        let mut entries = lines
-            .chunks(500)
+pub mod models;
+
+#[cfg(test)]
+mod tests;
+
+#[derive(Error, Debug)]
+#[error(transparent)]
+pub enum DatabaseError {
+    Io(#[from] io::Error),
+    Json(#[from] serde_json::Error),
+    #[error("can not parse empty file")]
+    Empty,
+}
+
+pub fn get_from_mmap(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError> {
+    let file = File::open(path)?;
+    let mmap = unsafe { Mmap::map(&file)? };
+
+    let (header, after_header) = match mmap.iter().position(|&b| b == b'\n') {
+        Some(pos) => mmap.split_at(pos + 1),
+        None => return Err(DatabaseError::Empty),
+    };
+
+    let mut db_root = serde_json::from_slice::<json::DatabaseRoot>(header)?.into_model();
+
+    let entries = after_header
+        .par_split(|&b| b == b'\n')
+        .filter_map(|line| match serde_json::from_slice::<json::AnimeEntry>(line) {
+            Ok(v) => v.into_model().map(|a| (a.id, a)).map(Ok),
+            Err(e) => Some(Err(DatabaseError::from(e))),
+        })
+        .collect::<Result<IndexMap<AnimeId, AnimeEntry>, DatabaseError>>()?;
+
+    db_root.entries = entries;
+
+    Ok(db_root)
+}
+
+pub fn get_from_reader(reader: impl Read) -> Result<AnimeDatabase, DatabaseError> {
+    let buf_reader = BufReader::new(reader);
+
+    let mut lines = buf_reader.lines();
+
+    let mut db_root =
+        serde_json::from_str::<json::DatabaseRoot>(&lines.next().ok_or(DatabaseError::Empty)??)?
+            .into_model();
+
+    db_root.entries.extend(
+        lines
+            .chunks(512 * 4)
             .into_iter()
-            .map(|chunk| {
-                chunk
-                    .collect::<Vec<_>>()
+            .map(|c| {
+                c.collect::<Vec<_>>()
                     .into_par_iter()
-                    .map(|x| Ok(serde_json::from_str::<AnimeEntry>(&x?)?))
-                    .collect::<eyre::Result<Vec<AnimeEntry>>>()
+                    .filter_map(|s| match s {
+                        Ok(s) => match serde_json::from_str::<json::AnimeEntry>(&s) {
+                            Ok(v) => v.into_model().map(|a| (a.id, a)).map(|a| Ok(Ok(a))),
+                            Err(e) => Some(Ok(Err(DatabaseError::from(e)))),
+                        },
+                        Err(e) => Some(Err(DatabaseError::from(e))),
+                    })
+                    .flatten()
+                    .collect::<Result<IndexMap<AnimeId, AnimeEntry>, DatabaseError>>()
             })
             .flatten_ok()
-            .collect::<eyre::Result<Vec<AnimeEntry>>>()?;
+            .collect::<Result<IndexMap<AnimeId, AnimeEntry>, DatabaseError>>()?,
+    );
 
-        entries.par_iter_mut().for_each(|x| {
-            if x.sources.iter().any(|x| x.contains("myanimelist")) {
-                x.metadata = matcher::extract_metadata_db(x);
-            }
-        });
-
-        for mut entry in entries {
-            let Some(id) = entry.sources.iter().find_map(|x| {
-                x.contains("myanimelist")
-                    .then(|| x.split("/").last().map(|x| x.parse::<AnimeId>()))
-            }) else {
-                continue;
-            };
-            let id = id
-                .ok_or_eyre("no id in mal source")?
-                .wrap_err("invalid mal id")?;
-
-            entry.id = id;
-            if root.data.insert(id, entry).is_some() {
-                return Err(eyre!("found duplicate mal id"));
-            }
-        }
-
-        Ok(root)
-    }
-
-    pub fn from_path(path: impl AsRef<Path>) -> eyre::Result<Self> {
-        let file = File::open(path)?;
-        let mut buf_reader = BufReader::new(file);
-        Self::from_reader(&mut buf_reader)
-    }
+    Ok(db_root)
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct DatabaseRoot {
-    pub last_update: NaiveDate,
-    #[serde(default)]
-    pub data: IndexMap<AnimeId, AnimeEntry>,
-}
-
-/// Valid for every single line from the *.jsonl file except the first line which contains the meta data.
-/// anime-offline-database
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AnimeEntry {
-    #[serde(default)]
-    pub metadata: Vec<ExtractedMetadata>,
-    #[serde(default)]
-    pub id: AnimeId,
-    /// URLs to the pages of the meta data providers for this anime.
-    pub sources: Vec<String>,
-    /// Main title.
-    pub title: SmolStr,
-    /// Distribution type.
-    #[serde(rename = "type")]
-    pub anime_type: AnimeType,
-    /// Number of episodes, movies or parts.
-    pub episodes: i32,
-    /// Status of distribution.
-    pub status: AnimeStatus,
-    /// Data on when the anime was first distributed.
-    pub anime_season: AnimeSeason,
-    /// URL of a picture which represents the anime.
-    pub picture: String,
-    /// URL of a smaller version of the picture.
-    pub thumbnail: String,
-    /// Duration per episode.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub duration: Option<Duration>,
-    /// Alternative titles and spellings under which the anime is also known.
-    pub synonyms: Vec<SmolStr>,
-    /// Lower case studio names. In general a duplicate free list, but might contain duplicates for different writings.
-    pub studios: Vec<SmolStr>,
-    /// Lower case producers names. Companys only. In general a duplicate free list, but might contain duplicates for different writings.
-    pub producers: Vec<SmolStr>,
-    /// URLs to the meta data providers for anime that are somehow related to this anime.
-    pub related_anime: Vec<String>,
-    /// A non-curated list of tags and genres which describe the anime.
-    pub tags: Vec<SmolStr>,
-}
-
-/// Data on when the anime was first distributed.
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash, Clone)]
-pub struct AnimeSeason {
-    /// Season.
-    pub season: Season,
-    /// Year.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub year: Option<i32>,
-}
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum Season {
-    Spring,
-    Summer,
-    Fall,
-    Winter,
-    Undefined,
-}
-
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum AnimeType {
-    Tv,
-    Movie,
-    Ova,
-    Ona,
-    Special,
-    Unknown,
-}
-
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum AnimeStatus {
-    Finished,
-    Ongoing,
-    Upcoming,
-    Unknown,
-}
-
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Duration {
-    pub value: i32,
+pub fn get_from_path(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError> {
+    let file = File::open(path)?;
+    get_from_reader(file)
 }

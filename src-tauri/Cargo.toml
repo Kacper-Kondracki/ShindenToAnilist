@@ -26,3 +26,6 @@ mimalloc = { version = "0.1", features = ["v3"] }
 
 [profile.test]
 opt-level = 1
+
+[profile.dev]
+opt-level = 1

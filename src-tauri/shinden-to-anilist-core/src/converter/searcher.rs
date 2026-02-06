@@ -1,136 +1,117 @@
-use crate::{
-    converter::database::DatabaseRoot,
-    converter::matcher::MatchCandidates,
-    converter::matcher::{MatcherConfig, score_candidate},
-    converter::view::{AnimeId, AnimeList, MatchView},
-    ngram,
-    ngram::SearchMode,
-    ngram::{NGramIndex, NGramIndexBuilder},
-    utils::NormalizeStr,
-};
 use ahash::AHashMap;
-use indexmap::IndexMap;
-use itertools::Itertools;
-use rayon::prelude::*;
-use std::sync::Arc;
+use bon::Builder;
 
-#[derive(Debug, Clone)]
-pub struct Searcher {
-    db: Arc<DatabaseRoot>,
-    db_map: AHashMap<u32, AnimeId>,
-    index: NGramIndex<3>,
+use crate::{
+    converter::{
+        common::{
+            AnimeId,
+            AnimeList,
+            MatchView,
+        },
+        database::AnimeDatabase,
+    },
+    ngram,
+    ngram::{
+        DefaultNormalizer,
+        NGramIndex,
+        NGramIndexBuilder,
+        RecallJaccard,
+    },
+};
+
+#[cfg(test)]
+mod tests;
+
+pub trait Searcher {
+    fn search(&self, query: &str, options: Search) -> Vec<(AnimeId, f32)>;
 }
 
-impl Searcher {
-    pub fn new(db: Arc<DatabaseRoot>) -> Self {
-        let db_entries = &db.data;
-        let mut index = NGramIndexBuilder::default();
-        let mut db_map = AHashMap::new();
+#[derive(Builder, Debug, Clone, Copy)]
+#[builder(derive(Debug, Clone))]
+#[builder(start_fn = options)]
+pub struct Search {
+    #[builder(default = 50)]
+    pub limit: usize,
+    #[builder(default = 0.65)]
+    pub threshold: f32,
+    #[builder(default = SearchMode::Fuzzy)]
+    pub mode: SearchMode,
+}
 
-        for (&i, entry) in db_entries.iter() {
-            let id = index.add_ngram(entry.title.normalize().as_str());
-            db_map.insert(id, i);
+use crate::converter::searcher::search_builder::{
+    IsUnset,
+    SetMode,
+    State,
+};
 
-            for synonym in &entry.synonyms {
-                index.add_alias(synonym.normalize().as_str(), id);
+impl<S: State> SearchBuilder<S> {
+    pub fn fuzzy(self) -> SearchBuilder<SetMode<S>>
+    where
+        <S as State>::Mode: IsUnset,
+    {
+        self.mode(SearchMode::Fuzzy)
+    }
+    pub fn strict(self) -> SearchBuilder<SetMode<S>>
+    where
+        <S as State>::Mode: IsUnset,
+    {
+        self.mode(SearchMode::Strict)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SearchMode {
+    Strict,
+    Fuzzy,
+}
+
+pub trait SearcherAnimeExt: MatchView {
+    fn search_by_title(&self, searcher: &impl Searcher, options: Search) -> Vec<(AnimeId, f32)> {
+        searcher.search(self.title(), options)
+    }
+}
+impl<T: MatchView> SearcherAnimeExt for T {}
+
+#[derive(Debug)]
+pub struct DefaultSearcher {
+    index: NGramIndex<3, DefaultNormalizer>,
+    ngram_to_id: AHashMap<u32, AnimeId>,
+}
+
+impl DefaultSearcher {
+    pub fn new(database: &AnimeDatabase) -> Self {
+        let mut index_builder = NGramIndexBuilder::default();
+        let mut ngram_to_id = AHashMap::new();
+
+        for entry in database.values() {
+            let ngram_id = index_builder.add_ngram(entry.title());
+            ngram_to_id.insert(ngram_id, entry.id());
+
+            for synonym in entry.synonyms() {
+                index_builder.add_alias(synonym, ngram_id);
             }
         }
-        let index = index.build();
 
-        Self { index, db, db_map }
+        Self { index: index_builder.build(), ngram_to_id }
     }
 
-    pub fn search_title(
-        &self,
-        query: &impl MatchView,
-        limit: usize,
-        threshold: f32,
-        mode: SearchMode,
-    ) -> AnimeList<f32> {
-        let results = self.index.search::<ngram::RecallJaccard>(
-            query.title().normalize().as_str(),
-            limit,
-            threshold,
-            mode,
-        );
+    fn get(&self, ngram_id: u32) -> AnimeId { self.ngram_to_id[&ngram_id] }
+}
 
-        results
-            .iter()
-            .copied()
-            .map(|(id, score)| (&self.db.data[&self.db_map[&id]], score))
-            .sorted_by(|(x, _), (y, _)| x.title.cmp(&y.title))
-            .sorted_by(|(_, x), (_, y)| y.total_cmp(x))
-            .map(|(x, score)| (x.id, score))
+impl Searcher for DefaultSearcher {
+    fn search(&self, query: &str, options: Search) -> Vec<(AnimeId, f32)> {
+        self.index
+            .search::<RecallJaccard>(
+                query,
+                options.limit,
+                options.threshold,
+                match options.mode {
+                    SearchMode::Strict => ngram::SearchMode::And,
+                    SearchMode::Fuzzy => ngram::SearchMode::Or,
+                },
+            )
+            .into_iter()
+            .map(|(ng, v)| (self.get(ng), v))
             .collect()
-    }
-
-    pub fn search_title_list(
-        &self,
-        query: &AnimeList<impl MatchView + Sync>,
-        limit: usize,
-        threshold: f32,
-        mode: SearchMode,
-    ) -> AnimeList<AnimeList<f32>> {
-        query
-            .par_iter()
-            .map(|(&id, entry)| (id, self.search_title(entry, limit, threshold, mode)))
-            .collect()
-    }
-
-    pub fn search_entry(
-        &self,
-        query: &impl MatchView,
-        limit: usize,
-        threshold: f32,
-        mode: SearchMode,
-        config: Option<MatcherConfig>,
-    ) -> MatchCandidates {
-        let results = self.index.search::<ngram::RecallJaccard>(
-            query.title().normalize().as_str(),
-            limit,
-            threshold,
-            mode,
-        );
-
-        let config = match (config, mode) {
-            (None, SearchMode::And) => MatcherConfig::and_preset(),
-            (None, SearchMode::Or) => MatcherConfig::or_preset(),
-            (Some(config), _) => config,
-        };
-
-        let mut results = results
-            .iter()
-            .copied()
-            .map(|(id, score)| {
-                let cand = &self.db.data[&self.db_map[&id]];
-                (cand, score_candidate(query, cand, score, config))
-            })
-            .collect::<Vec<_>>();
-
-        results.sort_by(|(x, _), (y, _)| x.title.cmp(&y.title));
-        results.sort_by(|(_, x), (_, y)| {
-            y.score_breakdown
-                .final_score
-                .total_cmp(&x.score_breakdown.final_score)
-        });
-
-        MatchCandidates::new(
-            results.into_iter().map(|(x, y)| (x.id, y)).collect(),
-            config,
-        )
-    }
-
-    pub fn search_entries(
-        &self,
-        query: &AnimeList<impl MatchView + Sync>,
-        limit: usize,
-        threshold: f32,
-        mode: SearchMode,
-        config: Option<MatcherConfig>,
-    ) -> AnimeList<MatchCandidates> {
-        query
-            .par_iter()
-            .map(|(&id, entry)| (id, self.search_entry(entry, limit, threshold, mode, config)))
-            .collect::<IndexMap<_, _>>()
     }
 }

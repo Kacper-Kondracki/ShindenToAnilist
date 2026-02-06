@@ -1,7 +1,7 @@
+pub mod common;
 pub mod database;
 pub mod exporter;
+pub mod extractor;
 pub mod matcher;
-pub mod regexes;
+pub mod providers;
 pub mod searcher;
-pub mod shinden;
-pub mod view;
