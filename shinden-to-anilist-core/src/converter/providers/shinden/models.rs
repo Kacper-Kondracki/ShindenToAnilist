@@ -1,6 +1,7 @@
 use std::ops::Index;
 
 use ambassador::Delegate;
+use chrono::NaiveDate;
 use indexmap::IndexMap;
 use rayon::prelude::*;
 use serde::{
@@ -14,7 +15,6 @@ use crate::converter::{
         AnimeList,
         ExportView,
         MatchView,
-        NaiveDate,
         ambassador_impl_AnimeList,
     },
     database::{

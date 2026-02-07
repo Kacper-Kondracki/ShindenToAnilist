@@ -1,12 +1,10 @@
+use chrono::NaiveDate;
 use serde::Deserialize;
+use url::Url;
 
 use super::models;
 use crate::converter::{
-    common::{
-        AnimeId,
-        NaiveDate,
-        Url,
-    },
+    common::AnimeId,
     extractor::TitleProcessor,
 };
 

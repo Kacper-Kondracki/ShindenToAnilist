@@ -1,15 +1,13 @@
 use std::cmp::Ordering;
 
+use chrono::NaiveDate;
 use indexmap::IndexMap;
 use rayon::prelude::*;
 use serde::Deserialize;
 
 use crate::{
     converter::{
-        common::{
-            AnimeId,
-            NaiveDate,
-        },
+        common::AnimeId,
         database,
         exporter,
         extractor::TitleProcessor,

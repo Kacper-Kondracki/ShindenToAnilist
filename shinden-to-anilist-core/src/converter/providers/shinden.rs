@@ -1,16 +1,10 @@
 use std::io;
 
+use async_trait::async_trait;
 use thiserror::Error;
 
 pub use self::models::*;
-use crate::{
-    converter::common::{
-        JsonError,
-        RequestError,
-        TaskError,
-    },
-    http_client,
-};
+use crate::http_client;
 
 mod json;
 pub mod models;
@@ -18,36 +12,55 @@ pub mod models;
 #[cfg(test)]
 mod tests;
 
+#[async_trait]
+pub trait ShindenListLoad {
+    async fn shinden_request(
+        user: u64,
+        limit: u64,
+        offset: u64,
+    ) -> Result<ShindenList, ShindenError>;
+    async fn get_from_shinden(user: u64) -> Result<ShindenList, ShindenError>;
+}
+
 #[derive(Error, Debug)]
 #[error(transparent)]
 pub enum ShindenError {
     Io(#[from] io::Error),
-    Json(#[from] JsonError),
-    Request(#[from] RequestError),
-    TaskError(#[from] TaskError),
+    Json(#[from] serde_json::Error),
+    Request(#[from] reqwest::Error),
+    TaskError(#[from] tokio::task::JoinError),
     #[error("shinden api returned error: {0}")]
     Shinden(String),
 }
 
-pub async fn request(user: u64, limit: u64, offset: u64) -> Result<ShindenList, ShindenError> {
-    let client = http_client();
-    let bytes = client
-        .get(format!(
-            "https://lista.shinden.pl/api/userlist/{}/anime?limit={}&offset={}",
-            user, limit, offset
-        ))
-        .send()
-        .await?
-        .bytes()
-        .await?;
+#[async_trait]
+impl ShindenListLoad for ShindenList {
+    async fn shinden_request(
+        user: u64,
+        limit: u64,
+        offset: u64,
+    ) -> Result<ShindenList, ShindenError> {
+        let client = http_client();
+        let bytes = client
+            .get(format!(
+                "https://lista.shinden.pl/api/userlist/{}/anime?limit={}&offset={}",
+                user, limit, offset
+            ))
+            .send()
+            .await?
+            .bytes()
+            .await?;
 
-    let data = tokio::task::spawn_blocking(move || {
-        serde_json::from_slice::<json::Response>(&bytes).map(|r| r.try_par_into_model())
-    });
+        let data = tokio::task::spawn_blocking(move || {
+            serde_json::from_slice::<json::Response>(&bytes).map(|r| r.try_par_into_model())
+        });
 
-    let shinden_list = data.await??.map_err(ShindenError::Shinden)?;
+        let shinden_list = data.await??.map_err(ShindenError::Shinden)?;
 
-    Ok(shinden_list)
+        Ok(shinden_list)
+    }
+
+    async fn get_from_shinden(user: u64) -> Result<ShindenList, ShindenError> {
+        Self::shinden_request(user, 99999, 0).await
+    }
 }
-
-pub async fn get(user: u64) -> Result<ShindenList, ShindenError> { request(user, 99999, 0).await }

@@ -1,5 +1,4 @@
 use std::{
-    cmp,
     cmp::Reverse,
     fs,
 };
@@ -23,15 +22,16 @@ use ratatui::{
     widgets::*,
 };
 use shinden_to_anilist_core::{
-    converter::{
-        common::AnimeId,
-        database,
-        database::AnimeDatabase,
-        searcher::{
-            DefaultSearcher,
-            Search,
-            Searcher,
-        },
+    common::AnimeId,
+    database,
+    database::{
+        AnimeDatabase,
+        AnimeDatabaseLoad,
+    },
+    searcher::{
+        DefaultSearcher,
+        Search,
+        Searcher,
     },
     utils::normalize_str,
 };
@@ -66,7 +66,7 @@ impl App {
         .find(|&&x| fs::exists(x).is_ok_and(|t| t));
         let db_path = *db_path.unwrap();
 
-        let database = database::get_from_mmap(db_path).unwrap();
+        let database = AnimeDatabase::get_from_mmap(db_path).unwrap();
         let searcher = DefaultSearcher::new(&database);
         Self {
             database,
@@ -284,19 +284,23 @@ impl Widget for DetailsBox<'_> {
             })
             .collect::<Vec<_>>();
 
-        synonyms_scored.sort_by_key(|&(_, s)| cmp::Reverse(OrderedFloat(s)));
+        synonyms_scored.sort_by_key(|&(_, s)| Reverse(OrderedFloat(s)));
 
         let spacer = "-".repeat((area.width as i32 - 2).max(0) as usize);
         let mut text = vec![
             Line::from(format!("{} ({})", v.title(), v.id()))
                 .style(Style::default().fg(Color::Magenta).bold()),
             Line::from(
-                synonyms_scored
-                    .iter()
-                    .map(|(s, sc)| Span::from(s).style(Style::default().fg(calc_color(*sc as f32))))
-                    .take(15)
-                    .intersperse(Span::from(", "))
-                    .collect::<Vec<_>>(),
+                Itertools::intersperse(
+                    synonyms_scored
+                        .iter()
+                        .map(|(s, sc)| {
+                            Span::from(s).style(Style::default().fg(calc_color(*sc as f32)))
+                        })
+                        .take(15),
+                    Span::from(", "),
+                )
+                .collect::<Vec<_>>(),
             )
             .style(Style::default().italic()),
             Line::from(spacer.as_str()),

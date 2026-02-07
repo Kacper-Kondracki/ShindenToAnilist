@@ -4,13 +4,12 @@ use std::{
     time::Instant,
 };
 
-use crate::converter::{
-    common::AnimeList,
-    database::{
-        AnimeDatabase,
-        get_from_mmap,
-        get_from_path,
+use crate::{
+    converter::{
+        common::AnimeList,
+        database::AnimeDatabase,
     },
+    database::AnimeDatabaseLoad,
 };
 
 fn save_database(database: &AnimeDatabase) {
@@ -25,7 +24,7 @@ fn save_database(database: &AnimeDatabase) {
 #[test]
 fn load_file_database_test() {
     let now = Instant::now();
-    let database = get_from_path("anime-offline-database.jsonl").unwrap();
+    let database = AnimeDatabase::get_from_mmap("anime-offline-database.jsonl").unwrap();
     let elapsed = now.elapsed();
 
     println!("{} entries", database.len());
@@ -37,7 +36,7 @@ fn load_file_database_test() {
 #[test]
 fn load_mmap_database_test() {
     let now = Instant::now();
-    let database = get_from_mmap("anime-offline-database.jsonl").unwrap();
+    let database = AnimeDatabase::get_from_mmap("anime-offline-database.jsonl").unwrap();
     let elapsed = now.elapsed();
 
     println!("{} entries", database.len());
@@ -48,7 +47,7 @@ fn load_mmap_database_test() {
 
 #[test]
 fn entries_database_test() {
-    let database = get_from_mmap("anime-offline-database.jsonl").unwrap();
+    let database = AnimeDatabase::get_from_mmap("anime-offline-database.jsonl").unwrap();
 
     for entry in database.values().filter(|a| a.title.contains("Shingeki")) {
         println!("{} - {}", entry.id, entry.title);
