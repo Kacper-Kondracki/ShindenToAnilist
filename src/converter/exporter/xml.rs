@@ -6,6 +6,7 @@ use std::{
     io::Write,
 };
 
+use chrono::NaiveDate;
 use serde::{
     Serialize,
     Serializer,
@@ -17,8 +18,6 @@ use crate::converter::{
         AnimeId,
         AnimeList,
         ExportView,
-        NaiveDate,
-        XmlError,
     },
     exporter::{
         Exporter,
@@ -29,7 +28,7 @@ use crate::converter::{
 #[derive(Error, Debug)]
 #[error(transparent)]
 pub enum XmlExportError {
-    Xml(#[from] XmlError),
+    Xml(#[from] serde_xml_rs::Error),
     #[error("id {0} for {1} is out of index")]
     OutOfIndex(AnimeId, &'static str),
 }

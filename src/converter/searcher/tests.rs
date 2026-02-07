@@ -1,15 +1,20 @@
-use crate::converter::{
-    database,
-    searcher,
-    searcher::{
-        Search,
-        Searcher,
+use crate::{
+    converter::{
+        searcher,
+        searcher::{
+            Search,
+            Searcher,
+        },
+    },
+    database::{
+        AnimeDatabase,
+        AnimeDatabaseLoad,
     },
 };
 
 #[test]
 fn searcher_title_test() {
-    let database = database::get_from_mmap("anime-offline-database.jsonl").unwrap();
+    let database = AnimeDatabase::get_from_mmap("anime-offline-database.jsonl").unwrap();
     let searcher = searcher::DefaultSearcher::new(&database);
 
     for (entry, score) in searcher

@@ -309,7 +309,6 @@ mod tests {
             ("Monogatari Series: Second Season", Some(2.0), None, None),
             ("Re:Zero Season 2 Part 2", Some(2.0), Some(2.0), None),
         ];
-
         for (input, s, p, e) in cases {
             let res = TitleProcessor::process(input);
             assert_eq!(res.season, s, "Failed Season, {}", input);

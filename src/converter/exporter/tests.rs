@@ -1,6 +1,9 @@
-use crate::converter::database;
+use crate::database::{
+    AnimeDatabase,
+    AnimeDatabaseLoad,
+};
 
 #[test]
 fn xml_exporter_test() {
-    let _database = database::get_from_mmap("anime-offline-database.jsonl").unwrap();
+    let _database = AnimeDatabase::get_from_mmap("anime-offline-database.jsonl").unwrap();
 }
