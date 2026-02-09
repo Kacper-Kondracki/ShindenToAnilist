@@ -1,12 +1,18 @@
+use std::borrow::Cow;
+
+use approx::relative_eq;
 use chrono::NaiveDate;
-use itertools::Itertools;
+use compact_str::CompactString;
 use serde::{
     Deserialize,
     Deserializer,
     de::Error,
 };
 use unicode_normalization::UnicodeNormalization;
-use wana_kana::ConvertJapanese;
+use wana_kana::{
+    ConvertJapanese,
+    IsJapaneseChar,
+};
 
 pub(crate) fn de_timestamp<'de, T, D>(deserializer: D) -> Result<T, D::Error>
 where
@@ -42,7 +48,7 @@ where
     #[serde(untagged)]
     enum TOrString<T> {
         T(T),
-        String(String),
+        String(CompactString),
     }
 
     let t_or_string = TOrString::<T>::deserialize(deserializer)?;
@@ -70,12 +76,32 @@ where
     })
 }
 
-pub fn normalize_str(s: &str) -> String {
-    s.to_romaji()
-        .nfd()
-        .filter(|c| c.is_ascii())
-        .collect::<String>()
-        .split_whitespace()
-        .join(" ")
-        .to_lowercase()
+pub(crate) fn ge_tol(a: f32, b: f32) -> bool { a > b || relative_eq!(a, b) }
+
+pub fn normalize_str(s: &str) -> CompactString {
+    let needs_romaji = s.chars().any(|c| c.is_japanese());
+    let source = if needs_romaji {
+        Cow::Owned(s.to_romaji())
+    } else {
+        Cow::Borrowed(s)
+    };
+    let mut result = CompactString::with_capacity(source.len());
+    let mut last_was_space = true;
+    for c in source.nfd().filter(|c| c.is_ascii()) {
+        if c.is_whitespace() {
+            if !last_was_space && !result.is_empty() {
+                result.push(' ');
+                last_was_space = true;
+            }
+        } else {
+            result.push(c.to_ascii_lowercase());
+            last_was_space = false;
+        }
+    }
+
+    if last_was_space && !result.is_empty() {
+        result.pop();
+    }
+
+    result
 }

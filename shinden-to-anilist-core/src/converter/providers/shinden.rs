@@ -1,4 +1,7 @@
-use std::io;
+use std::{
+    io,
+    io::Read,
+};
 
 use async_trait::async_trait;
 use thiserror::Error;
@@ -14,12 +17,10 @@ mod tests;
 
 #[async_trait]
 pub trait ShindenListLoad {
-    async fn shinden_request(
-        user: u64,
-        limit: u64,
-        offset: u64,
-    ) -> Result<ShindenList, ShindenError>;
+    async fn shinden_request(user: u64, limit: u64, offset: u64) -> Result<ShindenList, ShindenError>;
     async fn get_from_shinden(user: u64) -> Result<ShindenList, ShindenError>;
+
+    fn from_reader(reader: &mut impl Read) -> Result<ShindenList, ShindenError>;
 }
 
 #[derive(Error, Debug)]
@@ -35,11 +36,7 @@ pub enum ShindenError {
 
 #[async_trait]
 impl ShindenListLoad for ShindenList {
-    async fn shinden_request(
-        user: u64,
-        limit: u64,
-        offset: u64,
-    ) -> Result<ShindenList, ShindenError> {
+    async fn shinden_request(user: u64, limit: u64, offset: u64) -> Result<ShindenList, ShindenError> {
         let client = http_client();
         let bytes = client
             .get(format!(
@@ -62,5 +59,10 @@ impl ShindenListLoad for ShindenList {
 
     async fn get_from_shinden(user: u64) -> Result<ShindenList, ShindenError> {
         Self::shinden_request(user, 99999, 0).await
+    }
+
+    fn from_reader(reader: &mut impl Read) -> Result<ShindenList, ShindenError> {
+        let data: json::Response = serde_json::from_reader(reader)?;
+        data.try_par_into_model().map_err(ShindenError::Shinden)
     }
 }

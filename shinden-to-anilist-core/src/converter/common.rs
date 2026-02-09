@@ -1,5 +1,3 @@
-use std::hash::DefaultHasher;
-
 use ambassador::delegatable_trait;
 use chrono::{
     Datelike,
@@ -17,9 +15,10 @@ pub type AnimeId = usize;
 
 pub trait MatchView {
     fn title(&self) -> &str;
+    fn normalized_title(&self) -> &str;
     fn title_metadata(&self) -> Option<&TitleMetadata> { None }
-    fn year(&self) -> Option<i32> { self.date().map(|d| d.year()) }
-    fn date(&self) -> Option<NaiveDate> { None }
+    fn year(&self) -> Option<Option<i32>> { self.date().map(|d| d.map(|d| d.year())) }
+    fn date(&self) -> Option<Option<NaiveDate>> { None }
     fn anime_type(&self) -> Option<database::AnimeType> { None }
     fn status(&self) -> Option<database::AnimeStatus> { None }
     fn episodes(&self) -> Option<i32> { None }
@@ -32,16 +31,6 @@ pub trait ExportView {
     fn score(&self) -> i32 { 0 }
     fn status(&self) -> exporter::WatchStatus;
     fn comments(&self) -> Option<&str> { None }
-}
-
-pub fn hash_title(title: &str) -> AnimeId {
-    use std::hash::{
-        Hash,
-        Hasher,
-    };
-    let mut hasher = DefaultHasher::new();
-    title.hash(&mut hasher);
-    hasher.finish() as AnimeId
 }
 
 #[delegatable_trait]
@@ -80,9 +69,7 @@ pub mod impls {
         fn into_par_values(self) -> impl IntoParallelIterator<Item = Self::Entry> {
             IntoParallelIterator::into_par_iter(self).map(|(_, v)| v)
         }
-        fn iter(&self) -> impl Iterator<Item = (AnimeId, &Self::Entry)> {
-            self.iter().map(|(&k, v)| (k, v))
-        }
+        fn iter(&self) -> impl Iterator<Item = (AnimeId, &Self::Entry)> { self.iter().map(|(&k, v)| (k, v)) }
         fn par_iter(&self) -> impl ParallelIterator<Item = (AnimeId, &Self::Entry)> {
             IntoParallelRefIterator::par_iter(self).map(|(&k, v)| (k, v))
         }

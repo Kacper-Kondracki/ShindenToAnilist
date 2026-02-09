@@ -1,6 +1,5 @@
-use std::cmp::Ordering;
-
 use chrono::NaiveDate;
+use compact_str::CompactString;
 use indexmap::IndexMap;
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -18,34 +17,36 @@ use crate::{
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct AnimeEntry {
-    pub(crate) title_id: AnimeId,
-    pub(crate) watch_status: WatchStatus,
+pub(super) struct AnimeEntry {
+    title_id: AnimeId,
+    watch_status: WatchStatus,
     #[serde(deserialize_with = "de_bool_from_num")]
-    pub(crate) is_favourite: bool,
-    pub(crate) title: String,
-    pub(crate) cover_id: Option<i32>,
+    is_favourite: bool,
+    title: CompactString,
+    cover_id: Option<i32>,
     #[serde(deserialize_with = "de_timestamp")]
-    pub(crate) premiere_date: Option<NaiveDate>,
+    premiere_date: Option<NaiveDate>,
     #[serde(deserialize_with = "de_timestamp")]
-    pub(crate) finish_date: Option<NaiveDate>,
-    pub(crate) title_status: TitleStatus,
-    pub(crate) episodes: Option<i32>,
-    pub(crate) anime_type: AnimeType,
+    finish_date: Option<NaiveDate>,
+    title_status: TitleStatus,
+    episodes: Option<i32>,
+    anime_type: AnimeType,
     #[serde(deserialize_with = "de_from_string")]
-    pub(crate) watched_episodes_cnt: i32,
-    pub(crate) rate_total: Option<i32>,
-    pub(crate) user_note: Option<String>,
-    pub(crate) description_pl: Option<String>,
+    watched_episodes_cnt: i32,
+    rate_total: Option<i32>,
+    user_note: Option<CompactString>,
+    description_pl: Option<CompactString>,
 }
 
 impl AnimeEntry {
-    pub(crate) fn into_model(self) -> models::AnimeEntry {
+    pub(super) fn into_model(self) -> models::AnimeEntry {
         let metadata = TitleProcessor::process(&self.title);
+        let normalized_title = normalize_str(&self.title);
         models::AnimeEntry {
             id: self.title_id,
             cover_id: self.cover_id,
             title: self.title,
+            normalized_title,
             metadata,
             anime_status: self.title_status.to_model(),
             anime_type: self.anime_type.to_model(),
@@ -63,7 +64,7 @@ impl AnimeEntry {
 }
 
 #[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
-pub(crate) enum AnimeType {
+pub(super) enum AnimeType {
     Music,
     #[serde(rename = "OVA")]
     Ova,
@@ -76,7 +77,7 @@ pub(crate) enum AnimeType {
 }
 
 impl AnimeType {
-    pub(crate) fn to_model(self) -> database::AnimeType {
+    pub(super) fn to_model(self) -> database::AnimeType {
         match self {
             AnimeType::Music => database::AnimeType::Ova,
             AnimeType::Ova => database::AnimeType::Ova,
@@ -89,7 +90,7 @@ impl AnimeType {
 }
 
 #[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
-pub(crate) enum TitleStatus {
+pub(super) enum TitleStatus {
     #[serde(rename = "Finished Airing")]
     FinishedAiring,
     #[serde(rename = "Currently Airing")]
@@ -101,7 +102,7 @@ pub(crate) enum TitleStatus {
 }
 
 impl TitleStatus {
-    pub(crate) fn to_model(self) -> database::AnimeStatus {
+    pub(super) fn to_model(self) -> database::AnimeStatus {
         match self {
             TitleStatus::FinishedAiring => database::AnimeStatus::Finished,
             TitleStatus::CurrentlyAiring => database::AnimeStatus::Ongoing,
@@ -112,7 +113,7 @@ impl TitleStatus {
 }
 
 #[derive(Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
-pub(crate) enum WatchStatus {
+pub(super) enum WatchStatus {
     #[serde(rename = "completed")]
     Completed,
     #[serde(rename = "plan")]
@@ -128,7 +129,7 @@ pub(crate) enum WatchStatus {
 }
 
 impl WatchStatus {
-    pub(crate) fn to_model(self) -> exporter::WatchStatus {
+    pub(super) fn to_model(self) -> exporter::WatchStatus {
         match self {
             WatchStatus::Completed => exporter::WatchStatus::Completed,
             WatchStatus::Plan => exporter::WatchStatus::PlanToWatch,
@@ -142,20 +143,12 @@ impl WatchStatus {
 
 #[derive(Deserialize, Debug, Clone)]
 pub(super) struct AnimeList {
-    // pub(super) count: usize,
-    pub(super) items: Vec<AnimeEntry>,
+    // count: usize,
+    items: Vec<AnimeEntry>,
 }
 
 impl AnimeList {
-    fn sort(map: &mut IndexMap<AnimeId, models::AnimeEntry>) {
-        map.sort_by(|_, a, _, b| a.title.cmp(&b.title));
-        map.sort_by(|_, a, _, b| match (a.premiere_date, b.premiere_date) {
-            (None, None) => Ordering::Equal,
-            (None, _) => Ordering::Less,
-            (_, None) => Ordering::Greater,
-            (Some(date_a), Some(date_b)) => date_b.cmp(&date_a),
-        })
-    }
+    fn sort(map: &mut IndexMap<AnimeId, models::AnimeEntry>) { map.sort_unstable_keys() }
 
     pub(super) fn into_map(self) -> IndexMap<AnimeId, models::AnimeEntry> {
         let mut map = self
@@ -169,7 +162,6 @@ impl AnimeList {
         Self::sort(&mut map);
         map
     }
-
     pub(super) fn par_into_map(self) -> IndexMap<AnimeId, models::AnimeEntry> {
         let mut map = self
             .items
@@ -187,9 +179,9 @@ impl AnimeList {
 #[derive(Deserialize, Debug, Clone)]
 pub(super) struct Response {
     #[serde(deserialize_with = "de_bool_from_num")]
-    pub(super) success: bool,
-    pub(super) message: String,
-    pub(super) result: Option<AnimeList>,
+    success: bool,
+    message: String,
+    result: Option<AnimeList>,
 }
 
 impl Response {
@@ -200,7 +192,6 @@ impl Response {
         let entries = self.result.unwrap().into_map();
         Ok(models::ShindenList { entries })
     }
-
     pub(super) fn try_par_into_model(self) -> Result<models::ShindenList, String> {
         if !self.success || self.result.is_none() {
             return Err(self.message);

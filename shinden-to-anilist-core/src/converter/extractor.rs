@@ -3,6 +3,8 @@ use std::{
     sync::LazyLock,
 };
 
+use indexmap::IndexMap;
+use ordered_float::OrderedFloat;
 use regex::Regex;
 use serde::{
     Deserialize,
@@ -37,24 +39,26 @@ pub enum Token {
     Keyword(Keyword),
 }
 
+pub const FINAL: f32 = 99.0;
+
 impl Token {
     pub fn is_season(&self) -> bool {
-        if let Token::Keyword(kw) = self {
-            return kw.is_season();
+        match self {
+            Token::Keyword(kw) => kw.is_season(),
+            _ => false,
         }
-        false
     }
     pub fn is_part(&self) -> bool {
-        if let Token::Keyword(kw) = self {
-            return kw.is_part();
+        match self {
+            Token::Keyword(kw) => kw.is_part(),
+            _ => false,
         }
-        false
     }
     pub fn is_episode(&self) -> bool {
-        if let Token::Keyword(kw) = self {
-            return kw.is_episode();
+        match self {
+            Token::Keyword(kw) => kw.is_episode(),
+            _ => false,
         }
-        false
     }
 }
 
@@ -74,9 +78,7 @@ pub enum Keyword {
 }
 
 impl Keyword {
-    pub fn is_season(&self) -> bool {
-        matches!(self, Keyword::Season | Keyword::S | Keyword::Series)
-    }
+    pub fn is_season(&self) -> bool { matches!(self, Keyword::Season | Keyword::S | Keyword::Series) }
     pub fn is_part(&self) -> bool { matches!(self, Keyword::Part | Keyword::Arc | Keyword::Cour) }
     pub fn is_episode(&self) -> bool {
         matches!(
@@ -84,6 +86,26 @@ impl Keyword {
             Keyword::Episode | Keyword::Ova | Keyword::Ona | Keyword::Movie | Keyword::Special
         )
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone, Default)]
+pub struct ConsolidatedMetadata {
+    season: Option<f32>,
+    part: Option<f32>,
+    episode: Option<f32>,
+
+    is_final_season: bool,
+    is_final_part: bool,
+    is_final_episode: bool,
+}
+
+impl ConsolidatedMetadata {
+    pub fn season(&self) -> Option<f32> { self.season }
+    pub fn part(&self) -> Option<f32> { self.part }
+    pub fn episode(&self) -> Option<f32> { self.episode }
+    pub fn is_final_season(&self) -> bool { self.is_final_season }
+    pub fn is_final_part(&self) -> bool { self.is_final_part }
+    pub fn is_final_episode(&self) -> bool { self.is_final_episode }
 }
 
 pub struct TitleProcessor {}
@@ -117,7 +139,7 @@ impl TitleProcessor {
             "eighth" => Some(Token::Ordinal(8.0)),
             "ninth" => Some(Token::Ordinal(9.0)),
             "tenth" => Some(Token::Ordinal(10.0)),
-            "final" | "finale" | "last" => Some(Token::Ordinal(99.0)),
+            "final" | "finale" | "last" => Some(Token::Ordinal(FINAL)),
             _ => None,
         }
     }
@@ -139,14 +161,51 @@ impl TitleProcessor {
         }
     }
 
+    fn resolve_value_with_finality(values: &[f32]) -> (Option<f32>, bool) {
+        let mut is_final = false;
+        let mut counts: IndexMap<OrderedFloat<f32>, usize> = IndexMap::new();
+        for &val in values {
+            if val == FINAL {
+                is_final = true;
+                continue;
+            }
+            *counts.entry(OrderedFloat(val)).or_default() += 1;
+        }
+
+        let best_val = counts.into_iter().max_by_key(|(_, c)| *c).map(|(k, _)| *k);
+
+        (best_val.or(if is_final { Some(FINAL) } else { None }), is_final)
+    }
+
+    pub fn consolidate(metadata_list: &[&TitleMetadata]) -> ConsolidatedMetadata {
+        if metadata_list.is_empty() {
+            return ConsolidatedMetadata::default();
+        }
+
+        let seasons = metadata_list.iter().filter_map(|m| m.season).collect::<Vec<_>>();
+        let parts = metadata_list.iter().filter_map(|m| m.part).collect::<Vec<_>>();
+        let episodes = metadata_list.iter().filter_map(|m| m.episode).collect::<Vec<_>>();
+
+        let (best_season, is_final_season) = Self::resolve_value_with_finality(&seasons);
+        let (best_part, is_final_part) = Self::resolve_value_with_finality(&parts);
+        let (best_episode, is_final_episode) = Self::resolve_value_with_finality(&episodes);
+
+        ConsolidatedMetadata {
+            season: best_season.or(is_final_season.then_some(FINAL)),
+            part: best_part.or(is_final_part.then_some(FINAL)),
+            episode: best_episode.or(is_final_episode.then_some(FINAL)),
+            is_final_season,
+            is_final_part,
+            is_final_episode,
+        }
+    }
+
     pub fn tokenize(title: &str) -> Vec<Token> {
         let title_normalized = normalize_str(title);
         let mut tokens = Vec::<Token>::new();
 
-        static YEAR_RE: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(r"^(?:19|20)\d{2}$").unwrap());
-        static END_NUM_RE: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(r"(\d+\.?\d*)\.?$").unwrap());
+        static YEAR_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:19|20)\d{2}$").unwrap());
+        static END_NUM_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\d+\.?\d*).?$").unwrap());
         static ORDINAL_RE: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r"^(\d+)(?:st|nd|rd|th)\.?$").unwrap());
 
@@ -170,13 +229,17 @@ impl TitleProcessor {
                 match t {
                     Token::Num(_) | Token::Ordinal(_) => {
                         let left = if i == 0 { None } else { Some(words[i - 1]) };
-                        let right = if i == words.len() - 1 { None } else { Some(words[i + 1]) };
+                        let right = if i == words.len() - 1 {
+                            None
+                        } else {
+                            Some(words[i + 1])
+                        };
 
                         let yw = iw + word.len();
 
                         static SPECIAL_CHARS: &[char] = &['(', ')', '[', ']', '<', '>', '-', ':'];
-                        let left_has_special = left
-                            .map(|w| title_normalized[w.0 + w.1.len()..iw].contains(SPECIAL_CHARS));
+                        let left_has_special =
+                            left.map(|w| title_normalized[w.0 + w.1.len()..iw].contains(SPECIAL_CHARS));
                         let right_has_special =
                             right.map(|w| title_normalized[yw..w.0].contains(SPECIAL_CHARS));
 
@@ -204,7 +267,10 @@ impl TitleProcessor {
         if tokens.is_empty() {
             return TitleMetadata::default();
         }
-        let mut meta = TitleMetadata { tokens, ..Default::default() };
+        let mut meta = TitleMetadata {
+            tokens,
+            ..Default::default()
+        };
 
         let mut used_indices = HashSet::new();
         for (i, token) in meta.tokens.iter().enumerate() {
@@ -248,7 +314,6 @@ impl TitleProcessor {
 
         meta
     }
-
     fn find_ordinal(tokens: &[Token], kw_idx: usize) -> Option<f32> {
         if kw_idx == 0 {
             return None;
@@ -258,6 +323,7 @@ impl TitleProcessor {
         }
         None
     }
+
     fn find_num(tokens: &[Token], kw_idx: usize) -> Option<f32> {
         if kw_idx == tokens.len() - 1 {
             return None;
@@ -278,11 +344,17 @@ mod tests {
     fn test_extraction_cases() {
         let cases = vec![
             ("Shingeki no Kyojin 1", Some(1.0), None, None),
+            ("snk 1", Some(1.0), None, None),
             ("AOT Season 1 Part II", Some(1.0), Some(2.0), None),
-            ("AOT Final Part 2", Some(99.0), Some(2.0), None),
-            ("AOT Final", Some(99.0), None, None),
-            ("AOT The Final", Some(99.0), None, None),
-            ("Shingeki no Kyojin Season 2 Movie: Kakusei no Houkou", Some(2.0), None, None),
+            ("AOT Final Part 2", Some(FINAL), Some(2.0), None),
+            ("AOT Final", Some(FINAL), None, None),
+            ("AOT The Final", Some(FINAL), None, None),
+            (
+                "Shingeki no Kyojin Season 2 Movie: Kakusei no Houkou",
+                Some(2.0),
+                None,
+                None,
+            ),
             ("Shingeki no Kyojin 2: Kakusei no Houkou", Some(2.0), None, None),
             ("Mob Psycho 100 II", Some(2.0), None, None),
             ("Jujutsu Kaisen Movie 0", None, None, Some(0.0)),
@@ -293,7 +365,7 @@ mod tests {
             ("Spy x Family", None, None, None),
             ("First Strike", None, None, None),
             ("Shakugan no Shana III (Final)", Some(3.0), None, None),
-            ("Attack on Titan Final Part Two", Some(99.0), Some(2.0), None),
+            ("Attack on Titan Final Part Two", Some(FINAL), Some(2.0), None),
             ("Attack on Titan 3 Part Two", Some(3.0), Some(2.0), None),
             ("Attack on Titan: 3 Part Two", Some(3.0), Some(2.0), None),
             ("Mob Psycho 100 III", Some(3.0), None, None),

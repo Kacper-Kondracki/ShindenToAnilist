@@ -24,7 +24,6 @@ pub trait Exporter {
     fn export(
         &self,
         anime_list: &impl AnimeList<Entry = impl ExportView>,
-        anime_db: &impl AnimeList,
         entries: impl Iterator<Item = (AnimeId, AnimeId)>,
         writer: impl Write,
     ) -> Result<(), Self::Error>;
@@ -33,12 +32,11 @@ pub trait Exporter {
 pub trait ExportExt<E: ExportView>: AnimeList<Entry = E> + Sized {
     fn export<T: Exporter>(
         &self,
-        anime_db: &impl AnimeList,
         exporter: &T,
         entries: impl Iterator<Item = (AnimeId, AnimeId)>,
         writer: impl Write,
     ) -> Result<(), T::Error> {
-        exporter.export(self, anime_db, entries, writer)
+        exporter.export(self, entries, writer)
     }
 }
 impl<E: ExportView, T: AnimeList<Entry = E>> ExportExt<E> for T {}
