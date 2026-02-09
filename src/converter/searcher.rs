@@ -10,9 +10,9 @@ use crate::{
         },
         database::AnimeDatabase,
     },
+    database,
     ngram,
     ngram::{
-        DefaultNormalizer,
         NGramIndex,
         NGramIndexBuilder,
         RecallJaccard,
@@ -24,6 +24,17 @@ mod tests;
 
 pub trait Searcher {
     fn search(&self, query: &str, options: Search) -> Vec<(AnimeId, f32)>;
+    fn search_ref<'a>(
+        &self,
+        database: &'a AnimeDatabase,
+        query: &str,
+        options: Search,
+    ) -> Vec<(&'a database::AnimeEntry, f32)> {
+        self.search(query, options)
+            .iter()
+            .map(|&(id, score)| (&database[id], score))
+            .collect()
+    }
 }
 
 #[derive(Builder, Debug, Clone, Copy)]
@@ -66,15 +77,30 @@ pub enum SearchMode {
 }
 
 pub trait SearcherAnimeExt: MatchView {
-    fn search_by_title(&self, searcher: &impl Searcher, options: Search) -> Vec<(AnimeId, f32)> {
-        searcher.search(self.title(), options)
+    fn search_by_title(&self, searcher: &impl Searcher, options: Search) -> (&Self, Vec<(AnimeId, f32)>) {
+        (self, searcher.search(self.normalized_title(), options))
+    }
+    fn search_by_title_ref<'a>(
+        &self,
+        database: &'a AnimeDatabase,
+        searcher: &impl Searcher,
+        options: Search,
+    ) -> (&Self, Vec<(&'a database::AnimeEntry, f32)>) {
+        (
+            self,
+            self.search_by_title(searcher, options)
+                .1
+                .iter()
+                .map(|&(id, score)| (&database[id], score))
+                .collect(),
+        )
     }
 }
 impl<T: MatchView> SearcherAnimeExt for T {}
 
 #[derive(Debug)]
 pub struct DefaultSearcher {
-    index: NGramIndex<3, DefaultNormalizer>,
+    index: NGramIndex<3>,
     ngram_to_id: AHashMap<u32, AnimeId>,
 }
 
@@ -84,15 +110,18 @@ impl DefaultSearcher {
         let mut ngram_to_id = AHashMap::new();
 
         for entry in database.values() {
-            let ngram_id = index_builder.add_ngram(entry.title());
+            let ngram_id = index_builder.add_ngram(entry.normalized_title());
             ngram_to_id.insert(ngram_id, entry.id());
 
-            for synonym in entry.synonyms() {
+            for synonym in entry.normalized_synonyms() {
                 index_builder.add_alias(synonym, ngram_id);
             }
         }
 
-        Self { index: index_builder.build(), ngram_to_id }
+        Self {
+            index: index_builder.build(),
+            ngram_to_id,
+        }
     }
 
     fn get(&self, ngram_id: u32) -> AnimeId { self.ngram_to_id[&ngram_id] }

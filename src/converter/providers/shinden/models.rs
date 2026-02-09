@@ -2,6 +2,7 @@ use std::ops::Index;
 
 use ambassador::Delegate;
 use chrono::NaiveDate;
+use compact_str::CompactString;
 use indexmap::IndexMap;
 use rayon::prelude::*;
 use serde::{
@@ -25,10 +26,10 @@ use crate::converter::{
     extractor::TitleMetadata,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone, Delegate)]
+#[derive(Serialize, Deserialize, Debug, Clone, Delegate, PartialEq)]
 #[delegate(AnimeList, target = "entries")]
 pub struct ShindenList {
-    pub(crate) entries: IndexMap<AnimeId, AnimeEntry>,
+    pub(super) entries: IndexMap<AnimeId, AnimeEntry>,
 }
 
 impl Index<AnimeId> for ShindenList {
@@ -36,23 +37,24 @@ impl Index<AnimeId> for ShindenList {
     fn index(&self, index: AnimeId) -> &Self::Output { self.get(index).unwrap() }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AnimeEntry {
-    pub(crate) id: AnimeId,
-    pub(crate) cover_id: Option<i32>,
-    pub(crate) title: String,
-    pub(crate) metadata: TitleMetadata,
-    pub(crate) anime_status: AnimeStatus,
-    pub(crate) anime_type: AnimeType,
-    pub(crate) premiere_date: Option<NaiveDate>,
-    pub(crate) finish_date: Option<NaiveDate>,
-    pub(crate) episodes: Option<i32>,
-    pub(crate) is_favourite: bool,
-    pub(crate) watch_status: WatchStatus,
-    pub(crate) watched_episodes: i32,
-    pub(crate) score: Option<i32>,
-    pub(crate) note: Option<String>,
-    pub(crate) description: Option<String>,
+    pub(super) id: AnimeId,
+    pub(super) cover_id: Option<i32>,
+    pub(super) title: CompactString,
+    pub(super) normalized_title: CompactString,
+    pub(super) metadata: TitleMetadata,
+    pub(super) anime_status: AnimeStatus,
+    pub(super) anime_type: AnimeType,
+    pub(super) premiere_date: Option<NaiveDate>,
+    pub(super) finish_date: Option<NaiveDate>,
+    pub(super) episodes: Option<i32>,
+    pub(super) is_favourite: bool,
+    pub(super) watch_status: WatchStatus,
+    pub(super) watched_episodes: i32,
+    pub(super) score: Option<i32>,
+    pub(super) note: Option<CompactString>,
+    pub(super) description: Option<CompactString>,
 }
 
 impl AnimeEntry {
@@ -69,17 +71,18 @@ impl AnimeEntry {
     pub fn watch_status(&self) -> WatchStatus { self.watch_status }
     pub fn watched_episodes(&self) -> i32 { self.watched_episodes }
     pub fn score(&self) -> Option<i32> { self.score }
-    pub fn note(&self) -> &Option<String> { &self.note }
-    pub fn description(&self) -> &Option<String> { &self.description }
+    pub fn note(&self) -> &Option<CompactString> { &self.note }
+    pub fn description(&self) -> &Option<CompactString> { &self.description }
 }
 
 impl MatchView for AnimeEntry {
     fn title(&self) -> &str { &self.title }
+    fn normalized_title(&self) -> &str { &self.normalized_title }
     fn title_metadata(&self) -> Option<&TitleMetadata> { Some(&self.metadata) }
-    fn date(&self) -> Option<NaiveDate> { self.premiere_date }
+    fn date(&self) -> Option<Option<NaiveDate>> { Some(self.premiere_date) }
     fn anime_type(&self) -> Option<AnimeType> { Some(self.anime_type) }
     fn status(&self) -> Option<AnimeStatus> { Some(self.anime_status) }
-    fn episodes(&self) -> Option<i32> { self.episodes }
+    fn episodes(&self) -> Option<i32> { Some(self.episodes.unwrap_or_default()) }
 }
 
 impl ExportView for AnimeEntry {

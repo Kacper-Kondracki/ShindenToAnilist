@@ -19,7 +19,6 @@ pub use self::models::*;
 use crate::converter::common::AnimeId;
 
 mod json;
-
 pub mod models;
 
 #[cfg(test)]
@@ -62,6 +61,8 @@ impl AnimeDatabaseLoad for AnimeDatabase {
 
         db_root.entries = entries;
 
+        db_root.entries.sort_unstable_keys();
+
         Ok(db_root)
     }
     fn get_from_reader(reader: impl Read) -> Result<AnimeDatabase, DatabaseError> {
@@ -69,10 +70,9 @@ impl AnimeDatabaseLoad for AnimeDatabase {
 
         let mut lines = buf_reader.lines();
 
-        let mut db_root = serde_json::from_str::<json::DatabaseRoot>(
-            &lines.next().ok_or(DatabaseError::Empty)??,
-        )?
-        .into_model();
+        let mut db_root =
+            serde_json::from_str::<json::DatabaseRoot>(&lines.next().ok_or(DatabaseError::Empty)??)?
+                .into_model();
 
         db_root.entries.extend(
             lines

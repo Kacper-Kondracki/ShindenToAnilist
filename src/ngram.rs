@@ -2,22 +2,21 @@ use std::{
     cmp::Reverse,
     collections::BinaryHeap,
     iter,
-    marker::PhantomData,
 };
 
 use ahash::{
     AHashMap,
     AHashSet,
 };
+use indexmap::IndexMap;
 use ordered_float::OrderedFloat;
 use roaring::RoaringBitmap;
 use smallvec::SmallVec;
 
-use crate::utils::normalize_str;
-
 #[inline(always)]
 fn ngrams<const N: usize>(s: &[u8]) -> impl Iterator<Item = u32> {
-    s.windows(N).map(|w| w.iter().fold(0u32, |acc, &x| (acc << 8) | x as u32))
+    s.windows(N)
+        .map(|w| w.iter().fold(0u32, |acc, &x| (acc << 8) | x as u32))
 }
 
 trait DedupNgram {
@@ -38,10 +37,13 @@ impl PadNgram for str {
     #[inline(always)]
     fn pad_ngram(&self, ngram_size: usize) -> SmallVec<[u8; 32]> {
         let pad_len = ngram_size - 1;
-        let mut padded = SmallVec::with_capacity(self.len() + 2 * pad_len);
+        let total_len = self.len() + 2 * pad_len;
+        let mut padded = SmallVec::with_capacity(total_len);
+
         padded.extend(iter::repeat_n(b'^', pad_len));
         padded.extend_from_slice(self.as_bytes());
         padded.extend(iter::repeat_n(b'$', pad_len));
+
         padded
     }
 }
@@ -76,33 +78,21 @@ impl Scorer for RecallJaccard {
     }
 }
 
-pub(crate) trait Normalizer {
-    fn normalize(s: &str) -> String;
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct DefaultNormalizer;
-impl Normalizer for DefaultNormalizer {
-    fn normalize(s: &str) -> String { normalize_str(s) }
-}
-
 #[derive(Debug, Default, Clone)]
-pub(crate) struct NGramIndexBuilder<const N: usize, Norm: Normalizer> {
+pub(crate) struct NGramIndexBuilder<const N: usize> {
     postings: AHashMap<u32, Posting>,
     docs: Vec<DocData>,
-    _norm: PhantomData<Norm>,
 }
-impl<const N: usize, Norm: Normalizer> NGramIndexBuilder<N, Norm> {
+impl<const N: usize> NGramIndexBuilder<N> {
     pub(crate) fn add_ngram(&mut self, text: &str) -> u32 {
         let id = self.docs.len() as u32;
 
-        let len = ngrams::<N>(&Norm::normalize(text).pad_ngram(N)).dedup_ngram().fold(
-            0u32,
-            |acc, ngram| {
+        let len = ngrams::<N>(&text.pad_ngram(N))
+            .dedup_ngram()
+            .fold(0u32, |acc, ngram| {
                 self.postings.entry(ngram).or_default().item.insert(id);
                 acc + 1
-            },
-        );
+            });
 
         self.docs.push(DocData { len, canonical: id });
 
@@ -123,26 +113,28 @@ impl<const N: usize, Norm: Normalizer> NGramIndexBuilder<N, Norm> {
         }
     }
 
-    pub(crate) fn build(mut self) -> NGramIndex<N, Norm> {
+    pub(crate) fn build(mut self) -> NGramIndex<N> {
         self.precalculate_dfs();
 
-        NGramIndex { postings: self.postings, docs: self.docs, _norm: self._norm }
+        NGramIndex {
+            postings: self.postings,
+            docs: self.docs,
+        }
     }
 }
 
 #[derive(Debug, Default, Clone)]
-pub(crate) struct NGramIndex<const N: usize, Norm: Normalizer> {
+pub(crate) struct NGramIndex<const N: usize> {
     postings: AHashMap<u32, Posting>,
     docs: Vec<DocData>,
-    _norm: PhantomData<Norm>,
 }
-impl<const N: usize, Norm: Normalizer> NGramIndex<N, Norm> {
+impl<const N: usize> NGramIndex<N> {
     #[inline(always)]
     fn select_candidates(terms: &[&Posting], is_and: bool) -> Option<RoaringBitmap> {
         if is_and {
             let mut candidates = terms[0].item.clone();
 
-            for posting in terms.iter().copied().skip(1) {
+            for posting in &terms[1..] {
                 candidates &= &posting.item;
                 if candidates.is_empty() {
                     break;
@@ -156,7 +148,7 @@ impl<const N: usize, Norm: Normalizer> NGramIndex<N, Norm> {
         let mut candidates = terms[0].item.clone();
         let seed_terms = (terms.len() / 3).clamp(1, 4);
 
-        for posting in terms.iter().copied().skip(1).take(seed_terms) {
+        for posting in &terms[1..=seed_terms] {
             candidates |= &posting.item;
         }
 
@@ -178,38 +170,36 @@ impl<const N: usize, Norm: Normalizer> NGramIndex<N, Norm> {
 
         let mut terms: Vec<&Posting> = Vec::new();
 
-        let q_len = ngrams::<N>(&Norm::normalize(query).pad_ngram(N)).dedup_ngram().fold(
-            0u32,
-            |acc, ngram| {
+        let q_len = ngrams::<N>(&query.pad_ngram(N))
+            .dedup_ngram()
+            .fold(0u32, |acc, ngram| {
                 if let Some(posting) = self.postings.get(&ngram)
                     && posting.df < (DF_CUTOFF_RATIO * self.docs.len() as f32) as u32
                 {
                     terms.push(posting);
                 }
                 acc + 1
-            },
-        );
+            });
 
         if terms.is_empty() || q_len == 0 {
             return Vec::new();
         }
 
-        terms.sort_unstable_by_key(|posting| posting.df);
-
+        terms.sort_by_key(|posting| posting.df);
         let Some(candidates) = Self::select_candidates(&terms, mode == SearchMode::And) else {
             return Vec::new();
         };
 
-        let mut matches: AHashMap<u32, u32> = AHashMap::new();
+        let mut matches: IndexMap<u32, u32> = IndexMap::new();
 
-        for posting in terms.iter().copied() {
+        for posting in terms {
             let intersect = &candidates & &posting.item;
             for doc in intersect.iter() {
                 *matches.entry(doc).or_default() += 1;
             }
         }
 
-        let mut score_map: AHashMap<u32, f32> = AHashMap::new();
+        let mut score_map: IndexMap<u32, f32> = IndexMap::with_capacity(matches.len());
 
         for (doc, m) in matches {
             let doc_data = self.docs[doc as usize];
@@ -234,13 +224,12 @@ impl<const N: usize, Norm: Normalizer> NGramIndex<N, Norm> {
             score_map
                 .entry(canonical_id)
                 .and_modify(|current_score| {
-                    *current_score = current_score.max(score.clamp(0.0, 1.0));
+                    *current_score = current_score.max(score);
                 })
                 .or_insert(score.clamp(0.0, 1.0));
         }
 
-        let mut heap: BinaryHeap<Reverse<(OrderedFloat<f32>, u32)>> =
-            BinaryHeap::with_capacity(limit);
+        let mut heap: BinaryHeap<Reverse<(OrderedFloat<f32>, u32)>> = BinaryHeap::with_capacity(limit);
 
         for (doc, score) in score_map {
             let score = OrderedFloat(score);
@@ -255,11 +244,13 @@ impl<const N: usize, Norm: Normalizer> NGramIndex<N, Norm> {
             }
         }
 
-        let mut results: Vec<(u32, f32)> =
-            heap.into_iter().map(|Reverse((score, doc))| (doc, *score)).collect();
+        let mut results: Vec<(u32, f32)> = heap
+            .into_iter()
+            .map(|Reverse((score, doc))| (doc, *score))
+            .collect();
 
-        results.sort_by_key(|k| k.0);
-        results.sort_by_key(|k| Reverse(OrderedFloat(k.1)));
+        results.sort_by_key(|&(k, _)| k);
+        results.sort_by(|&(_, a), &(_, b)| b.total_cmp(&a));
 
         results
     }

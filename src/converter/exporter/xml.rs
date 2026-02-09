@@ -7,6 +7,10 @@ use std::{
 };
 
 use chrono::NaiveDate;
+use compact_str::{
+    CompactString,
+    ToCompactString,
+};
 use serde::{
     Serialize,
     Serializer,
@@ -41,14 +45,14 @@ impl Exporter for XmlExporter {
     fn export(
         &self,
         anime_list: &impl AnimeList<Entry = impl ExportView>,
-        anime_db: &impl AnimeList,
         entries: impl Iterator<Item = (AnimeId, AnimeId)>,
         writer: impl Write,
     ) -> Result<(), Self::Error> {
         let mut list_root = ListRootXml::default();
         for (id, db_id) in entries {
-            let entry = anime_list.get(id).ok_or(XmlExportError::OutOfIndex(id, "anime list"))?;
-            let _db_entry = anime_db.get(id).ok_or(XmlExportError::OutOfIndex(id, "database"))?;
+            let entry = anime_list
+                .get(id)
+                .ok_or(XmlExportError::OutOfIndex(id, "anime list"))?;
             list_root.anime.push(AnimeXml::from_export_view(entry, db_id));
         }
         serde_xml_rs::to_writer(writer, &list_root)?;
@@ -56,17 +60,20 @@ impl Exporter for XmlExporter {
     }
 }
 
-pub(crate) fn ser_mal_date<S>(date: &Option<NaiveDate>, serializer: S) -> Result<S::Ok, S::Error>
+fn ser_mal_date<S>(date: &Option<NaiveDate>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    let date = if let Some(date) = date { date.to_string() } else { "0000-00-00".to_string() };
-    serializer.serialize_str(&date)
+    if let Some(date) = date {
+        serializer.serialize_str(&date.to_compact_string())
+    } else {
+        serializer.serialize_str("0000-00-00")
+    }
 }
 
 #[derive(Serialize, Debug, Copy, Clone, Eq, PartialEq)]
 #[serde(into = "String")]
-pub(crate) enum AnimeStatus {
+enum AnimeStatus {
     Dropped,
     Completed,
     Watching,
@@ -107,23 +114,23 @@ impl From<AnimeStatus> for String {
 
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
-pub(crate) struct AnimeXml {
+struct AnimeXml {
     #[serde(rename = "series_animedb_id")]
-    pub(crate) id: AnimeId,
+    id: AnimeId,
     #[serde(rename = "my_watched_episodes")]
-    pub(crate) watched_episodes: i32,
+    watched_episodes: i32,
     #[serde(rename = "my_start_date", serialize_with = "ser_mal_date")]
-    pub(crate) start_date: Option<NaiveDate>,
+    start_date: Option<NaiveDate>,
     #[serde(rename = "my_finish_date")]
-    pub(crate) finish_date: Option<NaiveDate>,
+    finish_date: Option<NaiveDate>,
     #[serde(rename = "my_score")]
-    pub(crate) score: i32,
+    score: i32,
     #[serde(rename = "my_status")]
-    pub(crate) status: AnimeStatus,
+    status: AnimeStatus,
     #[serde(rename = "update_on_import")]
-    pub(crate) update: i32,
+    update: i32,
     #[serde(rename = "my_comments")]
-    pub(crate) comments: String,
+    comments: CompactString,
 }
 
 impl AnimeXml {
@@ -136,23 +143,23 @@ impl AnimeXml {
             score: export.score(),
             status: export.status().into(),
             update: 1,
-            comments: export.comments().unwrap_or_default().to_string(),
+            comments: export.comments().unwrap_or_default().to_compact_string(),
         }
     }
 }
 
 #[derive(Serialize, Debug, Clone, Default, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub(crate) struct InfoXml {
-    pub(crate) user_export_type: i32,
+struct InfoXml {
+    user_export_type: i32,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename = "myanimelist")]
 #[serde(rename_all = "snake_case")]
-pub(crate) struct ListRootXml {
+struct ListRootXml {
     #[serde(rename = "myinfo")]
-    pub(crate) info: InfoXml,
+    info: InfoXml,
     #[serde(rename = "anime")]
-    pub(crate) anime: Vec<AnimeXml>,
+    anime: Vec<AnimeXml>,
 }
