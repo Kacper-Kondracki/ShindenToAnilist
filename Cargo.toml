@@ -35,4 +35,5 @@ compact_str = { version = "0.9", features = ["serde"] }
 
 [dev-dependencies]
 egobox-ego = "0.36"
+ndarray = "0.16"
 mimalloc = { version = "0.1", features = ["v3"] }
