@@ -1,14 +1,13 @@
+use std::ops::Index;
+
 use ahash::AHashMap;
 use bon::Builder;
 
 use crate::{
-    converter::{
-        common::{
-            AnimeId,
-            AnimeList,
-            MatchView,
-        },
-        database::AnimeDatabase,
+    converter::common::{
+        AnimeId,
+        AnimeList,
+        MatchView,
     },
     database,
     ngram,
@@ -26,7 +25,7 @@ pub trait Searcher {
     fn search(&self, query: &str, options: Search) -> Vec<(AnimeId, f32)>;
     fn search_ref<'a>(
         &self,
-        database: &'a AnimeDatabase,
+        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
         query: &str,
         options: Search,
     ) -> Vec<(&'a database::AnimeEntry, f32)> {
@@ -82,7 +81,7 @@ pub trait SearcherAnimeExt: MatchView {
     }
     fn search_by_title_ref<'a>(
         &self,
-        database: &'a AnimeDatabase,
+        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
         searcher: &impl Searcher,
         options: Search,
     ) -> (&Self, Vec<(&'a database::AnimeEntry, f32)>) {
@@ -105,7 +104,7 @@ pub struct DefaultSearcher {
 }
 
 impl DefaultSearcher {
-    pub fn new(database: &AnimeDatabase) -> Self {
+    pub fn new(database: &impl AnimeList<Entry = database::AnimeEntry>) -> Self {
         let mut index_builder = NGramIndexBuilder::default();
         let mut ngram_to_id = AHashMap::new();
 
