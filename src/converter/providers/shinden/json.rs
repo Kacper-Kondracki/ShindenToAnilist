@@ -149,7 +149,7 @@ pub(super) struct AnimeList {
 
 impl AnimeList {
     fn sort(map: &mut IndexMap<AnimeId, models::AnimeEntry>) { map.sort_unstable_keys() }
-
+    #[allow(unused)]
     pub(super) fn into_map(self) -> IndexMap<AnimeId, models::AnimeEntry> {
         let mut map = self
             .items
@@ -185,6 +185,7 @@ pub(super) struct Response {
 }
 
 impl Response {
+    #[allow(unused)]
     pub(super) fn try_into_model(self) -> Result<models::ShindenList, String> {
         if !self.success || self.result.is_none() {
             return Err(self.message);
