@@ -34,6 +34,7 @@ impl DatabaseRoot {
                 .collect(),
         }
     }
+    #[allow(unused)]
     pub(super) fn par_into_model(self) -> models::AnimeDatabase {
         let DatabaseRoot { last_update, data } = self;
         models::AnimeDatabase {
