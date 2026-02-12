@@ -430,14 +430,14 @@ impl Matcher for DefaultMatcher {
             };
         }
 
-        scored_items.sort_by_key(|(_, k)| Reverse(OrderedFloat(k.final_score)));
+        scored_items.sort_by_key(|(_, k)| Reverse(OrderedFloat(k.final_score())));
 
         let mut winner: Option<(AnimeId, ScoreBreakdown)> = None;
 
         let top = scored_items
             .iter()
             .copied()
-            .filter(|(_, s)| ge_tol(s.final_score, self.match_threshold))
+            .filter(|(_, s)| ge_tol(s.final_score(), self.match_threshold))
             .collect::<Vec<_>>();
 
         if top.len() == 1 {
@@ -446,7 +446,10 @@ impl Matcher for DefaultMatcher {
             let first = top[0];
             let second = top[1];
 
-            if ge_tol(first.1.final_score - second.1.final_score, self.delta_threshold) {
+            if ge_tol(
+                first.1.final_score() - second.1.final_score(),
+                self.delta_threshold,
+            ) {
                 winner = Some(first);
             }
         }
@@ -458,6 +461,56 @@ impl Matcher for DefaultMatcher {
         }
     }
 }
+
+fn finalize_matches(results: &mut [&mut MatchResult]) {
+    let mut winners: AHashMap<AnimeId, (f32, usize)> = AHashMap::new();
+    for (i, result) in results.iter().enumerate() {
+        if let Some((id, score)) = result.winner {
+            winners
+                .entry(id)
+                .and_modify(|(x, ind)| {
+                    if score.final_score() > *x {
+                        *x = score.final_score();
+                        *ind = i;
+                    }
+                })
+                .or_insert((score.final_score(), i));
+        }
+    }
+
+    for (i, result) in results.iter_mut().enumerate() {
+        if let Some((id, _)) = result.winner {
+            let (_, ind) = winners[&id];
+            if i != ind {
+                result.winner = None;
+            }
+        }
+    }
+}
+
+pub trait MatcherFinalizer {
+    fn finalize_matches(&mut self);
+}
+
+impl<A> MatcherFinalizer for [(A, MatchResult)] {
+    fn finalize_matches(&mut self) {
+        let mut view = self.iter_mut().map(|(_, m)| m).collect::<Vec<_>>();
+        finalize_matches(view.as_mut_slice())
+    }
+}
+impl<A, B> MatcherFinalizer for [(A, B, MatchResult)] {
+    fn finalize_matches(&mut self) {
+        let mut view = self.iter_mut().map(|(_, _, m)| m).collect::<Vec<_>>();
+        finalize_matches(view.as_mut_slice())
+    }
+}
+impl<A, B, C> MatcherFinalizer for [(A, B, C, MatchResult)] {
+    fn finalize_matches(&mut self) {
+        let mut view = self.iter_mut().map(|(_, _, _, m)| m).collect::<Vec<_>>();
+        finalize_matches(view.as_mut_slice())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -483,6 +536,7 @@ mod tests {
         matcher::{
             DefaultMatcher,
             Matcher,
+            MatcherFinalizer,
             generate_weights,
         },
         providers::shinden::ShindenList,
@@ -505,11 +559,13 @@ mod tests {
         dbg!(matcher);
         let now = Instant::now();
 
-        let results = shinden
+        let mut results = shinden
             .par_values()
             .map(|entry| entry.search_by_title_ref(&database, &searcher, Search::options().strict().build()))
             .map(|(entry, candidates)| (entry, matcher.score_candidates(entry, candidates)))
             .collect::<Vec<_>>();
+
+        results.finalize_matches();
 
         let elapsed = now.elapsed();
 
