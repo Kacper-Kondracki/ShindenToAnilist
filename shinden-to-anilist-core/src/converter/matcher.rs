@@ -1,6 +1,7 @@
 use std::{
     cmp::Reverse,
     iter,
+    ops::Index,
 };
 
 use ahash::AHashMap;
@@ -13,7 +14,10 @@ use serde::{
 };
 
 use crate::{
-    common::MatchView,
+    common::{
+        AnimeList,
+        MatchView,
+    },
     converter::{
         common::AnimeId,
         database::{
@@ -23,7 +27,6 @@ use crate::{
         },
     },
     database,
-    database::AnimeDatabase,
     extractor::{
         ConsolidatedMetadata,
         FINAL,
@@ -75,21 +78,21 @@ impl MatchResult {
     pub fn items(&self) -> &[(AnimeId, ScoreBreakdown)] { &self.items }
     pub fn items_ref<'a>(
         &self,
-        database: &'a AnimeDatabase,
+        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
     ) -> impl Iterator<Item = (&'a database::AnimeEntry, ScoreBreakdown)> {
         self.items.iter().map(|&(k, v)| (&database[k], v))
     }
     pub fn winner(&self) -> Option<(AnimeId, ScoreBreakdown)> { self.winner }
     pub fn winner_ref<'a>(
         &self,
-        database: &'a AnimeDatabase,
+        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
     ) -> Option<(&'a database::AnimeEntry, ScoreBreakdown)> {
         self.winner.map(|(k, v)| (&database[k], v))
     }
     pub fn top(&self) -> &[(AnimeId, ScoreBreakdown)] { &self.top }
     pub fn top_ref<'a>(
         &self,
-        database: &'a AnimeDatabase,
+        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
     ) -> impl Iterator<Item = (&'a database::AnimeEntry, ScoreBreakdown)> {
         self.top.iter().map(|&(k, v)| (&database[k], v))
     }
@@ -516,6 +519,7 @@ mod tests {
     use std::{
         fs::File,
         io::BufReader,
+        ops::Index,
         time::Instant,
     };
 
@@ -528,7 +532,11 @@ mod tests {
     use rayon::prelude::*;
 
     use crate::{
-        common::AnimeList,
+        common::{
+            AnimeId,
+            AnimeList,
+        },
+        database,
         database::{
             AnimeDatabase,
             AnimeDatabaseLoad,
@@ -539,7 +547,10 @@ mod tests {
             MatcherFinalizer,
             generate_weights,
         },
-        providers::shinden::ShindenList,
+        providers::{
+            shinden,
+            shinden::ShindenList,
+        },
         searcher::{
             DefaultSearcher,
             Search,
@@ -642,8 +653,8 @@ mod tests {
 
     fn score_match(
         params: &[f64],
-        shinden: &ShindenList,
-        database: &AnimeDatabase,
+        shinden: &impl AnimeList<Entry = shinden::AnimeEntry>,
+        database: &(impl Index<AnimeId, Output = database::AnimeEntry> + Sync),
         searcher: &(impl Searcher + Sync),
     ) -> f64 {
         let gamma = params[8];
