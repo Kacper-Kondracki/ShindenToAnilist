@@ -9,7 +9,7 @@ use crate::{
         common::AnimeId,
         database,
         exporter,
-        extractor::TitleProcessor,
+        extractor::title_processor,
         providers::shinden::models,
     },
     utils::*,
@@ -40,7 +40,7 @@ pub(super) struct AnimeEntry {
 
 impl AnimeEntry {
     pub(super) fn into_model(self) -> models::AnimeEntry {
-        let metadata = TitleProcessor::process(&self.title);
+        let metadata = title_processor::process(&self.title);
         let normalized_title = normalize_str(&self.title);
         models::AnimeEntry {
             id: self.title_id,

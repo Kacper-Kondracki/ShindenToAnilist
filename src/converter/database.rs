@@ -42,7 +42,7 @@ pub trait AnimeDatabaseLoad {
 impl AnimeDatabaseLoad for AnimeDatabase {
     fn get_from_mmap(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError> {
         let file = File::open(path)?;
-        let mmap = unsafe { Mmap::map(&file)? };
+        let mmap = unsafe { Mmap::map(&file)? }; // Safe if no writes to the file
 
         let (header, after_header) = match mmap.iter().position(|&b| b == b'\n') {
             Some(pos) => mmap.split_at(pos + 1),

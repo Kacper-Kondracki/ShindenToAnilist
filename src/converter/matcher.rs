@@ -14,10 +14,7 @@ use serde::{
 };
 
 use crate::{
-    common::{
-        AnimeList,
-        MatchView,
-    },
+    common::MatchView,
     converter::{
         common::AnimeId,
         database::{
@@ -40,32 +37,21 @@ pub trait Matcher {
         &self,
         entry: &impl MatchView,
         candidates: Vec<(&database::AnimeEntry, f32)>,
+        neutral: f32,
     ) -> MatchResult;
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Default)]
 pub struct ScoreBreakdown {
-    search_score: f32,
-    similarity_score: f32,
-    season_score: f32,
-    year_score: f32,
-    type_score: f32,
-    status_score: f32,
-    seasonal_score: f32,
-    episodes_score: f32,
-    final_score: f32,
-}
-
-impl ScoreBreakdown {
-    pub fn search_score(&self) -> f32 { self.search_score }
-    pub fn similarity_score(&self) -> f32 { self.similarity_score }
-    pub fn season_score(&self) -> f32 { self.season_score }
-    pub fn year_score(&self) -> f32 { self.year_score }
-    pub fn type_score(&self) -> f32 { self.type_score }
-    pub fn status_score(&self) -> f32 { self.status_score }
-    pub fn seasonal_score(&self) -> f32 { self.seasonal_score }
-    pub fn episodes_score(&self) -> f32 { self.episodes_score }
-    pub fn final_score(&self) -> f32 { self.final_score }
+    pub search_score: f32,
+    pub similarity_score: f32,
+    pub season_score: f32,
+    pub year_score: f32,
+    pub type_score: f32,
+    pub status_score: f32,
+    pub seasonal_score: f32,
+    pub episodes_score: f32,
+    pub final_score: f32,
 }
 
 pub struct MatchResult {
@@ -146,109 +132,10 @@ impl Default for DefaultMatcher {
     }
 }
 
-impl DefaultMatcher {
-    pub fn from_weights(weights: [f32; 8], match_threshold: f32, delta_threshold: f32) -> Self {
-        Self {
-            search_weight: weights[0],
-            similarity_weight: weights[1],
-            season_weight: weights[2],
-            year_weight: weights[3],
-            type_weight: weights[4],
-            status_weight: weights[5],
-            seasonal_weight: weights[6],
-            episodes_weight: weights[7],
-            match_threshold,
-            delta_threshold,
-        }
-    }
+pub mod scoring {
+    use super::*;
 
-    pub fn strict_preset() -> Self {
-        Self::from_weights(
-            generate_weights(&[0.97, 0.99, 0.43, 0.98, 0.67, 0.02, 0.34, 0.24], 1.12)
-                .try_into()
-                .unwrap(),
-            0.70,
-            0.075,
-        )
-    }
-
-    fn score_status(status_a: Option<AnimeStatus>, status_b: AnimeStatus) -> f32 {
-        let Some(status_a) = status_a else { return 0.5 };
-        match (status_a, status_b) {
-            (AnimeStatus::Finished, b) => match b {
-                AnimeStatus::Finished => 1.0,
-                AnimeStatus::Ongoing => 0.6,
-                AnimeStatus::Upcoming => 0.2,
-                AnimeStatus::Unknown => 0.2,
-            },
-            (AnimeStatus::Ongoing, b) => match b {
-                AnimeStatus::Finished => 0.2,
-                AnimeStatus::Ongoing => 1.0,
-                AnimeStatus::Upcoming => 0.6,
-                AnimeStatus::Unknown => 0.2,
-            },
-            (AnimeStatus::Upcoming, b) => match b {
-                AnimeStatus::Finished => 0.2,
-                AnimeStatus::Ongoing => 0.2,
-                AnimeStatus::Upcoming => 1.0,
-                AnimeStatus::Unknown => 0.4,
-            },
-            (AnimeStatus::Unknown, b) => match b {
-                AnimeStatus::Unknown => 0.5,
-                _ => 0.4,
-            },
-        }
-    }
-    fn score_type(type_a: Option<AnimeType>, type_b: AnimeType) -> f32 {
-        let Some(type_a) = type_a else {
-            return 0.5;
-        };
-
-        if type_a == type_b {
-            return 1.0;
-        }
-
-        let similar_groups: &[&[AnimeType]] = &[
-            &[AnimeType::Ova, AnimeType::Ona, AnimeType::Special],
-            &[AnimeType::Tv, AnimeType::Ona],
-        ];
-
-        for group in similar_groups {
-            if group.contains(&type_a) && group.contains(&type_b) {
-                return 0.7;
-            }
-        }
-
-        if type_a == AnimeType::Unknown || type_b == AnimeType::Unknown {
-            return 0.5;
-        }
-
-        0.2
-    }
-    fn score_year(year_a: Option<Option<i32>>, year_b: Option<i32>) -> f32 {
-        let Some(year_a) = year_a else {
-            return 0.5;
-        };
-
-        match (year_a, year_b) {
-            (Some(sy), Some(dy)) => {
-                let diff = (sy - dy).abs();
-                match diff {
-                    0 => 1.0,
-                    1 => 0.6,
-                    2 => 0.25,
-                    _ => 0.2,
-                }
-            },
-            (None, Some(_)) | (Some(_), None) => 0.4,
-            (None, None) => 0.5,
-        }
-    }
-    fn score_season(metadata: Option<&TitleMetadata>, consolidated_metadata: ConsolidatedMetadata) -> f32 {
-        let Some(metadata) = metadata else {
-            return 0.5;
-        };
-
+    pub fn score_season(metadata: &TitleMetadata, consolidated_metadata: ConsolidatedMetadata) -> f32 {
         let (s_a, s_fin_a) = metadata
             .season()
             .map(|s| (s, s == FINAL))
@@ -291,23 +178,73 @@ impl DefaultMatcher {
 
         score.clamp(0.0, 1.0)
     }
-    fn score_episodes(episode_a: Option<i32>, episode_b: i32) -> f32 {
-        match (episode_a, episode_b) {
-            (Some(x), y) if x > 0 && y > 0 => {
-                let ratio = (x.min(y) as f32) / (x.max(y) as f32);
-                ratio.powf(1.15).max(0.2).clamp(0.0, 1.0)
+    pub fn score_year(year_a: Option<i32>, year_b: Option<i32>) -> f32 {
+        match (year_a, year_b) {
+            (Some(sy), Some(dy)) => {
+                let diff = (sy - dy).abs();
+                match diff {
+                    0 => 1.0,
+                    1 => 0.6,
+                    2 => 0.25,
+                    _ => 0.2,
+                }
             },
-            _ => 0.5,
+            (None, Some(_)) | (Some(_), None) => 0.4,
+            (None, None) => 0.5,
         }
     }
-    fn score_seasonal(year: Option<Option<i32>>, season: Season) -> f32 {
-        let Some(year) = year else {
-            return 0.5;
-        };
+    pub fn score_type(type_a: AnimeType, type_b: AnimeType) -> f32 {
+        if type_a == type_b {
+            return 1.0;
+        }
 
+        let similar_groups: &[&[AnimeType]] = &[
+            &[AnimeType::Ova, AnimeType::Ona, AnimeType::Special],
+            &[AnimeType::Tv, AnimeType::Ona],
+        ];
+
+        for group in similar_groups {
+            if group.contains(&type_a) && group.contains(&type_b) {
+                return 0.7;
+            }
+        }
+
+        if type_a == AnimeType::Unknown || type_b == AnimeType::Unknown {
+            return 0.5;
+        }
+
+        0.2
+    }
+    pub fn score_status(status_a: AnimeStatus, status_b: AnimeStatus) -> f32 {
+        match (status_a, status_b) {
+            (AnimeStatus::Finished, b) => match b {
+                AnimeStatus::Finished => 1.0,
+                AnimeStatus::Ongoing => 0.6,
+                AnimeStatus::Upcoming => 0.2,
+                AnimeStatus::Unknown => 0.2,
+            },
+            (AnimeStatus::Ongoing, b) => match b {
+                AnimeStatus::Finished => 0.2,
+                AnimeStatus::Ongoing => 1.0,
+                AnimeStatus::Upcoming => 0.6,
+                AnimeStatus::Unknown => 0.2,
+            },
+            (AnimeStatus::Upcoming, b) => match b {
+                AnimeStatus::Finished => 0.2,
+                AnimeStatus::Ongoing => 0.2,
+                AnimeStatus::Upcoming => 1.0,
+                AnimeStatus::Unknown => 0.4,
+            },
+            (AnimeStatus::Unknown, b) => match b {
+                AnimeStatus::Unknown => 0.5,
+                _ => 0.4,
+            },
+        }
+    }
+    pub fn score_seasonal(month: Option<i32>, season: Season) -> f32 {
         let season_center = season_center(season);
 
-        match (year, season_center) {
+        match (month, season_center) {
             (Some(x), Some(y)) => {
                 let diff = circular_month_distance(x, y);
                 match diff {
@@ -321,31 +258,80 @@ impl DefaultMatcher {
             (None, None) => 0.5,
         }
     }
+    pub fn score_episodes(episode_a: i32, episode_b: i32) -> f32 {
+        match (episode_a, episode_b) {
+            (x, y) if x > 0 && y > 0 => {
+                let ratio = (x.min(y) as f32) / (x.max(y) as f32);
+                ratio.powf(1.15).max(0.2).clamp(0.0, 1.0)
+            },
+            _ => 0.6,
+        }
+    }
+}
 
-    fn unique_synonyms_map<'a>(
-        &self,
-        candidates: &[(&'a database::AnimeEntry, f32)],
-    ) -> AHashMap<AnimeId, Vec<&'a str>> {
-        let mut counts: AHashMap<&str, usize> = AHashMap::new();
+fn season_center(season: Season) -> Option<i32> {
+    match season {
+        Season::Spring => Some(3),
+        Season::Summer => Some(6),
+        Season::Fall => Some(9),
+        Season::Winter => Some(12),
+        Season::Undefined => None,
+    }
+}
+fn circular_month_distance(month_a: i32, month_b: i32) -> i32 {
+    let diff = (month_a - month_b).abs();
+    diff.min(12 - diff)
+}
 
-        for (candidate, _) in candidates {
-            for synonym in candidate.synonyms() {
-                *counts.entry(synonym).or_default() += 1;
+fn unique_synonyms_map<'a>(
+    candidates: &[(&'a database::AnimeEntry, f32)],
+) -> AHashMap<AnimeId, Vec<&'a str>> {
+    let mut counts: AHashMap<&str, usize> = AHashMap::new();
+
+    for (candidate, _) in candidates {
+        for synonym in candidate.normalized_synonyms() {
+            *counts.entry(synonym).or_default() += 1;
+        }
+    }
+
+    let mut result: AHashMap<AnimeId, Vec<&str>> = AHashMap::with_capacity(candidates.len());
+
+    for (candidate, _) in candidates {
+        for synonym in candidate.normalized_synonyms() {
+            let c = counts[synonym.as_str()];
+            if c == 1 {
+                result.entry(candidate.id()).or_default().push(synonym);
             }
         }
+    }
 
-        let mut result: AHashMap<AnimeId, Vec<&str>> = AHashMap::with_capacity(candidates.len());
+    result
+}
 
-        for (candidate, _) in candidates {
-            for synonym in candidate.synonyms() {
-                let c = counts[synonym.as_str()];
-                if c == 1 {
-                    result.entry(candidate.id()).or_default().push(synonym);
-                }
-            }
+impl DefaultMatcher {
+    pub fn from_weights(weights: [f32; 8], match_threshold: f32, delta_threshold: f32) -> Self {
+        Self {
+            search_weight: weights[0],
+            similarity_weight: weights[1],
+            season_weight: weights[2],
+            year_weight: weights[3],
+            type_weight: weights[4],
+            status_weight: weights[5],
+            seasonal_weight: weights[6],
+            episodes_weight: weights[7],
+            match_threshold,
+            delta_threshold,
         }
+    }
 
-        result
+    pub fn strict_preset() -> Self {
+        Self::from_weights(
+            generate_weights(&[0.97, 0.99, 0.43, 0.98, 0.67, 0.02, 0.34, 0.24], 1.12)
+                .try_into()
+                .unwrap(),
+            0.70,
+            0.075,
+        )
     }
 
     fn score_candidate(
@@ -353,25 +339,44 @@ impl DefaultMatcher {
         entry: &impl MatchView,
         candidate: (&database::AnimeEntry, f32),
         synonyms: &[&str],
+        neutral: f32,
     ) -> (AnimeId, ScoreBreakdown) {
+        use scoring::*;
+
         let (candidate, search_score) = candidate;
 
-        let similarity_score = iter::once(&candidate.title())
+        let similarity_score = iter::once(&candidate.normalized_title())
             .chain(synonyms)
-            .map(|s| jaro_winkler::similarity(entry.title().chars(), s.chars()) as f32)
+            .map(|s| jaro_winkler::similarity(entry.normalized_title().chars(), s.chars()) as f32)
             .reduce(|a, b| a.max(b))
-            .unwrap_or_default()
+            .unwrap_or(search_score)
             .clamp(0.0, 1.0);
 
-        let season_score = Self::score_season(entry.title_metadata(), candidate.consolidated_metadata());
-        let year_score = Self::score_year(entry.year(), candidate.year());
-        let type_score = Self::score_type(entry.anime_type(), candidate.anime_type());
-        let status_score = Self::score_status(entry.status(), candidate.status());
-        let seasonal_score = Self::score_seasonal(
-            entry.date().map(|d| d.map(|d| d.month() as i32)),
-            candidate.season(),
-        );
-        let episodes_score = Self::score_episodes(entry.episodes(), candidate.episodes());
+        let season_score = entry
+            .title_metadata()
+            .map(|v| score_season(v, candidate.consolidated_metadata()))
+            .unwrap_or(neutral);
+        let year_score = entry
+            .year()
+            .map(|v| score_year(v, candidate.year()))
+            .unwrap_or(neutral);
+        let type_score = entry
+            .anime_type()
+            .map(|v| score_type(v, candidate.anime_type()))
+            .unwrap_or(neutral);
+        let status_score = entry
+            .status()
+            .map(|v| score_status(v, candidate.status()))
+            .unwrap_or(neutral);
+        let seasonal_score = entry
+            .date()
+            .map(|d| d.map(|d| d.month() as i32))
+            .map(|v| score_seasonal(v, candidate.season()))
+            .unwrap_or(neutral);
+        let episodes_score = entry
+            .episodes()
+            .map(|v| score_episodes(v, candidate.episodes()))
+            .unwrap_or(neutral);
 
         let final_score = (search_score * self.search_weight
             + similarity_score * self.similarity_weight
@@ -399,30 +404,24 @@ impl DefaultMatcher {
     }
 }
 
-fn season_center(season: Season) -> Option<i32> {
-    match season {
-        Season::Spring => Some(3),
-        Season::Summer => Some(6),
-        Season::Fall => Some(9),
-        Season::Winter => Some(12),
-        Season::Undefined => None,
-    }
-}
-fn circular_month_distance(month_a: i32, month_b: i32) -> i32 {
-    let diff = (month_a - month_b).abs();
-    diff.min(12 - diff)
-}
-
 impl Matcher for DefaultMatcher {
     fn score_candidates(
         &self,
         entry: &impl MatchView,
         candidates: Vec<(&database::AnimeEntry, f32)>,
+        neutral: f32,
     ) -> MatchResult {
-        let synonyms_map = self.unique_synonyms_map(&candidates);
+        let synonyms_map = unique_synonyms_map(&candidates);
         let mut scored_items = candidates
             .into_iter()
-            .map(|c| self.score_candidate(entry, c, synonyms_map.get(&c.0.id()).unwrap_or(&Vec::new())))
+            .map(|c| {
+                self.score_candidate(
+                    entry,
+                    c,
+                    synonyms_map.get(&c.0.id()).map_or(&[], |s| s.as_slice()),
+                    neutral,
+                )
+            })
             .collect::<Vec<_>>();
 
         if scored_items.is_empty() {
@@ -433,14 +432,14 @@ impl Matcher for DefaultMatcher {
             };
         }
 
-        scored_items.sort_by_key(|(_, k)| Reverse(OrderedFloat(k.final_score())));
+        scored_items.sort_by_key(|(_, k)| Reverse(OrderedFloat(k.final_score)));
 
         let mut winner: Option<(AnimeId, ScoreBreakdown)> = None;
 
         let top = scored_items
             .iter()
             .copied()
-            .filter(|(_, s)| ge_tol(s.final_score(), self.match_threshold))
+            .filter(|(_, s)| ge_tol(s.final_score, self.match_threshold))
             .collect::<Vec<_>>();
 
         if top.len() == 1 {
@@ -449,10 +448,7 @@ impl Matcher for DefaultMatcher {
             let first = top[0];
             let second = top[1];
 
-            if ge_tol(
-                first.1.final_score() - second.1.final_score(),
-                self.delta_threshold,
-            ) {
+            if ge_tol(first.1.final_score - second.1.final_score, self.delta_threshold) {
                 winner = Some(first);
             }
         }
@@ -472,12 +468,12 @@ fn finalize_matches(results: &mut [&mut MatchResult]) {
             winners
                 .entry(id)
                 .and_modify(|(x, ind)| {
-                    if score.final_score() > *x {
-                        *x = score.final_score();
+                    if score.final_score > *x {
+                        *x = score.final_score;
                         *ind = i;
                     }
                 })
-                .or_insert((score.final_score(), i));
+                .or_insert((score.final_score, i));
         }
     }
 
@@ -495,21 +491,9 @@ pub trait MatcherFinalizer {
     fn finalize_matches(&mut self);
 }
 
-impl<A> MatcherFinalizer for [(A, MatchResult)] {
+impl<'a, T: Iterator<Item = &'a mut MatchResult>> MatcherFinalizer for T {
     fn finalize_matches(&mut self) {
-        let mut view = self.iter_mut().map(|(_, m)| m).collect::<Vec<_>>();
-        finalize_matches(view.as_mut_slice())
-    }
-}
-impl<A, B> MatcherFinalizer for [(A, B, MatchResult)] {
-    fn finalize_matches(&mut self) {
-        let mut view = self.iter_mut().map(|(_, _, m)| m).collect::<Vec<_>>();
-        finalize_matches(view.as_mut_slice())
-    }
-}
-impl<A, B, C> MatcherFinalizer for [(A, B, C, MatchResult)] {
-    fn finalize_matches(&mut self) {
-        let mut view = self.iter_mut().map(|(_, _, _, m)| m).collect::<Vec<_>>();
+        let mut view = self.collect::<Vec<_>>();
         finalize_matches(view.as_mut_slice())
     }
 }
@@ -573,10 +557,10 @@ mod tests {
         let mut results = shinden
             .par_values()
             .map(|entry| entry.search_by_title_ref(&database, &searcher, Search::options().strict().build()))
-            .map(|(entry, candidates)| (entry, matcher.score_candidates(entry, candidates)))
+            .map(|(entry, candidates)| (entry, matcher.score_candidates(entry, candidates, 0.5)))
             .collect::<Vec<_>>();
 
-        results.finalize_matches();
+        results.iter_mut().map(|(_, result)| result).finalize_matches();
 
         let elapsed = now.elapsed();
 
@@ -585,7 +569,7 @@ mod tests {
             for (db_entry, scores) in result.items_ref(&database) {
                 println!(
                     "[{:.2} {:3}] {}",
-                    scores.final_score(),
+                    scores.final_score,
                     if Some(db_entry.id()) == result.winner.map(|x| x.0) {
                         "WIN"
                     } else {
@@ -669,7 +653,7 @@ mod tests {
         let results = shinden
             .par_values()
             .map(|x| x.search_by_title_ref(database, searcher, Search::options().strict().build()))
-            .map(|(entry, cands)| matcher.score_candidates(entry, cands))
+            .map(|(entry, cands)| matcher.score_candidates(entry, cands, 0.5))
             .collect::<Vec<_>>();
 
         results.iter().filter(|m| m.winner().is_some()).count() as f64

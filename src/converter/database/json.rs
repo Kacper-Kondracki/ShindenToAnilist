@@ -9,7 +9,7 @@ use super::models;
 use crate::{
     converter::{
         common::AnimeId,
-        extractor::TitleProcessor,
+        extractor::title_processor,
     },
     utils::normalize_str,
 };
@@ -76,13 +76,17 @@ fn extract_id_from_mal_url(url: &str) -> Option<AnimeId> {
 impl AnimeEntry {
     pub(super) fn into_model(self) -> Option<models::AnimeEntry> {
         let id = self.sources.iter().find_map(|s| extract_id_from_mal_url(s))?;
-        let metadata = TitleProcessor::process(&self.title);
-        let synonyms_metadata = self.synonyms.iter().map(|s| TitleProcessor::process(s)).collect();
+        let metadata = title_processor::process(&self.title);
+        let synonyms_metadata = self
+            .synonyms
+            .iter()
+            .map(|s| title_processor::process(s))
+            .collect();
 
         let metadata_list = iter::once(&metadata)
             .chain(&synonyms_metadata)
             .collect::<Vec<_>>();
-        let consolidated_metadata = TitleProcessor::consolidate(&metadata_list);
+        let consolidated_metadata = title_processor::consolidate(&metadata_list);
 
         let normalized_title = normalize_str(&self.title);
         let normalized_synonyms = self.synonyms.iter().map(|s| normalize_str(s)).collect();
