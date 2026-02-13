@@ -3,7 +3,6 @@ use std::{
     io::Read,
 };
 
-use async_trait::async_trait;
 use thiserror::Error;
 
 pub use self::models::*;
@@ -15,11 +14,13 @@ pub mod models;
 #[cfg(test)]
 mod tests;
 
-#[async_trait]
 pub trait ShindenListLoad {
-    async fn shinden_request(user: u64, limit: u64, offset: u64) -> Result<ShindenList, ShindenError>;
-    async fn get_from_shinden(user: u64) -> Result<ShindenList, ShindenError>;
-
+    fn shinden_request(
+        user: u64,
+        limit: u64,
+        offset: u64,
+    ) -> impl Future<Output = Result<ShindenList, ShindenError>> + Send;
+    fn get_from_shinden(user: u64) -> impl Future<Output = Result<ShindenList, ShindenError>> + Send;
     fn from_reader(reader: &mut impl Read) -> Result<ShindenList, ShindenError>;
 }
 
@@ -34,7 +35,6 @@ pub enum ShindenError {
     Shinden(String),
 }
 
-#[async_trait]
 impl ShindenListLoad for ShindenList {
     async fn shinden_request(user: u64, limit: u64, offset: u64) -> Result<ShindenList, ShindenError> {
         let client = http_client();

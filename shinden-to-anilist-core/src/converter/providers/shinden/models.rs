@@ -71,8 +71,8 @@ impl AnimeEntry {
     pub fn watch_status(&self) -> WatchStatus { self.watch_status }
     pub fn watched_episodes(&self) -> i32 { self.watched_episodes }
     pub fn score(&self) -> Option<i32> { self.score }
-    pub fn note(&self) -> &Option<CompactString> { &self.note }
-    pub fn description(&self) -> &Option<CompactString> { &self.description }
+    pub fn note(&self) -> Option<&CompactString> { self.note.as_ref() }
+    pub fn description(&self) -> Option<&CompactString> { self.description.as_ref() }
 }
 
 impl MatchView for AnimeEntry {
@@ -87,8 +87,8 @@ impl MatchView for AnimeEntry {
 
 impl ExportView for AnimeEntry {
     fn watched_episodes(&self) -> i32 { self.watched_episodes }
-    fn start_date(&self) -> Option<NaiveDate> { self.premiere_date }
-    fn finish_date(&self) -> Option<NaiveDate> { self.finish_date }
+    fn start_date(&self) -> Option<NaiveDate> { None }
+    fn finish_date(&self) -> Option<NaiveDate> { None }
     fn score(&self) -> i32 { self.score.unwrap_or_default() }
     fn status(&self) -> WatchStatus { self.watch_status }
     fn comments(&self) -> Option<&str> { self.note.as_deref() }

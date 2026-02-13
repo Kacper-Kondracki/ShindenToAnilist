@@ -122,8 +122,6 @@ impl DefaultSearcher {
             ngram_to_id,
         }
     }
-
-    fn get(&self, ngram_id: u32) -> AnimeId { self.ngram_to_id[&ngram_id] }
 }
 
 impl Searcher for DefaultSearcher {
@@ -139,7 +137,7 @@ impl Searcher for DefaultSearcher {
                 },
             )
             .into_iter()
-            .map(|(ng, v)| (self.get(ng), v))
+            .map(|(ng, v)| (self.ngram_to_id[&ng], v))
             .collect()
     }
 }

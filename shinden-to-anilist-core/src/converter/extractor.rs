@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    sync::LazyLock,
-};
+use std::sync::LazyLock;
 
 use indexmap::IndexMap;
 use ordered_float::OrderedFloat;
@@ -108,58 +105,60 @@ impl ConsolidatedMetadata {
     pub fn is_final_episode(&self) -> bool { self.is_final_episode }
 }
 
-pub struct TitleProcessor {}
-
-impl TitleProcessor {
-    fn word_to_num(word: &str) -> Option<Token> {
-        match word {
-            "i" | "one" => Some(Token::Num(1.0)),
-            "ii" | "two" => Some(Token::Num(2.0)),
-            "iii" | "three" => Some(Token::Num(3.0)),
-            "iv" | "four" => Some(Token::Num(4.0)),
-            "v" | "five" => Some(Token::Num(5.0)),
-            "vi" | "six" => Some(Token::Num(6.0)),
-            "vii" | "seven" => Some(Token::Num(7.0)),
-            "viii" | "eight" => Some(Token::Num(8.0)),
-            "ix" | "nine" => Some(Token::Num(9.0)),
-            "x" | "ten" => Some(Token::Num(10.0)),
-            _ => None,
-        }
+fn word_to_num(word: &str) -> Option<Token> {
+    match word {
+        "i" | "one" => Some(Token::Num(1.0)),
+        "ii" | "two" => Some(Token::Num(2.0)),
+        "iii" | "three" => Some(Token::Num(3.0)),
+        "iv" | "four" => Some(Token::Num(4.0)),
+        "v" | "five" => Some(Token::Num(5.0)),
+        "vi" | "six" => Some(Token::Num(6.0)),
+        "vii" | "seven" => Some(Token::Num(7.0)),
+        "viii" | "eight" => Some(Token::Num(8.0)),
+        "ix" | "nine" => Some(Token::Num(9.0)),
+        "x" | "ten" => Some(Token::Num(10.0)),
+        _ => None,
     }
+}
 
-    fn word_to_ordinal(word: &str) -> Option<Token> {
-        match word {
-            "first" => Some(Token::Ordinal(1.0)),
-            "second" => Some(Token::Ordinal(2.0)),
-            "third" => Some(Token::Ordinal(3.0)),
-            "fourth" => Some(Token::Ordinal(4.0)),
-            "fifth" => Some(Token::Ordinal(5.0)),
-            "sixth" => Some(Token::Ordinal(6.0)),
-            "seventh" => Some(Token::Ordinal(7.0)),
-            "eighth" => Some(Token::Ordinal(8.0)),
-            "ninth" => Some(Token::Ordinal(9.0)),
-            "tenth" => Some(Token::Ordinal(10.0)),
-            "final" | "finale" | "last" => Some(Token::Ordinal(FINAL)),
-            _ => None,
-        }
+fn word_to_ordinal(word: &str) -> Option<Token> {
+    match word {
+        "first" => Some(Token::Ordinal(1.0)),
+        "second" => Some(Token::Ordinal(2.0)),
+        "third" => Some(Token::Ordinal(3.0)),
+        "fourth" => Some(Token::Ordinal(4.0)),
+        "fifth" => Some(Token::Ordinal(5.0)),
+        "sixth" => Some(Token::Ordinal(6.0)),
+        "seventh" => Some(Token::Ordinal(7.0)),
+        "eighth" => Some(Token::Ordinal(8.0)),
+        "ninth" => Some(Token::Ordinal(9.0)),
+        "tenth" => Some(Token::Ordinal(10.0)),
+        "final" | "finale" | "last" => Some(Token::Ordinal(FINAL)),
+        _ => None,
     }
+}
 
-    fn get_keyword(word: &str) -> Option<Keyword> {
-        match word {
-            "season" => Some(Keyword::Season),
-            "s" => Some(Keyword::S),
-            "series" => Some(Keyword::Series),
-            "part" => Some(Keyword::Part),
-            "arc" => Some(Keyword::Arc),
-            "cour" => Some(Keyword::Cour),
-            "episode" | "episodes" => Some(Keyword::Episode),
-            "ova" => Some(Keyword::Ova),
-            "ona" => Some(Keyword::Ona),
-            "movie" | "film" | "theatre" | "theater" => Some(Keyword::Movie),
-            "special" | "specials" => Some(Keyword::Special),
-            _ => None,
-        }
+fn get_keyword(word: &str) -> Option<Keyword> {
+    match word {
+        "season" => Some(Keyword::Season),
+        "s" => Some(Keyword::S),
+        "series" => Some(Keyword::Series),
+        "part" => Some(Keyword::Part),
+        "arc" => Some(Keyword::Arc),
+        "cour" => Some(Keyword::Cour),
+        "episode" | "episodes" => Some(Keyword::Episode),
+        "ova" => Some(Keyword::Ova),
+        "ona" => Some(Keyword::Ona),
+        "movie" | "film" | "theatre" | "theater" => Some(Keyword::Movie),
+        "special" | "specials" => Some(Keyword::Special),
+        _ => None,
     }
+}
+
+pub mod title_processor {
+    use ahash::AHashSet;
+
+    use super::*;
 
     fn resolve_value_with_finality(values: &[f32]) -> (Option<f32>, bool) {
         let mut is_final = false;
@@ -186,9 +185,9 @@ impl TitleProcessor {
         let parts = metadata_list.iter().filter_map(|m| m.part).collect::<Vec<_>>();
         let episodes = metadata_list.iter().filter_map(|m| m.episode).collect::<Vec<_>>();
 
-        let (best_season, is_final_season) = Self::resolve_value_with_finality(&seasons);
-        let (best_part, is_final_part) = Self::resolve_value_with_finality(&parts);
-        let (best_episode, is_final_episode) = Self::resolve_value_with_finality(&episodes);
+        let (best_season, is_final_season) = resolve_value_with_finality(&seasons);
+        let (best_part, is_final_part) = resolve_value_with_finality(&parts);
+        let (best_episode, is_final_episode) = resolve_value_with_finality(&episodes);
 
         ConsolidatedMetadata {
             season: best_season.or(is_final_season.then_some(FINAL)),
@@ -200,62 +199,70 @@ impl TitleProcessor {
         }
     }
 
-    pub fn tokenize(title: &str) -> Vec<Token> {
-        let title_normalized = normalize_str(title);
-        let mut tokens = Vec::<Token>::new();
-
+    fn parse_raw_token(word: &str) -> Option<Token> {
         static YEAR_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:19|20)\d{2}$").unwrap());
         static END_NUM_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\d+\.?\d*).?$").unwrap());
         static ORDINAL_RE: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r"^(\d+)(?:st|nd|rd|th)\.?$").unwrap());
 
-        let words = title_normalized.unicode_word_indices().collect::<Vec<_>>();
-        for (i, (iw, word)) in words.iter().copied().enumerate().skip(1).rev() {
-            if YEAR_RE.is_match(word) {
+        if YEAR_RE.is_match(word) {
+            return None;
+        }
+
+        END_NUM_RE
+            .captures(word)
+            .and_then(|cap| cap[1].parse::<f32>().ok().map(Token::Num))
+            .or_else(|| {
+                ORDINAL_RE
+                    .captures(word)
+                    .and_then(|cap| cap[1].parse::<f32>().ok().map(Token::Ordinal))
+            })
+            .or_else(|| word_to_num(word))
+            .or_else(|| word_to_ordinal(word))
+            .or_else(|| get_keyword(word).map(Token::Keyword))
+    }
+
+    fn contains_special_chars(gap: &str) -> bool {
+        static SPECIAL_CHARS: &[char] = &['(', ')', '[', ']', '<', '>', '-', ':'];
+        gap.contains(SPECIAL_CHARS)
+    }
+
+    pub fn tokenize(title: &str) -> Vec<Token> {
+        let title_normalized = normalize_str(title);
+
+        let words: Vec<(usize, &str)> = title_normalized.unicode_word_indices().collect();
+        let mut tokens = Vec::new();
+
+        for i in (1..words.len()).rev() {
+            let (start, word) = words[i];
+
+            let Some(token) = parse_raw_token(word) else {
                 continue;
-            }
-            let t = END_NUM_RE
-                .captures(word)
-                .and_then(|cap| cap[1].parse::<f32>().ok().map(Token::Num))
-                .or_else(|| {
-                    ORDINAL_RE
-                        .captures(word)
-                        .and_then(|cap| cap[1].parse::<f32>().ok().map(Token::Ordinal))
-                })
-                .or_else(|| Self::word_to_num(word))
-                .or_else(|| Self::word_to_ordinal(word))
-                .or_else(|| Self::get_keyword(word).map(Token::Keyword));
-            if let Some(t) = t {
-                match t {
-                    Token::Num(_) | Token::Ordinal(_) => {
-                        let left = if i == 0 { None } else { Some(words[i - 1]) };
-                        let right = if i == words.len() - 1 {
-                            None
-                        } else {
-                            Some(words[i + 1])
-                        };
+            };
+            match token {
+                Token::Keyword(_) => tokens.push(token),
+                Token::Num(_) | Token::Ordinal(_) => {
+                    let left = words.get(i - 1);
+                    let right = words.get(i + 1);
 
-                        let yw = iw + word.len();
+                    let special_left = left.is_some_and(|&(l_start, l_word)| {
+                        let gap = &title_normalized[l_start + l_word.len()..start];
+                        contains_special_chars(gap)
+                    });
+                    let special_right = right.is_some_and(|&(r_start, _)| {
+                        let gap = &title_normalized[start + word.len()..r_start];
+                        contains_special_chars(gap)
+                    });
 
-                        static SPECIAL_CHARS: &[char] = &['(', ')', '[', ']', '<', '>', '-', ':'];
-                        let left_has_special =
-                            left.map(|w| title_normalized[w.0 + w.1.len()..iw].contains(SPECIAL_CHARS));
-                        let right_has_special =
-                            right.map(|w| title_normalized[yw..w.0].contains(SPECIAL_CHARS));
+                    let kw_left = left.and_then(|(_, w)| get_keyword(w)).is_some();
+                    let kw_right = right.and_then(|(_, w)| get_keyword(w)).is_some();
 
-                        if left.and_then(|w| Self::get_keyword(w.1)).is_some()
-                            || right.and_then(|w| Self::get_keyword(w.1)).is_some()
-                            || left_has_special.unwrap_or_default()
-                            || right_has_special.unwrap_or_default()
-                            || i == words.len() - 1
-                        {
-                            tokens.push(t);
-                        }
-                    },
-                    _ => {
-                        tokens.push(t);
-                    },
-                }
+                    let is_last_word = i == words.len() - 1;
+
+                    if kw_left || kw_right || special_left || special_right || is_last_word {
+                        tokens.push(token);
+                    }
+                },
             }
         }
         tokens.reverse();
@@ -263,7 +270,7 @@ impl TitleProcessor {
     }
 
     pub fn process(title: &str) -> TitleMetadata {
-        let tokens = Self::tokenize(title);
+        let tokens = tokenize(title);
         if tokens.is_empty() {
             return TitleMetadata::default();
         }
@@ -272,66 +279,60 @@ impl TitleProcessor {
             ..Default::default()
         };
 
-        let mut used_indices = HashSet::new();
-        for (i, token) in meta.tokens.iter().enumerate() {
-            let n = Self::find_num(&meta.tokens, i);
-            let mut o = Self::find_ordinal(&meta.tokens, i);
-            let v = n.or(o);
-            if n.is_some() {
-                used_indices.insert(i + 1);
-            } else if o.is_some() {
-                if used_indices.contains(&(i - 1)) {
-                    o = None;
-                } else {
-                    used_indices.insert(i - 1);
-                }
-            }
+        let mut used_indices = AHashSet::new();
+        let mut last_ordinal: Option<(usize, f32)> = None;
+        let mut tokens_iter = meta.tokens.iter().enumerate().peekable();
+        while let Some((i, token)) = tokens_iter.next() {
             match token {
-                Token::Keyword(kw) => {
-                    if kw.is_season() && meta.season.is_none() {
-                        meta.season = v;
-                    } else if kw.is_part() && meta.part.is_none() {
-                        meta.part = v;
-                    } else if kw.is_episode() && meta.episode.is_none() {
-                        meta.episode = v;
-                    }
+                Token::Ordinal(v) => {
+                    last_ordinal = Some((i, *v));
                 },
-                _ => continue,
+                Token::Keyword(kw) => {
+                    let next_val = tokens_iter.peek().and_then(|(_, next_t)| {
+                        if let Token::Num(v) = next_t {
+                            Some(*v)
+                        } else {
+                            None
+                        }
+                    });
+
+                    let mut value = None;
+
+                    if let Some(v) = next_val {
+                        value = Some(v);
+                        used_indices.insert(i + 1);
+                        tokens_iter.next();
+                    } else if let Some((idx, v)) = last_ordinal
+                        && !used_indices.contains(&idx)
+                    {
+                        value = Some(v);
+                        used_indices.insert(idx);
+                    }
+
+                    if let Some(v) = value {
+                        match () {
+                            _ if kw.is_season() && meta.season.is_none() => meta.season = Some(v),
+                            _ if kw.is_part() && meta.part.is_none() => meta.part = Some(v),
+                            _ if kw.is_episode() && meta.episode.is_none() => meta.episode = Some(v),
+                            _ => {},
+                        }
+                    }
+                    last_ordinal = None;
+                },
+                Token::Num(_) => {
+                    last_ordinal = None;
+                },
             }
         }
 
         if meta.season.is_none() {
-            let unused = meta.tokens.iter().enumerate().find_map(|(i, t)| {
-                if let Token::Num(v) | Token::Ordinal(v) = t
-                    && !used_indices.contains(&i)
-                {
-                    return Some(*v);
-                }
-                None
+            meta.season = meta.tokens.iter().enumerate().find_map(|(i, t)| match t {
+                Token::Num(v) | Token::Ordinal(v) if !used_indices.contains(&i) => Some(*v),
+                _ => None,
             });
-            meta.season = unused;
         }
 
         meta
-    }
-    fn find_ordinal(tokens: &[Token], kw_idx: usize) -> Option<f32> {
-        if kw_idx == 0 {
-            return None;
-        }
-        if let Some(Token::Ordinal(v)) = tokens.get(kw_idx - 1) {
-            return Some(*v);
-        }
-        None
-    }
-
-    fn find_num(tokens: &[Token], kw_idx: usize) -> Option<f32> {
-        if kw_idx == tokens.len() - 1 {
-            return None;
-        }
-        if let Some(Token::Num(v)) = tokens.get(kw_idx + 1) {
-            return Some(*v);
-        }
-        None
     }
 }
 
@@ -382,7 +383,7 @@ mod tests {
             ("Re:Zero Season 2 Part 2", Some(2.0), Some(2.0), None),
         ];
         for (input, s, p, e) in cases {
-            let res = TitleProcessor::process(input);
+            let res = title_processor::process(input);
             assert_eq!(res.season, s, "Failed Season, {}", input);
             assert_eq!(res.part, p, "Failed Part, {}", input);
             assert_eq!(res.episode, e, "Failed Episode, {}", input);

@@ -1,3 +1,8 @@
+use std::{
+    hint::black_box,
+    time::Instant,
+};
+
 use crate::{
     converter::{
         searcher,
@@ -24,4 +29,17 @@ fn searcher_title_test() {
         let text = format!("[{:.2}] {}", score, entry.title());
         println!("{}", text);
     }
+}
+
+#[test]
+fn searcher_init_test() {
+    let database = AnimeDatabase::get_from_mmap("anime-offline-database.jsonl").unwrap();
+
+    let now = Instant::now();
+    let searcher = searcher::DefaultSearcher::new(&database);
+    let elapsed = now.elapsed();
+
+    println!("took: {:.2?}", elapsed);
+
+    black_box(searcher);
 }

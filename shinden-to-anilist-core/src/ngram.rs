@@ -11,41 +11,40 @@ use ahash::{
 use indexmap::IndexMap;
 use ordered_float::OrderedFloat;
 use roaring::RoaringBitmap;
-use smallvec::SmallVec;
 
 #[inline(always)]
-fn ngrams<const N: usize>(s: &[u8]) -> impl Iterator<Item = u32> {
+#[allow(unused)]
+pub(crate) fn ngrams<const N: usize>(s: &[u8]) -> impl Iterator<Item = u32> {
     s.windows(N)
         .map(|w| w.iter().fold(0u32, |acc, &x| (acc << 8) | x as u32))
 }
+#[inline(always)]
+const fn ngram_mask<const N: usize>() -> u32 { if N == 4 { u32::MAX } else { (1u32 << (8 * N)) - 1 } }
+#[inline(always)]
+pub(crate) fn ngrams_padded<const N: usize>(s: &str) -> impl Iterator<Item = u32> + '_ {
+    let mask = ngram_mask::<N>();
 
-trait DedupNgram {
-    fn dedup_ngram(self) -> impl Iterator<Item = u32>;
-}
-impl<T: Iterator<Item = u32>> DedupNgram for T {
-    #[inline(always)]
-    fn dedup_ngram(self) -> impl Iterator<Item = u32> {
-        let mut seen = AHashSet::new();
-        self.into_iter().filter(move |x| seen.insert(*x))
+    let mut state = 0u32;
+    for _ in 0..N - 1 {
+        state = ((state << 8) | b'^' as u32) & mask;
     }
+
+    s.bytes()
+        .chain(iter::repeat_n(b'$', N - 1))
+        .scan(state, move |state, byte| {
+            *state = ((*state << 8) | byte as u32) & mask;
+            Some(*state)
+        })
+}
+#[inline(always)]
+pub(crate) fn dedup_ngram(ngram: impl Iterator<Item = u32>) -> impl Iterator<Item = u32> {
+    let mut seen = AHashSet::with_capacity(30);
+    ngram.into_iter().filter(move |x| seen.insert(*x))
 }
 
-trait PadNgram {
-    fn pad_ngram(&self, ngram_size: usize) -> SmallVec<[u8; 32]>;
-}
-impl PadNgram for str {
-    #[inline(always)]
-    fn pad_ngram(&self, ngram_size: usize) -> SmallVec<[u8; 32]> {
-        let pad_len = ngram_size - 1;
-        let total_len = self.len() + 2 * pad_len;
-        let mut padded = SmallVec::with_capacity(total_len);
-
-        padded.extend(iter::repeat_n(b'^', pad_len));
-        padded.extend_from_slice(self.as_bytes());
-        padded.extend(iter::repeat_n(b'$', pad_len));
-
-        padded
-    }
+#[inline(always)]
+pub(crate) fn ngram_padded_dedup<const N: usize>(s: &str) -> impl Iterator<Item = u32> {
+    dedup_ngram(ngrams_padded::<N>(s))
 }
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -87,12 +86,10 @@ impl<const N: usize> NGramIndexBuilder<N> {
     pub(crate) fn add_ngram(&mut self, text: &str) -> u32 {
         let id = self.docs.len() as u32;
 
-        let len = ngrams::<N>(&text.pad_ngram(N))
-            .dedup_ngram()
-            .fold(0u32, |acc, ngram| {
-                self.postings.entry(ngram).or_default().item.insert(id);
-                acc + 1
-            });
+        let len = ngram_padded_dedup::<N>(text).fold(0u32, |acc, ngram| {
+            self.postings.entry(ngram).or_default().item.insert(id);
+            acc + 1
+        });
 
         self.docs.push(DocData { len, canonical: id });
 
@@ -170,16 +167,14 @@ impl<const N: usize> NGramIndex<N> {
 
         let mut terms: Vec<&Posting> = Vec::new();
 
-        let q_len = ngrams::<N>(&query.pad_ngram(N))
-            .dedup_ngram()
-            .fold(0u32, |acc, ngram| {
-                if let Some(posting) = self.postings.get(&ngram)
-                    && posting.df < (DF_CUTOFF_RATIO * self.docs.len() as f32) as u32
-                {
-                    terms.push(posting);
-                }
-                acc + 1
-            });
+        let q_len = ngram_padded_dedup::<N>(query).fold(0u32, |acc, ngram| {
+            if let Some(posting) = self.postings.get(&ngram)
+                && posting.df < (DF_CUTOFF_RATIO * self.docs.len() as f32) as u32
+            {
+                terms.push(posting);
+            }
+            acc + 1
+        });
 
         if terms.is_empty() || q_len == 0 {
             return Vec::new();
@@ -214,7 +209,7 @@ impl<const N: usize> NGramIndex<N> {
                 continue;
             }
 
-            let score = S::score(m, q_len, d_len, 0.0);
+            let score = S::score(m, q_len, d_len, 0.0).clamp(0.0, 1.0);
             if score < threshold {
                 continue;
             }
@@ -226,7 +221,7 @@ impl<const N: usize> NGramIndex<N> {
                 .and_modify(|current_score| {
                     *current_score = current_score.max(score);
                 })
-                .or_insert(score.clamp(0.0, 1.0));
+                .or_insert(score);
         }
 
         let mut heap: BinaryHeap<Reverse<(OrderedFloat<f32>, u32)>> = BinaryHeap::with_capacity(limit);
@@ -249,8 +244,7 @@ impl<const N: usize> NGramIndex<N> {
             .map(|Reverse((score, doc))| (doc, *score))
             .collect();
 
-        results.sort_by_key(|&(k, _)| k);
-        results.sort_by(|&(_, a), &(_, b)| b.total_cmp(&a));
+        results.sort_by_key(|&(k, s)| (Reverse(OrderedFloat(s)), k));
 
         results
     }
