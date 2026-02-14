@@ -238,7 +238,11 @@ pub mod title_processor {
             };
             match token {
                 Token::Keyword(_) => tokens.push(token),
-                Token::Num(_) | Token::Ordinal(_) => {
+                Token::Num(n) | Token::Ordinal(n) => {
+                    if n != FINAL && n > 20.0 {
+                        continue; // Skip unrealistic seasons
+                    }
+
                     let left = words.get(i - 1);
                     let right = words.get(i + 1);
 
@@ -354,6 +358,8 @@ mod tests {
                 None,
             ),
             ("Shingeki no Kyojin 2: Kakusei no Houkou", Some(2.0), None, None),
+            ("Mob Psycho 100", None, None, None),
+            ("Mob Psycho 100 I", Some(1.0), None, None),
             ("Mob Psycho 100 II", Some(2.0), None, None),
             ("Jujutsu Kaisen Movie 0", None, None, Some(0.0)),
             ("Haikyuu!! 4", Some(4.0), None, None),
