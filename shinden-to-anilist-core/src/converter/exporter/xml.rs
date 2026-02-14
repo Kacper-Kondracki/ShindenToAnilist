@@ -29,14 +29,21 @@ use crate::converter::{
     },
 };
 
+/// Errors that can occur during XML export.
 #[derive(Error, Debug)]
 #[error(transparent)]
 pub enum XmlExportError {
+    /// XML serialization failed.
     Xml(#[from] serde_xml_rs::Error),
+    /// A matched anime ID was not found in the source list.
     #[error("id {0} for {1} is out of index")]
     OutOfIndex(AnimeId, &'static str),
 }
 
+/// Exports matched anime entries to MAL-compatible XML.
+///
+/// The output conforms to the MyAnimeList import format, suitable for
+/// uploading via MAL's list import tool.
 #[derive(Debug, Default, Clone)]
 pub struct XmlExporter {}
 impl Exporter for XmlExporter {
