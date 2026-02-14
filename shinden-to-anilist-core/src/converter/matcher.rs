@@ -98,20 +98,26 @@ pub struct DefaultMatcher {
     pub delta_threshold: f32,
 }
 
-pub fn generate_weights(priorities: &[f32], gamma: f32) -> Vec<f32> {
+pub fn generate_weights(priorities: &mut [f32], gamma: f32) {
     if priorities.is_empty() {
-        return vec![];
+        return;
     }
 
-    let powered: Vec<f32> = priorities.iter().map(|&p| p.powf(gamma)).collect();
+    for p in priorities.iter_mut() {
+        *p = p.powf(gamma);
+    }
 
-    let sum: f32 = powered.iter().sum();
+    let sum: f32 = priorities.iter().sum();
 
     if sum == 0.0 {
         let equal_weight = 1.0 / priorities.len() as f32;
-        vec![equal_weight; priorities.len()]
+        for p in priorities.iter_mut() {
+            *p = equal_weight;
+        }
     } else {
-        powered.iter().map(|&p| p / sum).collect()
+        for p in priorities.iter_mut() {
+            *p /= sum;
+        }
     }
 }
 
@@ -325,13 +331,9 @@ impl DefaultMatcher {
     }
 
     pub fn strict_preset() -> Self {
-        Self::from_weights(
-            generate_weights(&[0.97, 0.99, 0.43, 0.98, 0.67, 0.02, 0.34, 0.24], 1.12)
-                .try_into()
-                .unwrap(),
-            0.70,
-            0.075,
-        )
+        let mut weights = [0.97, 0.99, 0.43, 0.98, 0.67, 0.02, 0.34, 0.24];
+        generate_weights(&mut weights, 1.12);
+        Self::from_weights(weights, 0.70, 0.075)
     }
 
     fn score_candidate(
@@ -412,7 +414,7 @@ impl Matcher for DefaultMatcher {
         neutral: f32,
     ) -> MatchResult {
         let synonyms_map = unique_synonyms_map(&candidates);
-        let mut scored_items = candidates
+        let mut scored_items: Vec<(usize, ScoreBreakdown)> = candidates
             .into_iter()
             .map(|c| {
                 self.score_candidate(
@@ -422,7 +424,7 @@ impl Matcher for DefaultMatcher {
                     neutral,
                 )
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         if scored_items.is_empty() {
             return MatchResult {
@@ -436,11 +438,11 @@ impl Matcher for DefaultMatcher {
 
         let mut winner: Option<(AnimeId, ScoreBreakdown)> = None;
 
-        let top = scored_items
+        let top: Vec<(AnimeId, ScoreBreakdown)> = scored_items
             .iter()
             .copied()
             .filter(|(_, s)| ge_tol(s.final_score, self.match_threshold))
-            .collect::<Vec<_>>();
+            .collect();
 
         if top.len() == 1 {
             winner = Some(top[0]);
@@ -493,7 +495,7 @@ pub trait MatcherFinalizer {
 
 impl<'a, T: Iterator<Item = &'a mut MatchResult>> MatcherFinalizer for T {
     fn finalize_matches(&mut self) {
-        let mut view = self.collect::<Vec<_>>();
+        let mut view: Vec<&mut MatchResult> = self.collect();
         finalize_matches(view.as_mut_slice())
     }
 }
@@ -527,6 +529,7 @@ mod tests {
         },
         matcher::{
             DefaultMatcher,
+            MatchResult,
             Matcher,
             MatcherFinalizer,
             generate_weights,
@@ -554,11 +557,11 @@ mod tests {
         dbg!(matcher);
         let now = Instant::now();
 
-        let mut results = shinden
+        let mut results: Vec<(&shinden::AnimeEntry, MatchResult)> = shinden
             .par_values()
             .map(|entry| entry.search_by_title_ref(&database, &searcher, Search::options().strict().build()))
             .map(|(entry, candidates)| (entry, matcher.score_candidates(entry, candidates, 0.5)))
-            .collect::<Vec<_>>();
+            .collect();
 
         results.iter_mut().map(|(_, result)| result).finalize_matches();
 
@@ -643,18 +646,16 @@ mod tests {
     ) -> f64 {
         let gamma = params[8];
 
-        let weights = generate_weights(
-            &params[..8].iter().map(|&x| x as f32).collect::<Vec<_>>(),
-            gamma as f32,
-        );
+        let mut weights: Vec<f32> = params[..8].iter().map(|&x| x as f32).collect();
+        generate_weights(&mut weights, gamma as f32);
 
-        let matcher = DefaultMatcher::from_weights(weights.try_into().unwrap(), 0.75, 0.075);
+        let matcher = DefaultMatcher::from_weights(*weights.as_array().unwrap(), 0.75, 0.075);
 
-        let results = shinden
+        let results: Vec<MatchResult> = shinden
             .par_values()
             .map(|x| x.search_by_title_ref(database, searcher, Search::options().strict().build()))
             .map(|(entry, cands)| matcher.score_candidates(entry, cands, 0.5))
-            .collect::<Vec<_>>();
+            .collect();
 
         results.iter().filter(|m| m.winner().is_some()).count() as f64
     }

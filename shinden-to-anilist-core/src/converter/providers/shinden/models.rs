@@ -34,7 +34,7 @@ pub struct ShindenList {
 
 impl Index<AnimeId> for ShindenList {
     type Output = AnimeEntry;
-    fn index(&self, index: AnimeId) -> &Self::Output { self.get(index).unwrap() }
+    fn index(&self, index: AnimeId) -> &Self::Output { &self.entries[&index] }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

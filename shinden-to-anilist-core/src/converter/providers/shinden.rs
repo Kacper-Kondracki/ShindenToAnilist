@@ -3,10 +3,10 @@ use std::{
     io::Read,
 };
 
+use reqwest::Client;
 use thiserror::Error;
 
 pub use self::models::*;
-use crate::http_client;
 
 mod json;
 pub mod models;
@@ -16,11 +16,15 @@ mod tests;
 
 pub trait ShindenListLoad {
     fn shinden_request(
+        client: Client,
         user: u64,
         limit: u64,
         offset: u64,
     ) -> impl Future<Output = Result<ShindenList, ShindenError>> + Send;
-    fn get_from_shinden(user: u64) -> impl Future<Output = Result<ShindenList, ShindenError>> + Send;
+    fn get_from_shinden(
+        client: Client,
+        user: u64,
+    ) -> impl Future<Output = Result<ShindenList, ShindenError>> + Send;
     fn from_reader(reader: &mut impl Read) -> Result<ShindenList, ShindenError>;
 }
 
@@ -36,8 +40,12 @@ pub enum ShindenError {
 }
 
 impl ShindenListLoad for ShindenList {
-    async fn shinden_request(user: u64, limit: u64, offset: u64) -> Result<ShindenList, ShindenError> {
-        let client = http_client();
+    async fn shinden_request(
+        client: Client,
+        user: u64,
+        limit: u64,
+        offset: u64,
+    ) -> Result<ShindenList, ShindenError> {
         let bytes = client
             .get(format!(
                 "https://lista.shinden.pl/api/userlist/{}/anime?limit={}&offset={}",
@@ -57,8 +65,8 @@ impl ShindenListLoad for ShindenList {
         Ok(shinden_list)
     }
 
-    async fn get_from_shinden(user: u64) -> Result<ShindenList, ShindenError> {
-        Self::shinden_request(user, 99999, 0).await
+    async fn get_from_shinden(client: Client, user: u64) -> Result<ShindenList, ShindenError> {
+        Self::shinden_request(client, user, 99999, 0).await
     }
 
     fn from_reader(reader: &mut impl Read) -> Result<ShindenList, ShindenError> {

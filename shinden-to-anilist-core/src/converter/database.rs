@@ -51,13 +51,13 @@ impl AnimeDatabaseLoad for AnimeDatabase {
 
         let mut db_root = serde_json::from_slice::<json::DatabaseRoot>(header)?.into_model();
 
-        let entries = after_header
+        let entries: IndexMap<AnimeId, AnimeEntry> = after_header
             .par_split(|&b| b == b'\n')
             .filter_map(|line| match serde_json::from_slice::<json::AnimeEntry>(line) {
                 Ok(v) => v.into_model().map(|a| (a.id, a)).map(Ok),
                 Err(e) => Some(Err(DatabaseError::from(e))),
             })
-            .collect::<Result<IndexMap<AnimeId, AnimeEntry>, DatabaseError>>()?;
+            .collect::<Result<_, DatabaseError>>()?;
 
         db_root.entries = entries;
 

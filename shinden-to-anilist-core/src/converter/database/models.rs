@@ -32,7 +32,7 @@ pub struct AnimeDatabase {
 
 impl Index<AnimeId> for AnimeDatabase {
     type Output = AnimeEntry;
-    fn index<'a>(&self, index: AnimeId) -> &Self::Output { self.get(index).unwrap() }
+    fn index<'a>(&self, index: AnimeId) -> &Self::Output { &self.entries[&index] }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

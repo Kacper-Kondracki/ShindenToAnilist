@@ -1,8 +1,5 @@
-use std::sync::LazyLock;
-
 use indexmap::IndexMap;
 use ordered_float::OrderedFloat;
-use regex::Regex;
 use serde::{
     Deserialize,
     Serialize,
@@ -157,6 +154,7 @@ fn get_keyword(word: &str) -> Option<Keyword> {
 
 pub mod title_processor {
     use ahash::AHashSet;
+    use lazy_regex::regex;
 
     use super::*;
 
@@ -181,9 +179,9 @@ pub mod title_processor {
             return ConsolidatedMetadata::default();
         }
 
-        let seasons = metadata_list.iter().filter_map(|m| m.season).collect::<Vec<_>>();
-        let parts = metadata_list.iter().filter_map(|m| m.part).collect::<Vec<_>>();
-        let episodes = metadata_list.iter().filter_map(|m| m.episode).collect::<Vec<_>>();
+        let seasons: Vec<f32> = metadata_list.iter().filter_map(|m| m.season).collect();
+        let parts: Vec<f32> = metadata_list.iter().filter_map(|m| m.part).collect();
+        let episodes: Vec<f32> = metadata_list.iter().filter_map(|m| m.episode).collect();
 
         let (best_season, is_final_season) = resolve_value_with_finality(&seasons);
         let (best_part, is_final_part) = resolve_value_with_finality(&parts);
@@ -200,22 +198,21 @@ pub mod title_processor {
     }
 
     fn parse_raw_token(word: &str) -> Option<Token> {
-        static YEAR_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:19|20)\d{2}$").unwrap());
-        static END_NUM_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\d+\.?\d*).?$").unwrap());
-        static ORDINAL_RE: LazyLock<Regex> =
-            LazyLock::new(|| Regex::new(r"^(\d+)(?:st|nd|rd|th)\.?$").unwrap());
+        let year_re = regex!(r"^(?:19|20)\d{2}$");
+        let end_num_re = regex!(r"(\d+\.?\d*).?$");
+        let ordinal_re = regex!(r"^(\d+)(?:st|nd|rd|th)\.?$");
 
-        if YEAR_RE.is_match(word) {
+        if year_re.is_match(word) {
             return None;
         }
 
-        END_NUM_RE
+        end_num_re
             .captures(word)
-            .and_then(|cap| cap[1].parse::<f32>().ok().map(Token::Num))
+            .and_then(|cap| cap[1].parse().ok().map(Token::Num))
             .or_else(|| {
-                ORDINAL_RE
+                ordinal_re
                     .captures(word)
-                    .and_then(|cap| cap[1].parse::<f32>().ok().map(Token::Ordinal))
+                    .and_then(|cap| cap[1].parse().ok().map(Token::Ordinal))
             })
             .or_else(|| word_to_num(word))
             .or_else(|| word_to_ordinal(word))
