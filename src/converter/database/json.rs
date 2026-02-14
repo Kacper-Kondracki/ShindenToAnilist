@@ -11,6 +11,7 @@ use crate::{
         common::AnimeId,
         extractor::title_processor,
     },
+    extractor::TitleMetadata,
     utils::normalize_str,
 };
 
@@ -69,7 +70,7 @@ pub(super) struct AnimeEntry {
 }
 fn extract_id_from_mal_url(url: &str) -> Option<AnimeId> {
     url.contains("myanimelist")
-        .then(|| url.rsplit("/").next().and_then(|s| s.parse::<AnimeId>().ok()))
+        .then(|| url.rsplit('/').next().and_then(|s| s.parse().ok()))
         .flatten()
 }
 
@@ -83,9 +84,7 @@ impl AnimeEntry {
             .map(|s| title_processor::process(s))
             .collect();
 
-        let metadata_list = iter::once(&metadata)
-            .chain(&synonyms_metadata)
-            .collect::<Vec<_>>();
+        let metadata_list: Vec<&TitleMetadata> = iter::once(&metadata).chain(&synonyms_metadata).collect();
         let consolidated_metadata = title_processor::consolidate(&metadata_list);
 
         let normalized_title = normalize_str(&self.title);

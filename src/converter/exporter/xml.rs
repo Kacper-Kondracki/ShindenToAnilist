@@ -48,7 +48,10 @@ impl Exporter for XmlExporter {
         entries: impl Iterator<Item = (AnimeId, AnimeId)>,
         writer: impl Write,
     ) -> Result<(), Self::Error> {
-        let mut list_root = ListRootXml::default();
+        let mut list_root = ListRootXml {
+            info: InfoXml { user_export_type: 1 },
+            ..Default::default()
+        };
         for (id, db_id) in entries {
             let entry = anime_list
                 .get(id)
@@ -121,7 +124,7 @@ struct AnimeXml {
     watched_episodes: i32,
     #[serde(rename = "my_start_date", serialize_with = "ser_mal_date")]
     start_date: Option<NaiveDate>,
-    #[serde(rename = "my_finish_date")]
+    #[serde(rename = "my_finish_date", serialize_with = "ser_mal_date")]
     finish_date: Option<NaiveDate>,
     #[serde(rename = "my_score")]
     score: i32,

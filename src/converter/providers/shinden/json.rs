@@ -187,17 +187,19 @@ pub(super) struct Response {
 impl Response {
     #[allow(unused)]
     pub(super) fn try_into_model(self) -> Result<models::ShindenList, String> {
-        if !self.success || self.result.is_none() {
+        if !self.success {
             return Err(self.message);
         }
-        let entries = self.result.unwrap().into_map();
+        let result = self.result.ok_or(self.message)?;
+        let entries = result.into_map();
         Ok(models::ShindenList { entries })
     }
     pub(super) fn try_par_into_model(self) -> Result<models::ShindenList, String> {
-        if !self.success || self.result.is_none() {
+        if !self.success {
             return Err(self.message);
         }
-        let entries = self.result.unwrap().par_into_map();
+        let result = self.result.ok_or(self.message)?;
+        let entries = result.par_into_map();
         Ok(models::ShindenList { entries })
     }
 }

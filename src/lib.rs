@@ -1,10 +1,5 @@
 #![deny(unreachable_pub)]
-// #![deny(clippy::indexing_slicing)]
-// #![deny(clippy::unwrap_used)]
-
-use std::sync::LazyLock;
-
-use reqwest::Client;
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
 
 pub mod ngram;
 
@@ -19,15 +14,16 @@ use mimalloc::MiMalloc;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-pub(crate) static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| Client::builder().build().unwrap());
-pub(crate) fn http_client() -> Client { HTTP_CLIENT.clone() }
-
 pub use chrono::{
     Datelike,
     NaiveDate,
     Utc,
 };
 pub use compact_str::CompactString;
+pub use reqwest::{
+    Client as HttpClient,
+    Error as HttpError,
+};
 pub use serde_json::Error as JsonError;
 pub use serde_xml_rs::Error as XmlError;
 pub use tokio::task::JoinError;

@@ -30,6 +30,7 @@ unicode-segmentation = "1"
 wana_kana = "4"
 rapidfuzz = "0.5"
 compact_str = { version = "0.9", features = ["serde"] }
+lazy-regex = "3"
 
 [dev-dependencies]
 egobox-ego = "0.36"

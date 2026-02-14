@@ -4,6 +4,8 @@ use std::{
     time::Instant,
 };
 
+use reqwest::Client;
+
 use crate::{
     converter::common::AnimeList,
     providers::shinden::{
@@ -15,7 +17,9 @@ use crate::{
 #[tokio::test]
 async fn request_shinden_test() {
     let now = Instant::now();
-    let shinden = ShindenList::get_from_shinden(196402).await.unwrap();
+    let shinden = ShindenList::get_from_shinden(Client::new(), 196402)
+        .await
+        .unwrap();
     let elapsed = now.elapsed();
 
     println!("{} entries", shinden.len());
