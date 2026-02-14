@@ -24,19 +24,46 @@ pub mod models;
 #[cfg(test)]
 mod tests;
 
+/// Errors that can occur when loading the anime database.
 #[derive(Error, Debug)]
 #[error(transparent)]
 pub enum DatabaseError {
+    /// An I/O error occurred while reading the database file.
     Io(#[from] io::Error),
+    /// The database content could not be deserialized from JSON.
     Json(#[from] serde_json::Error),
+    /// The file was empty and contained no header line.
     #[error("can not parse empty file")]
     Empty,
 }
 
+/// Methods for constructing an [`AnimeDatabase`] from various sources.
+///
+/// The database format is a JSONL (JSON Lines) file where the first line
+/// contains the database root/header and each subsequent line is an anime
+/// entry serialized as JSON.
 pub trait AnimeDatabaseLoad {
+    /// Loads the database by memory-mapping the file at `path`.
+    ///
+    /// This is typically the fastest method for large databases as it avoids
+    /// copying data from kernel buffers.
+    ///
+    /// # Safety
+    ///
+    /// Uses `unsafe` internally to create a memory-mapped region.  This is
+    /// safe as long as no other process writes to the file while the map is
+    /// active.
     fn get_from_mmap(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError>;
+
+    /// Loads the database from any [`Read`] implementor (e.g. an open file,
+    /// network stream, or byte slice).
+    ///
+    /// Lines are buffered and parsed in parallel chunks.
     fn get_from_reader(reader: impl Read) -> Result<AnimeDatabase, DatabaseError>;
-    fn get_from_path(reader: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError>;
+
+    /// Convenience method: opens the file at `path` and delegates to
+    /// [`get_from_reader`](AnimeDatabaseLoad::get_from_reader).
+    fn get_from_path(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError>;
 }
 
 impl AnimeDatabaseLoad for AnimeDatabase {

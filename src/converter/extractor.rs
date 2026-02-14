@@ -8,6 +8,22 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::utils::normalize_str;
 
+/// Metadata extracted from an anime title string.
+///
+/// Contains parsed season, part, and episode numbers along with the raw
+/// token sequence that produced them.  Constructed via
+/// [`title_processor::process`].
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use shinden_to_anilist_core::extractor::title_processor;
+///
+/// let meta = title_processor::process("Attack on Titan Season 3 Part 2");
+/// assert_eq!(meta.season(), Some(3.0));
+/// assert_eq!(meta.part(), Some(2.0));
+/// assert_eq!(meta.episode(), None);
+/// ```
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct TitleMetadata {
     season: Option<f32>,
@@ -17,37 +33,54 @@ pub struct TitleMetadata {
 }
 
 impl TitleMetadata {
+    /// The detected season number, if any.
     pub fn season(&self) -> Option<f32> { self.season }
+    /// The detected part number, if any.
     pub fn part(&self) -> Option<f32> { self.part }
+    /// The detected episode number (for OVA/Movie numbering), if any.
     pub fn episode(&self) -> Option<f32> { self.episode }
+    /// The raw sequence of tokens parsed from the title.
     pub fn tokens(&self) -> &[Token] { &self.tokens }
+    /// Returns `true` if any token is a season-type keyword (Season, S, Series).
     pub fn has_season_keyword(&self) -> bool { self.tokens.iter().any(|t| t.is_season()) }
+    /// Returns `true` if any token is a part-type keyword (Part, Arc, Cour).
     pub fn has_part_keyword(&self) -> bool { self.tokens.iter().any(|t| t.is_part()) }
+    /// Returns `true` if any token is an episode-type keyword (Episode, OVA, Movie, …).
     pub fn has_episode_keyword(&self) -> bool { self.tokens.iter().any(|t| t.is_episode()) }
 }
 
+/// A single token extracted from a title during parsing.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum Token {
+    /// A plain number (e.g. `3` from "Season 3").
     Num(f32),
+    /// An ordinal (e.g. `2.0` from "2nd", or [`FINAL`] from "Final").
     Ordinal(f32),
+    /// A recognized keyword such as "Season" or "Movie".
     Keyword(Keyword),
 }
 
+/// Sentinel value representing "final" season/part/episode.
+///
+/// Used when titles contain words like "Final", "Finale", or "Last".
 pub const FINAL: f32 = 99.0;
 
 impl Token {
+    /// Returns `true` if this token is a season keyword.
     pub fn is_season(&self) -> bool {
         match self {
             Token::Keyword(kw) => kw.is_season(),
             _ => false,
         }
     }
+    /// Returns `true` if this token is a part keyword.
     pub fn is_part(&self) -> bool {
         match self {
             Token::Keyword(kw) => kw.is_part(),
             _ => false,
         }
     }
+    /// Returns `true` if this token is an episode keyword.
     pub fn is_episode(&self) -> bool {
         match self {
             Token::Keyword(kw) => kw.is_episode(),
@@ -56,24 +89,44 @@ impl Token {
     }
 }
 
+/// A recognized keyword that categorizes the adjacent number.
+///
+/// Keywords are grouped into three families:
+/// - **Season**: `Season`, `S`, `Series`
+/// - **Part**: `Part`, `Arc`, `Cour`
+/// - **Episode**: `Episode`, `Ova`, `Ona`, `Movie`, `Special`
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum Keyword {
+    /// "Season"
     Season,
+    /// Short form "S" (e.g. "S3").
     S,
+    /// "Series"
     Series,
+    /// "Part"
     Part,
+    /// "Arc"
     Arc,
+    /// "Cour"
     Cour,
+    /// "Episode" / "Episodes"
     Episode,
+    /// "OVA"
     Ova,
+    /// "ONA"
     Ona,
+    /// "Movie" / "Film" / "Theatre" / "Theater"
     Movie,
+    /// "Special" / "Specials"
     Special,
 }
 
 impl Keyword {
+    /// Returns `true` for season-family keywords (`Season`, `S`, `Series`).
     pub fn is_season(&self) -> bool { matches!(self, Keyword::Season | Keyword::S | Keyword::Series) }
+    /// Returns `true` for part-family keywords (`Part`, `Arc`, `Cour`).
     pub fn is_part(&self) -> bool { matches!(self, Keyword::Part | Keyword::Arc | Keyword::Cour) }
+    /// Returns `true` for episode-family keywords (`Episode`, `Ova`, `Ona`, `Movie`, `Special`).
     pub fn is_episode(&self) -> bool {
         matches!(
             self,
@@ -82,6 +135,11 @@ impl Keyword {
     }
 }
 
+/// Metadata consolidated from multiple title variants (primary + synonyms).
+///
+/// Produced by [`title_processor::consolidate`], this picks the most-voted
+/// season/part/episode values across all synonym [`TitleMetadata`] instances
+/// and tracks whether any of them was marked as "final".
 #[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone, Default)]
 pub struct ConsolidatedMetadata {
     season: Option<f32>,
@@ -94,11 +152,17 @@ pub struct ConsolidatedMetadata {
 }
 
 impl ConsolidatedMetadata {
+    /// Consolidated season number.
     pub fn season(&self) -> Option<f32> { self.season }
+    /// Consolidated part number.
     pub fn part(&self) -> Option<f32> { self.part }
+    /// Consolidated episode number.
     pub fn episode(&self) -> Option<f32> { self.episode }
+    /// `true` if any synonym indicated a final season.
     pub fn is_final_season(&self) -> bool { self.is_final_season }
+    /// `true` if any synonym indicated a final part.
     pub fn is_final_part(&self) -> bool { self.is_final_part }
+    /// `true` if any synonym indicated a final episode.
     pub fn is_final_episode(&self) -> bool { self.is_final_episode }
 }
 
@@ -152,6 +216,7 @@ fn get_keyword(word: &str) -> Option<Keyword> {
     }
 }
 
+/// Title parsing and metadata consolidation utilities.
 pub mod title_processor {
     use ahash::AHashSet;
     use lazy_regex::regex;
@@ -174,6 +239,12 @@ pub mod title_processor {
         (best_val.or(if is_final { Some(FINAL) } else { None }), is_final)
     }
 
+    /// Aggregates metadata from multiple [`TitleMetadata`] instances (e.g.
+    /// one per synonym) into a single [`ConsolidatedMetadata`].
+    ///
+    /// For each dimension (season, part, episode), the value that appears
+    /// most frequently across all metadata entries wins.  The "is_final"
+    /// flags are set if *any* entry contained the [`FINAL`] sentinel.
     pub fn consolidate(metadata_list: &[&TitleMetadata]) -> ConsolidatedMetadata {
         if metadata_list.is_empty() {
             return ConsolidatedMetadata::default();
@@ -224,6 +295,11 @@ pub mod title_processor {
         gap.contains(SPECIAL_CHARS)
     }
 
+    /// Tokenizes a title into a sequence of [`Token`]s.
+    ///
+    /// Extracts numbers, ordinals, and keywords from the normalized title.
+    /// Numbers embedded in the middle of a title are only kept when adjacent
+    /// to a keyword or a special separator character (e.g. `:`, `-`).
     pub fn tokenize(title: &str) -> Vec<Token> {
         let title_normalized = normalize_str(title);
 
@@ -270,6 +346,20 @@ pub mod title_processor {
         tokens
     }
 
+    /// Parses a title string into full [`TitleMetadata`].
+    ///
+    /// This is the main entry point for title metadata extraction.
+    /// It tokenizes the title and then resolves season, part, and episode
+    /// values from the token stream using keyword–number associations.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use shinden_to_anilist_core::extractor::title_processor;
+    ///
+    /// let meta = title_processor::process("Mob Psycho 100 III");
+    /// assert_eq!(meta.season(), Some(3.0));
+    /// ```
     pub fn process(title: &str) -> TitleMetadata {
         let tokens = tokenize(title);
         if tokens.is_empty() {

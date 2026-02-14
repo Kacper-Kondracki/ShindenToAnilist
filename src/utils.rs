@@ -78,6 +78,26 @@ where
 
 pub(crate) fn ge_tol(a: f32, b: f32) -> bool { a > b || relative_eq!(a, b) }
 
+/// Normalizes a string for search and matching.
+///
+/// 1. Transliterates Japanese characters to Romaji (using `wana_kana`).
+/// 2. Decomposes Unicode characters (NFD normalization).
+/// 3. Filters to keep only ASCII alphanumeric characters and whitespace.
+/// 4. Lowercases all characters.
+/// 5. Collapses multiple spaces into one and trims leading/trailing whitespace.
+/// 6. Returns a [`CompactString`] optimized for short strings.
+///
+/// # Example
+///
+/// ```rust
+/// use shinden_to_anilist_core::utils::normalize_str;
+///
+/// let s = "Shingeki no Kyojin: The Final Season";
+/// assert_eq!(normalize_str(s), "shingeki no kyojin: the final season");
+///
+/// let s = "   Shingeki no  Kyojin:  The   Final Season   ";
+/// assert_eq!(normalize_str(s), "shingeki no kyojin: the final season");
+/// ```
 pub fn normalize_str(s: &str) -> CompactString {
     let needs_romaji = s.chars().any(|c| c.is_japanese());
     let source = if needs_romaji {
