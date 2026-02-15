@@ -14,7 +14,6 @@ use crate::{
     ngram::{
         NGramIndex,
         NGramIndexBuilder,
-        RecallJaccard,
     },
 };
 
@@ -65,10 +64,13 @@ pub struct Search {
     pub mode: SearchMode,
 }
 
-use crate::converter::searcher::search_builder::{
-    IsUnset,
-    SetMode,
-    State,
+use crate::{
+    converter::searcher::search_builder::{
+        IsUnset,
+        SetMode,
+        State,
+    },
+    ngram::TfIdfCosine,
 };
 
 impl<S: State> SearchBuilder<S> {
@@ -163,7 +165,7 @@ impl DefaultSearcher {
 impl Searcher for DefaultSearcher {
     fn search(&self, query: &str, options: Search) -> Vec<(AnimeId, f32)> {
         self.index
-            .search::<RecallJaccard>(
+            .search::<TfIdfCosine>(
                 query,
                 options.limit,
                 options.threshold,
