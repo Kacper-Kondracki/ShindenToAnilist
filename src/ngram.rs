@@ -183,7 +183,7 @@ impl<const N: usize> NGramIndex<N> {
         if is_and {
             let mut candidates = terms[0].item.clone();
 
-            for posting in &terms[1..] {
+            for posting in terms.iter().skip(1) {
                 candidates &= &posting.item;
                 if candidates.is_empty() {
                     break;
@@ -197,7 +197,7 @@ impl<const N: usize> NGramIndex<N> {
         let mut candidates = terms[0].item.clone();
         let seed_terms = (terms.len() / 3).clamp(1, 4);
 
-        for posting in &terms[1..=seed_terms] {
+        for posting in terms.iter().skip(1).take(seed_terms) {
             candidates |= &posting.item;
         }
 
