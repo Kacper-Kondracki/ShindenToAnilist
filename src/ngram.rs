@@ -9,7 +9,10 @@ use ahash::{
     AHashSet,
 };
 use indexmap::IndexMap;
-use ordered_float::OrderedFloat;
+use ordered_float::{
+    OrderedFloat,
+    Pow,
+};
 use roaring::RoaringBitmap;
 
 #[inline(always)]
@@ -50,6 +53,7 @@ pub(crate) fn ngram_padded_dedup<const N: usize>(s: &str) -> impl Iterator<Item 
 #[derive(Debug, Default, Copy, Clone)]
 struct DocData {
     len: u32,
+    norm: f32,
     canonical: u32,
 }
 #[derive(Debug, Default, Clone)]
@@ -59,21 +63,43 @@ struct Posting {
 }
 
 pub(crate) trait Scorer {
-    fn score(matched: u32, query_len: u32, doc_len: u32, idf_sum: f32) -> f32;
+    #[inline(always)]
+    fn finalize(x: f32) -> f32 { x }
+    fn update_match(current: f32, idf: f32) -> f32;
+    fn score(matched: f32, query_val: f32, doc_len: u32, doc_norm: f32) -> f32;
 }
 
 #[derive(Debug, Default)]
+#[allow(unused)]
 pub(crate) struct RecallJaccard;
 impl Scorer for RecallJaccard {
     #[inline(always)]
-    fn score(m: u32, q: u32, d: u32, _: f32) -> f32 {
+    fn update_match(current: f32, _idf: f32) -> f32 { current + 1.0 }
+    #[inline(always)]
+    fn score(m: f32, q_len: f32, d_len: u32, _d_norm: f32) -> f32 {
         let alpha = 0.8;
         let beta = 1.0 - alpha;
-        let recall = m as f32 / q as f32;
-        let union = q + d - m;
-        let jaccard = m as f32 / union as f32;
-
+        let recall = m / q_len;
+        let union = q_len + (d_len as f32) - m;
+        let jaccard = m / union;
         alpha * recall + beta * jaccard
+    }
+}
+
+#[derive(Debug, Default)]
+#[allow(unused)]
+pub(crate) struct TfIdfCosine;
+impl Scorer for TfIdfCosine {
+    #[inline(always)]
+    fn finalize(x: f32) -> f32 { x.sqrt() }
+    #[inline(always)]
+    fn update_match(current: f32, idf: f32) -> f32 { current + idf.pow(2) }
+    #[inline(always)]
+    fn score(dot_product: f32, q_norm: f32, _d_len: u32, d_norm: f32) -> f32 {
+        if q_norm == 0.0 || d_norm == 0.0 {
+            return 0.0;
+        }
+        dot_product / (q_norm * d_norm)
     }
 }
 
@@ -83,19 +109,26 @@ pub(crate) struct NGramIndexBuilder<const N: usize> {
     docs: Vec<DocData>,
 }
 impl<const N: usize> NGramIndexBuilder<N> {
+    #[inline(always)]
     pub(crate) fn add_ngram(&mut self, text: &str) -> u32 {
         let id = self.docs.len() as u32;
 
-        let len = ngram_padded_dedup::<N>(text).fold(0u32, |acc, ngram| {
+        let mut len = 0;
+        for ngram in ngram_padded_dedup::<N>(text) {
             self.postings.entry(ngram).or_default().item.insert(id);
-            acc + 1
-        });
+            len += 1;
+        }
 
-        self.docs.push(DocData { len, canonical: id });
+        self.docs.push(DocData {
+            len,
+            canonical: id,
+            norm: 0.0,
+        });
 
         id
     }
 
+    #[inline(always)]
     pub(crate) fn add_alias(&mut self, text: &str, id: u32) -> u32 {
         let alias_id = self.add_ngram(text);
 
@@ -104,14 +137,33 @@ impl<const N: usize> NGramIndexBuilder<N> {
         alias_id
     }
 
-    fn precalculate_dfs(&mut self) {
-        for (_, posting) in self.postings.iter_mut() {
-            posting.df = posting.item.len() as u32;
-        }
-    }
-
     pub(crate) fn build(mut self) -> NGramIndex<N> {
-        self.precalculate_dfs();
+        for (_, posting) in self.postings.iter_mut() {
+            posting.item.optimize();
+        }
+
+        let num_docs = self.docs.len() as f32;
+        let mut doc_norms_sq = vec![0.0f32; self.docs.len()];
+
+        for (_, posting) in self.postings.iter_mut() {
+            let df = posting.item.len() as u32;
+            posting.df = df;
+
+            if df == 0 {
+                continue;
+            }
+
+            let idf = (1.0 + num_docs / (df as f32)).ln();
+            let weight_sq = idf * idf;
+
+            for doc_id in posting.item.iter() {
+                doc_norms_sq[doc_id as usize] += weight_sq;
+            }
+        }
+
+        for (doc, norm_sq) in self.docs.iter_mut().zip(doc_norms_sq) {
+            doc.norm = norm_sq.sqrt();
+        }
 
         NGramIndex {
             postings: self.postings,
@@ -165,32 +217,44 @@ impl<const N: usize> NGramIndex<N> {
             return Vec::new();
         }
 
-        let mut terms: Vec<&Posting> = Vec::new();
+        let mut terms: Vec<(&Posting, f32)> = Vec::with_capacity(30);
+        let df_cutoff = (DF_CUTOFF_RATIO * self.docs.len() as f32) as u32;
+        let num_docs = self.docs.len() as f32;
 
-        let q_len = ngram_padded_dedup::<N>(query).fold(0u32, |acc, ngram| {
-            if let Some(posting) = self.postings.get(&ngram)
-                && posting.df < (DF_CUTOFF_RATIO * self.docs.len() as f32) as u32
-            {
-                terms.push(posting);
+        let mut query_val = 0.0f32;
+
+        for ngram in ngram_padded_dedup::<N>(query) {
+            if let Some(posting) = self.postings.get(&ngram) {
+                let idf = (1.0 + num_docs / (posting.df as f32)).ln();
+                query_val = S::update_match(query_val, idf);
+
+                if posting.df < df_cutoff {
+                    terms.push((posting, idf));
+                }
             }
-            acc + 1
-        });
+        }
 
-        if terms.is_empty() || q_len == 0 {
+        let query_val = S::finalize(query_val);
+
+        if terms.is_empty() || query_val == 0.0 {
             return Vec::new();
         }
 
-        terms.sort_by_key(|posting| posting.df);
-        let Some(candidates) = Self::select_candidates(&terms, mode == SearchMode::And) else {
+        terms.sort_by_key(|&(p, _)| p.df);
+        let raw_postings: Vec<&Posting> = terms.iter().map(|&(p, _)| p).collect();
+        let Some(candidates) = Self::select_candidates(&raw_postings, mode == SearchMode::And) else {
             return Vec::new();
         };
 
-        let mut matches: IndexMap<u32, u32> = IndexMap::new();
+        let mut matches: IndexMap<u32, f32> = IndexMap::new();
 
-        for posting in terms {
+        for (posting, idf) in terms {
             let intersect = &candidates & &posting.item;
             for doc in intersect.iter() {
-                *matches.entry(doc).or_default() += 1;
+                matches
+                    .entry(doc)
+                    .and_modify(|val| *val = S::update_match(*val, idf))
+                    .or_insert_with(|| S::update_match(0.0, idf));
             }
         }
 
@@ -198,18 +262,10 @@ impl<const N: usize> NGramIndex<N> {
 
         for (doc, m) in matches {
             let doc_data = self.docs[doc as usize];
-            let d_len = doc_data.len;
 
-            if d_len == 0 || m == 0 {
-                continue;
-            }
+            let score = S::score(m, query_val, doc_data.len, doc_data.norm);
+            let score = score.clamp(0.0, 1.0);
 
-            let max_recall = m as f32 / q_len as f32;
-            if max_recall < threshold {
-                continue;
-            }
-
-            let score = S::score(m, q_len, d_len, 0.0).clamp(0.0, 1.0);
             if score < threshold {
                 continue;
             }
