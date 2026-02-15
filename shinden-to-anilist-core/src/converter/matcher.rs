@@ -1,13 +1,11 @@
 use std::{
     cmp::Reverse,
-    iter,
     ops::Index,
 };
 
 use ahash::AHashMap;
 use chrono::Datelike;
 use ordered_float::OrderedFloat;
-use rapidfuzz::distance::jaro_winkler;
 use serde::{
     Deserialize,
     Serialize,
@@ -58,8 +56,6 @@ pub trait Matcher {
 pub struct ScoreBreakdown {
     /// Score from the search phase.
     pub search_score: f32,
-    /// String similarity between normalized titles.
-    pub similarity_score: f32,
     /// Season / part number agreement.
     pub season_score: f32,
     /// Premiere year proximity.
@@ -139,8 +135,6 @@ impl MatchResult {
 pub struct DefaultMatcher {
     /// Weight for the search score.
     pub search_weight: f32,
-    /// Weight for string similarity.
-    pub similarity_weight: f32,
     /// Weight for season/part agreement.
     pub season_weight: f32,
     /// Weight for year proximity.
@@ -206,7 +200,6 @@ impl Default for DefaultMatcher {
     fn default() -> Self {
         Self {
             search_weight: 0.21,
-            similarity_weight: 0.21,
             season_weight: 0.05,
             year_weight: 0.13,
             type_weight: 0.16,
@@ -404,46 +397,20 @@ fn circular_month_distance(month_a: i32, month_b: i32) -> i32 {
     diff.min(12 - diff)
 }
 
-fn unique_synonyms_map<'a>(
-    candidates: &[(&'a database::AnimeEntry, f32)],
-) -> AHashMap<AnimeId, Vec<&'a str>> {
-    let mut counts: AHashMap<&str, usize> = AHashMap::new();
-
-    for (candidate, _) in candidates {
-        for synonym in candidate.normalized_synonyms() {
-            *counts.entry(synonym).or_default() += 1;
-        }
-    }
-
-    let mut result: AHashMap<AnimeId, Vec<&str>> = AHashMap::with_capacity(candidates.len());
-
-    for (candidate, _) in candidates {
-        for synonym in candidate.normalized_synonyms() {
-            let c = counts[synonym.as_str()];
-            if c == 1 {
-                result.entry(candidate.id()).or_default().push(synonym);
-            }
-        }
-    }
-
-    result
-}
-
 impl DefaultMatcher {
     /// Creates a matcher from explicit weight values.
     ///
-    /// The 8-element `weights` array maps to:
-    /// `[search, similarity, season, year, type, status, seasonal, episodes]`.
-    pub fn from_weights(weights: [f32; 8], match_threshold: f32, delta_threshold: f32) -> Self {
+    /// The 7-element `weights` array maps to:
+    /// `[search, season, year, type, status, seasonal, episodes]`.
+    pub fn from_weights(weights: [f32; 7], match_threshold: f32, delta_threshold: f32) -> Self {
         Self {
             search_weight: weights[0],
-            similarity_weight: weights[1],
-            season_weight: weights[2],
-            year_weight: weights[3],
-            type_weight: weights[4],
-            status_weight: weights[5],
-            seasonal_weight: weights[6],
-            episodes_weight: weights[7],
+            season_weight: weights[1],
+            year_weight: weights[2],
+            type_weight: weights[3],
+            status_weight: weights[4],
+            seasonal_weight: weights[5],
+            episodes_weight: weights[6],
             match_threshold,
             delta_threshold,
         }
@@ -453,8 +420,8 @@ impl DefaultMatcher {
     ///
     /// Uses `match_threshold = 0.70` and `delta_threshold = 0.075`.
     pub fn strict_preset() -> Self {
-        let mut weights = [0.97, 0.99, 0.43, 0.98, 0.67, 0.02, 0.34, 0.24];
-        generate_weights(&mut weights, 1.12);
+        let mut weights = [1.00, 0.19, 0.77, 0.70, 0.48, 0.22, 0.32];
+        generate_weights(&mut weights, 0.66);
         Self::from_weights(weights, 0.70, 0.075)
     }
 
@@ -462,19 +429,11 @@ impl DefaultMatcher {
         &self,
         entry: &impl MatchView,
         candidate: (&database::AnimeEntry, f32),
-        synonyms: &[&str],
         neutral: f32,
     ) -> (AnimeId, ScoreBreakdown) {
         use scoring::*;
 
         let (candidate, search_score) = candidate;
-
-        let similarity_score = iter::once(&candidate.normalized_title())
-            .chain(synonyms)
-            .map(|s| jaro_winkler::similarity(entry.normalized_title().chars(), s.chars()) as f32)
-            .reduce(|a, b| a.max(b))
-            .unwrap_or(search_score)
-            .clamp(0.0, 1.0);
 
         let season_score = entry
             .title_metadata()
@@ -503,7 +462,6 @@ impl DefaultMatcher {
             .unwrap_or(neutral);
 
         let final_score = (search_score * self.search_weight
-            + similarity_score * self.similarity_weight
             + season_score * self.season_weight
             + year_score * self.year_weight
             + type_score * self.type_weight
@@ -514,7 +472,6 @@ impl DefaultMatcher {
 
         let score_breakdown = ScoreBreakdown {
             search_score,
-            similarity_score,
             season_score,
             year_score,
             type_score,
@@ -535,17 +492,9 @@ impl Matcher for DefaultMatcher {
         candidates: Vec<(&database::AnimeEntry, f32)>,
         neutral: f32,
     ) -> MatchResult {
-        let synonyms_map = unique_synonyms_map(&candidates);
         let mut scored_items: Vec<(usize, ScoreBreakdown)> = candidates
             .into_iter()
-            .map(|c| {
-                self.score_candidate(
-                    entry,
-                    c,
-                    synonyms_map.get(&c.0.id()).map_or(&[], |s| s.as_slice()),
-                    neutral,
-                )
-            })
+            .map(|c| self.score_candidate(entry, c, neutral))
             .collect();
 
         if scored_items.is_empty() {
@@ -740,17 +689,15 @@ mod tests {
             serde_json::from_reader(BufReader::new(File::open("shinden-test.json").unwrap())).unwrap();
 
         let searcher = DefaultSearcher::new(&database);
-
         let xlimits = array![
-            [0.0, 1.0],
-            [0.0, 1.0],
-            [0.0, 1.0],
-            [0.0, 1.0],
-            [0.0, 1.0],
-            [0.0, 1.0],
-            [0.0, 1.0],
-            [0.0, 1.0],
-            [0.0, 10.0]
+            [0.8, 1.0],
+            [0.1, 0.5],
+            [0.7, 1.0],
+            [0.7, 1.0],
+            [0.1, 0.5],
+            [0.1, 1.0],
+            [0.1, 0.5],
+            [0.0, 1.0]
         ];
 
         let egor = EgorBuilder::optimize(|x| {
@@ -764,11 +711,11 @@ mod tests {
 
             results
         })
-        .configure(|config| config.max_iters(200))
+        .configure(|config| config.max_iters(200).trego(true))
         .min_within(&xlimits)
-        .unwrap()
-        .run()
         .unwrap();
+
+        let egor = egor.run().unwrap();
 
         let best_x = egor.x_opt.as_slice().unwrap();
         let best_y = -egor.y_opt.as_slice().unwrap()[0];
@@ -786,9 +733,10 @@ mod tests {
         database: &(impl Index<AnimeId, Output = database::AnimeEntry> + Sync),
         searcher: &(impl Searcher + Sync),
     ) -> f64 {
-        let gamma = params[8];
+        let gamma = params[7];
 
-        let mut weights: Vec<f32> = params[..8].iter().map(|&x| x as f32).collect();
+        let mut weights: Vec<f32> = params[..7].iter().map(|&x| x as f32).collect();
+
         generate_weights(&mut weights, gamma as f32);
 
         let matcher = DefaultMatcher::from_weights(*weights.as_array().unwrap(), 0.75, 0.075);

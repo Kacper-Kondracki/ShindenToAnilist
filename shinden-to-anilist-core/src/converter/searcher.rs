@@ -14,6 +14,7 @@ use crate::{
     ngram::{
         NGramIndex,
         NGramIndexBuilder,
+        TfIdfCosine,
     },
 };
 
@@ -70,7 +71,6 @@ use crate::{
         SetMode,
         State,
     },
-    ngram::TfIdfCosine,
 };
 
 impl<S: State> SearchBuilder<S> {
