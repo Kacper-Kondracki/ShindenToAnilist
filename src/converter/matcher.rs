@@ -94,7 +94,7 @@ impl MatchResult {
         &self,
         database: &'a impl AnimeList<Entry = database::AnimeEntry>,
     ) -> impl Iterator<Item = (&'a database::AnimeEntry, ScoreBreakdown)> {
-        self.items.iter().map(|&(k, v)| (&database[k], v))
+        self.items.iter().map(|&(k, v)| (database.get_unwrap(k), v))
     }
     /// The single decisive winner, if any.
     ///
@@ -106,7 +106,7 @@ impl MatchResult {
         &self,
         database: &'a impl AnimeList<Entry = database::AnimeEntry>,
     ) -> Option<(&'a database::AnimeEntry, ScoreBreakdown)> {
-        self.winner.map(|(k, v)| (&database[k], v))
+        self.winner.map(|(k, v)| (database.get_unwrap(k), v))
     }
     /// Candidates that scored at or above `match_threshold`.
     /// Like [`top`](MatchResult::top), but resolves to entry references.
@@ -115,7 +115,7 @@ impl MatchResult {
         &self,
         database: &'a impl AnimeList<Entry = database::AnimeEntry>,
     ) -> impl Iterator<Item = (&'a database::AnimeEntry, ScoreBreakdown)> {
-        self.top.iter().map(|&(k, v)| (&database[k], v))
+        self.top.iter().map(|&(k, v)| (database.get_unwrap(k), v))
     }
 }
 
@@ -476,7 +476,7 @@ impl Matcher for DefaultMatcher {
         candidates: &[(&database::AnimeEntry, f32)],
         neutral: f32,
     ) -> MatchResult {
-        let mut scored_items: Vec<(usize, ScoreBreakdown)> = candidates
+        let mut scored_items: Vec<(AnimeId, ScoreBreakdown)> = candidates
             .iter()
             .map(|&c| self.score_candidate(entry, c, neutral))
             .collect();

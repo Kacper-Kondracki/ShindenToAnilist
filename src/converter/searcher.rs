@@ -36,7 +36,7 @@ pub trait Searcher {
     ) -> Vec<(&'a database::AnimeEntry, f32)> {
         self.search(query, options)
             .iter()
-            .map(|&(id, score)| (&database[id], score))
+            .map(|&(id, score)| (database.get_unwrap(id), score))
             .collect()
     }
 }
@@ -117,7 +117,7 @@ pub trait SearcherAnimeExt: MatchView {
             self.search_by_title(searcher, options)
                 .1
                 .iter()
-                .map(|&(id, score)| (&database[id], score))
+                .map(|&(id, score)| (database.get_unwrap(id), score))
                 .collect(),
         )
     }

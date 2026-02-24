@@ -1,5 +1,3 @@
-use std::ops::Index;
-
 use ambassador::delegatable_trait;
 use chrono::{
     Datelike,
@@ -15,9 +13,9 @@ use crate::converter::{
 
 /// Unique identifier for an anime entry within a list or database.
 ///
-/// This is an opaque index (backed by `usize`) used to look up entries in
+/// This is an opaque index (backed by `u64`) used to look up entries in
 /// both [`database::AnimeDatabase`] and [`crate::converter::providers::shinden::ShindenList`].
-pub type AnimeId = usize;
+pub type AnimeId = u64;
 
 /// Provides the metadata needed by the matching algorithm.
 ///
@@ -101,7 +99,7 @@ pub trait ExportView {
 /// iterators.  Callers using these methods will need `rayon` as a
 /// dependency.
 #[delegatable_trait]
-pub trait AnimeList: Send + Sync + Index<AnimeId, Output = Self::Entry> {
+pub trait AnimeList: Send + Sync {
     /// The type of entry stored in this list.
     type Entry: Send + Sync;
     /// Iterates over all entry IDs.
@@ -126,6 +124,8 @@ pub trait AnimeList: Send + Sync + Index<AnimeId, Output = Self::Entry> {
     fn into_par_iter(self) -> impl IntoParallelIterator<Item = (AnimeId, Self::Entry)>;
     /// Looks up an entry by its [`AnimeId`]. Returns `None` if not present.
     fn get(&self, key: AnimeId) -> Option<&Self::Entry>;
+    /// Like get, but panics if not present.
+    fn get_unwrap(&self, key: AnimeId) -> &Self::Entry { self.get(key).expect("key not in list") }
     /// Returns the number of entries in the list.
     fn len(&self) -> usize;
     /// Returns `true` when the list contains no entries.
