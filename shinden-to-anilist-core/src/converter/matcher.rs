@@ -131,7 +131,7 @@ impl MatchResult {
 /// - [`Default::default()`] — balanced weights.
 /// - [`DefaultMatcher::strict_preset()`] — higher thresholds, tuned via
 ///   Bayesian optimization.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 pub struct DefaultMatcher {
     /// Weight for the search score.
     pub search_weight: f32,
@@ -192,22 +192,6 @@ pub fn generate_weights(priorities: &mut [f32], gamma: f32) {
     } else {
         for p in priorities.iter_mut() {
             *p /= sum;
-        }
-    }
-}
-
-impl Default for DefaultMatcher {
-    fn default() -> Self {
-        Self {
-            search_weight: 0.21,
-            season_weight: 0.05,
-            year_weight: 0.13,
-            type_weight: 0.16,
-            status_weight: 0.08,
-            seasonal_weight: 0.10,
-            episodes_weight: 0.06,
-            match_threshold: 0.75,
-            delta_threshold: 0.10,
         }
     }
 }
