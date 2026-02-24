@@ -14,7 +14,7 @@ use crate::{
     ngram::{
         NGramIndex,
         NGramIndexBuilder,
-        TfIdfCosine,
+        RecallJaccard,
     },
 };
 
@@ -165,7 +165,7 @@ impl DefaultSearcher {
 impl Searcher for DefaultSearcher {
     fn search(&self, query: &str, options: Search) -> Vec<(AnimeId, f32)> {
         self.index
-            .search::<TfIdfCosine>(
+            .search::<RecallJaccard>(
                 query,
                 options.limit,
                 options.threshold,
