@@ -13,7 +13,7 @@
 //! # Re-exports
 //!
 //! Common external types used across the public API are re-exported for convenience,
-//! [`Datelike`], [`NaiveDate`], [`Utc`], [`CompactString`], [`rayon::iter`], [`HttpClient`], [`HttpError`], [`JsonError`], [`XmlError`], [`JoinError`].
+//! [`Datelike`], [`NaiveDate`], [`Utc`], [`CompactString`], [`iter`], [`HttpClient`], [`HttpError`], [`JsonError`], [`XmlError`], [`JoinError`].
 
 pub mod ngram;
 
