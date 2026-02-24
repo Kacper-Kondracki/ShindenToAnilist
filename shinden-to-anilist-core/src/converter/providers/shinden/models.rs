@@ -29,7 +29,7 @@ use crate::converter::{
 /// A user's anime list fetched from Shinden.
 ///
 /// Consists of a collection of [`AnimeEntry`] objects indexed by their ID.
-/// Implements [`Index`](std::ops::Index) for direct access.
+/// Implements [`Index`](Index) for direct access.
 #[derive(Serialize, Deserialize, Debug, Clone, Delegate, PartialEq)]
 #[delegate(AnimeList, target = "entries")]
 pub struct ShindenList {

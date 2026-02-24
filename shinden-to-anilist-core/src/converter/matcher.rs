@@ -1,7 +1,4 @@
-use std::{
-    cmp::Reverse,
-    ops::Index,
-};
+use std::cmp::Reverse;
 
 use ahash::AHashMap;
 use chrono::Datelike;
@@ -12,7 +9,10 @@ use serde::{
 };
 
 use crate::{
-    common::MatchView,
+    common::{
+        AnimeList,
+        MatchView,
+    },
     converter::{
         common::AnimeId,
         database::{
@@ -92,7 +92,7 @@ impl MatchResult {
     /// to an [`AnimeEntry`](database::AnimeEntry) reference from `database`.
     pub fn items_ref<'a>(
         &self,
-        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
+        database: &'a impl AnimeList<Entry = database::AnimeEntry>,
     ) -> impl Iterator<Item = (&'a database::AnimeEntry, ScoreBreakdown)> {
         self.items.iter().map(|&(k, v)| (&database[k], v))
     }
@@ -104,7 +104,7 @@ impl MatchResult {
     /// Like [`winner`](MatchResult::winner), but resolves to an entry reference.
     pub fn winner_ref<'a>(
         &self,
-        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
+        database: &'a impl AnimeList<Entry = database::AnimeEntry>,
     ) -> Option<(&'a database::AnimeEntry, ScoreBreakdown)> {
         self.winner.map(|(k, v)| (&database[k], v))
     }
@@ -113,7 +113,7 @@ impl MatchResult {
     pub fn top(&self) -> &[(AnimeId, ScoreBreakdown)] { &self.top }
     pub fn top_ref<'a>(
         &self,
-        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
+        database: &'a impl AnimeList<Entry = database::AnimeEntry>,
     ) -> impl Iterator<Item = (&'a database::AnimeEntry, ScoreBreakdown)> {
         self.top.iter().map(|&(k, v)| (&database[k], v))
     }
@@ -580,7 +580,6 @@ mod tests {
     use std::{
         fs::File,
         io::BufReader,
-        ops::Index,
         time::Instant,
     };
 
@@ -593,10 +592,7 @@ mod tests {
     use rayon::prelude::*;
 
     use crate::{
-        common::{
-            AnimeId,
-            AnimeList,
-        },
+        common::AnimeList,
         database,
         database::{
             AnimeDatabase,
@@ -714,7 +710,7 @@ mod tests {
     fn score_match(
         params: &[f64],
         shinden: &impl AnimeList<Entry = shinden::AnimeEntry>,
-        database: &(impl Index<AnimeId, Output = database::AnimeEntry> + Sync),
+        database: &impl AnimeList<Entry = database::AnimeEntry>,
         searcher: &(impl Searcher + Sync),
     ) -> f64 {
         let gamma = params[7];

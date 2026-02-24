@@ -1,5 +1,3 @@
-use std::ops::Index;
-
 use ahash::AHashMap;
 use bon::Builder;
 
@@ -32,7 +30,7 @@ pub trait Searcher {
     /// to an [`AnimeEntry`](database::AnimeEntry) reference from `database`.
     fn search_ref<'a>(
         &self,
-        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
+        database: &'a impl AnimeList<Entry = database::AnimeEntry>,
         query: &str,
         options: Search,
     ) -> Vec<(&'a database::AnimeEntry, f32)> {
@@ -65,12 +63,10 @@ pub struct Search {
     pub mode: SearchMode,
 }
 
-use crate::{
-    converter::searcher::search_builder::{
-        IsUnset,
-        SetMode,
-        State,
-    },
+use crate::converter::searcher::search_builder::{
+    IsUnset,
+    SetMode,
+    State,
 };
 
 impl<S: State> SearchBuilder<S> {
@@ -112,7 +108,7 @@ pub trait SearcherAnimeExt: MatchView {
     /// IDs to entry references.
     fn search_by_title_ref<'a>(
         &self,
-        database: &'a impl Index<AnimeId, Output = database::AnimeEntry>,
+        database: &'a impl AnimeList<Entry = database::AnimeEntry>,
         searcher: &impl Searcher,
         options: Search,
     ) -> (&Self, Vec<(&'a database::AnimeEntry, f32)>) {

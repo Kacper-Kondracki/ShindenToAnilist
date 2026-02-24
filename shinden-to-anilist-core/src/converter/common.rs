@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 use ambassador::delegatable_trait;
 use chrono::{
     Datelike,
@@ -99,7 +101,7 @@ pub trait ExportView {
 /// iterators.  Callers using these methods will need `rayon` as a
 /// dependency.
 #[delegatable_trait]
-pub trait AnimeList: Send + Sync {
+pub trait AnimeList: Send + Sync + Index<AnimeId, Output = Self::Entry> {
     /// The type of entry stored in this list.
     type Entry: Send + Sync;
     /// Iterates over all entry IDs.
@@ -130,7 +132,7 @@ pub trait AnimeList: Send + Sync {
     fn is_empty(&self) -> bool { self.len() == 0 }
 }
 
-/// Blanket [`AnimeList`] implementation for [`indexmap::IndexMap`].
+/// Blanket [`AnimeList`] implementation for [`IndexMap`].
 pub mod impls {
     use indexmap::IndexMap;
 
