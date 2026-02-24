@@ -44,7 +44,7 @@ fn xml_exporter_test() {
     let mut results: Vec<(AnimeId, MatchResult)> = shinden
         .par_values()
         .map(|entry| entry.search_by_title_ref(&database, &searcher, Search::options().strict().build()))
-        .map(|(entry, candidates)| (entry.id(), matcher.score_candidates(entry, candidates, 0.5)))
+        .map(|(entry, candidates)| (entry.id(), matcher.score_candidates(entry, &candidates, 0.5)))
         .collect();
     results.iter_mut().map(|(_, result)| result).finalize_matches();
 

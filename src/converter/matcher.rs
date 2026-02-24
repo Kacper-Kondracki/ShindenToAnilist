@@ -43,7 +43,7 @@ pub trait Matcher {
     fn score_candidates(
         &self,
         entry: &impl MatchView,
-        candidates: Vec<(&database::AnimeEntry, f32)>,
+        candidates: &[(&database::AnimeEntry, f32)],
         neutral: f32,
     ) -> MatchResult;
 }
@@ -473,12 +473,12 @@ impl Matcher for DefaultMatcher {
     fn score_candidates(
         &self,
         entry: &impl MatchView,
-        candidates: Vec<(&database::AnimeEntry, f32)>,
+        candidates: &[(&database::AnimeEntry, f32)],
         neutral: f32,
     ) -> MatchResult {
         let mut scored_items: Vec<(usize, ScoreBreakdown)> = candidates
-            .into_iter()
-            .map(|c| self.score_candidate(entry, c, neutral))
+            .iter()
+            .map(|&c| self.score_candidate(entry, c, neutral))
             .collect();
 
         if scored_items.is_empty() {
@@ -592,11 +592,18 @@ mod tests {
     use rayon::prelude::*;
 
     use crate::{
-        common::AnimeList,
+        common::{
+            AnimeList,
+            MatchView,
+        },
         database,
         database::{
             AnimeDatabase,
             AnimeDatabaseLoad,
+        },
+        extractor::{
+            TitleMetadata,
+            title_processor,
         },
         matcher::{
             DefaultMatcher,
@@ -615,6 +622,7 @@ mod tests {
             Searcher,
             SearcherAnimeExt,
         },
+        utils::normalize_str,
     };
 
     #[test]
@@ -631,7 +639,7 @@ mod tests {
         let mut results: Vec<(&shinden::AnimeEntry, MatchResult)> = shinden
             .par_values()
             .map(|entry| entry.search_by_title_ref(&database, &searcher, Search::options().strict().build()))
-            .map(|(entry, candidates)| (entry, matcher.score_candidates(entry, candidates, 0.5)))
+            .map(|(entry, candidates)| (entry, matcher.score_candidates(entry, &candidates, 0.5)))
             .collect();
 
         results.iter_mut().map(|(_, result)| result).finalize_matches();
@@ -660,6 +668,73 @@ mod tests {
         println!("TOOK       : {:.2?}", elapsed);
         println!("HAS TOP    : {}/{}", tops_count, shinden.len());
         println!("HAS WINNER : {}/{}", winners_count, shinden.len());
+    }
+
+    struct MockQuery {
+        title: String,
+        normalized_title: String,
+        metadata: TitleMetadata,
+    }
+
+    impl MockQuery {
+        fn new(query: &str) -> Self {
+            let title = query.to_string();
+            let normalized_title = normalize_str(query).to_string();
+            let metadata = title_processor::process(query);
+
+            Self {
+                title,
+                normalized_title,
+                metadata,
+            }
+        }
+    }
+
+    impl MatchView for MockQuery {
+        fn title(&self) -> &str { &self.title }
+        fn normalized_title(&self) -> &str { &self.normalized_title }
+        fn title_metadata(&self) -> Option<&TitleMetadata> { Some(&self.metadata) }
+    }
+
+    #[test]
+    fn match_fuzzy_query_test() {
+        let database = AnimeDatabase::get_from_mmap("anime-offline-database.jsonl").unwrap();
+        let searcher = DefaultSearcher::new(&database);
+        let matcher = DefaultMatcher {
+            search_weight: 0.8,
+            season_weight: 0.2,
+            ..Default::default()
+        };
+
+        let osk_queries = [
+            MockQuery::new("oshi no ko 1"),
+            MockQuery::new("oshi no ko 2"),
+            MockQuery::new("oshi no ko 3"),
+        ];
+
+        let snk_queries = [
+            MockQuery::new("shingeki no kyojin 1"),
+            MockQuery::new("shingeki no kyojin 2"),
+            MockQuery::new("shingeki no kyojin 3"),
+        ];
+
+        for query in osk_queries.iter().chain(&snk_queries) {
+            println!("=== {} ===", query.title);
+            let candidates = matcher.score_candidates(
+                query,
+                &searcher.search_ref(
+                    &database,
+                    &query.normalized_title,
+                    Search::options().fuzzy().build(),
+                ),
+                0.0,
+            );
+
+            for (entry, score) in candidates.items_ref(&database).take(5) {
+                let text = format!("[{:.2}] {}", score.final_score, entry.title());
+                println!("{}", text);
+            }
+        }
     }
 
     #[test]
@@ -724,7 +799,7 @@ mod tests {
         let results: Vec<MatchResult> = shinden
             .par_values()
             .map(|x| x.search_by_title_ref(database, searcher, Search::options().strict().build()))
-            .map(|(entry, cands)| matcher.score_candidates(entry, cands, 0.5))
+            .map(|(entry, cands)| matcher.score_candidates(entry, &cands, 0.5))
             .collect();
 
         results.iter().filter(|m| m.winner().is_some()).count() as f64
