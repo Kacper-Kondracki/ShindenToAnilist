@@ -1,5 +1,3 @@
-use std::ops::Index;
-
 use ambassador::Delegate;
 use chrono::NaiveDate;
 use compact_str::CompactString;
@@ -29,18 +27,11 @@ use crate::{
 /// Implements [`AnimeList`] via delegation to its `entries` field, so it
 /// can be used directly with [`crate::searcher::DefaultSearcher::new`] and
 /// other list-accepting APIs.
-///
-/// Also implements [`Index<AnimeId>`](Index) for direct `db[id]` access.
 #[derive(Serialize, Deserialize, Debug, Clone, Delegate)]
 #[delegate(AnimeList, target = "entries")]
 pub struct AnimeDatabase {
     pub(super) last_update: NaiveDate,
     pub(super) entries: IndexMap<AnimeId, AnimeEntry>,
-}
-
-impl Index<AnimeId> for AnimeDatabase {
-    type Output = AnimeEntry;
-    fn index<'a>(&self, index: AnimeId) -> &Self::Output { &self.entries[&index] }
 }
 
 /// A single anime entry from the offline database.

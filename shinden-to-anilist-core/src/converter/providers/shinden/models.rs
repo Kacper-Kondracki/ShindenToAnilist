@@ -1,5 +1,3 @@
-use std::ops::Index;
-
 use ambassador::Delegate;
 use chrono::NaiveDate;
 use compact_str::CompactString;
@@ -29,16 +27,10 @@ use crate::converter::{
 /// A user's anime list fetched from Shinden.
 ///
 /// Consists of a collection of [`AnimeEntry`] objects indexed by their ID.
-/// Implements [`Index`](Index) for direct access.
 #[derive(Serialize, Deserialize, Debug, Clone, Delegate, PartialEq)]
 #[delegate(AnimeList, target = "entries")]
 pub struct ShindenList {
     pub(super) entries: IndexMap<AnimeId, AnimeEntry>,
-}
-
-impl Index<AnimeId> for ShindenList {
-    type Output = AnimeEntry;
-    fn index(&self, index: AnimeId) -> &Self::Output { &self.entries[&index] }
 }
 
 /// A single entry in a Shinden user's anime list.
