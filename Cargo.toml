@@ -17,7 +17,6 @@ itertools = "0.14"
 memmap2 = "0.9"
 ordered-float = "5"
 rayon = "1"
-regex = "1"
 reqwest = { version = "0.13", features = ["json"] }
 roaring = { version = "0.11", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
@@ -28,11 +27,10 @@ tokio = { version = "1", features = ["macros"] }
 unicode-normalization = "0.1"
 unicode-segmentation = "1"
 wana_kana = "4"
-rapidfuzz = "0.5"
 compact_str = { version = "0.9", features = ["serde"] }
 lazy-regex = "3"
 
 [dev-dependencies]
-egobox-ego = "0.36"
+egobox-ego = "0.37"
 ndarray = "0.16"
 mimalloc = { version = "0.1", features = ["v3"] }

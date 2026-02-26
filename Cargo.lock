@@ -405,15 +405,6 @@ dependencies = [
 
 [[package]]
 name = "cobyla"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae06ba097459ee2f913ff638c17f87acddcf4a0e30cdf14102ce023efc61ad37"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "cobyla"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc0f7c6a211aa5d5cfea17c00942b6be60d759b1f014fdb3d6cf010997d40749"
@@ -677,18 +668,18 @@ dependencies = [
 
 [[package]]
 name = "egobox-ego"
-version = "0.36.0"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df3eaf9c04ca44f97a533b9262e7ce9f11a04c51ce8c54f75f960669d1de49a2"
+checksum = "51bc87000af0ff3d2366080933dd26ead7bb110df39c847e0d05cadc905aafec"
 dependencies = [
  "anyhow",
  "argmin",
  "bincode",
  "clap",
- "cobyla 1.0.0",
+ "cobyla",
  "dyn-clonable",
  "egobox-doe",
- "egobox-gp 0.35.0",
+ "egobox-gp",
  "egobox-moe",
  "env_logger",
  "finitediff",
@@ -715,40 +706,12 @@ dependencies = [
 
 [[package]]
 name = "egobox-gp"
-version = "0.35.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed3a003b8c597f828d3b59826efe102b37e633a1c747f26471cabf22b7840053"
-dependencies = [
- "anyhow",
- "cobyla 0.8.0",
- "egobox-doe",
- "finitediff",
- "linfa",
- "linfa-linalg",
- "linfa-pls",
- "log",
- "ndarray",
- "ndarray-einsum",
- "ndarray-npy",
- "ndarray-rand",
- "ndarray-stats",
- "num-traits",
- "paste",
- "rand_xoshiro 0.6.0",
- "rayon",
- "serde",
- "thiserror 2.0.18",
- "typetag",
-]
-
-[[package]]
-name = "egobox-gp"
 version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "682ce851f6ecbb823931b25cc311e71e9c33ddd8a1f9c7b520242d759fb9b262"
 dependencies = [
  "anyhow",
- "cobyla 1.0.0",
+ "cobyla",
  "egobox-doe",
  "finitediff",
  "linfa",
@@ -778,7 +741,7 @@ dependencies = [
  "bincode",
  "bitflags",
  "egobox-doe",
- "egobox-gp 0.36.0",
+ "egobox-gp",
  "env_logger",
  "linfa",
  "linfa-clustering",
@@ -2154,12 +2117,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rapidfuzz"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "270e04e5ea61d40841942bb15e451c29ee1618637bcf97fc7ede5dd4a9b1601b"
-
-[[package]]
 name = "rawpointer"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2506,9 +2463,7 @@ dependencies = [
  "mimalloc",
  "ndarray",
  "ordered-float",
- "rapidfuzz",
  "rayon",
- "regex",
  "reqwest",
  "roaring",
  "serde",
