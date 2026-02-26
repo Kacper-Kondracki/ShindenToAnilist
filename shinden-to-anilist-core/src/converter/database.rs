@@ -122,6 +122,8 @@ impl AnimeDatabaseLoad for AnimeDatabase {
                 .collect::<Result<IndexMap<AnimeId, AnimeEntry>, DatabaseError>>()?,
         );
 
+        db_root.entries.sort_unstable_keys();
+
         Ok(db_root)
     }
 
