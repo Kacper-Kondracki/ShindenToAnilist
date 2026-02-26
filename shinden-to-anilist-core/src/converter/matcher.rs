@@ -587,6 +587,7 @@ mod tests {
     use itertools::Itertools;
     use ndarray::{
         Array2,
+        ArrayView2,
         array,
     };
     use rayon::prelude::*;
@@ -755,7 +756,7 @@ mod tests {
             [0.0, 1.0]
         ];
 
-        let egor = EgorBuilder::optimize(|x| {
+        let egor = EgorBuilder::optimize(|x: &ArrayView2<f64>| {
             let mut results = Array2::zeros((x.nrows(), 1));
 
             for i in 0..x.nrows() {
