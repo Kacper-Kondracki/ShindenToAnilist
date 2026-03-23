@@ -256,6 +256,7 @@ pub mod scoring {
     ///
     /// Returns `1.0` for an exact match, `0.6` for ±1 year, `0.25` for ±2,
     /// and `0.2` for larger differences.  Mixed `Some`/`None` yields `0.4`.
+    /// When `None`/`None` → `0.7`.
     pub fn score_year(year_a: Option<i32>, year_b: Option<i32>) -> f32 {
         match (year_a, year_b) {
             (Some(sy), Some(dy)) => {
@@ -268,7 +269,7 @@ pub mod scoring {
                 }
             },
             (None, Some(_)) | (Some(_), None) => 0.4,
-            (None, None) => 0.5,
+            (None, None) => 0.7,
         }
     }
 
@@ -303,6 +304,7 @@ pub mod scoring {
     ///
     /// Returns `1.0` for identical statuses and lower values for larger
     /// status mismatches (e.g. Finished vs. Upcoming → `0.2`).
+    /// one unknown → `0.5`, otherwise `0.7`
     pub fn score_status(status_a: AnimeStatus, status_b: AnimeStatus) -> f32 {
         match (status_a, status_b) {
             (AnimeStatus::Finished, b) => match b {
@@ -324,8 +326,8 @@ pub mod scoring {
                 AnimeStatus::Unknown => 0.4,
             },
             (AnimeStatus::Unknown, b) => match b {
-                AnimeStatus::Unknown => 0.5,
-                _ => 0.4,
+                AnimeStatus::Unknown => 0.7,
+                _ => 0.5,
             },
         }
     }
@@ -334,6 +336,7 @@ pub mod scoring {
     ///
     /// Uses circular month distance.  Within 3 months of the season center
     /// → `1.0`; 4 months → `0.5`; 5–6 months → `0.3`; further → `0.2`.
+    /// One unknown → `0.4`, otherwise `0.7`
     pub fn score_seasonal(month: Option<i32>, season: Season) -> f32 {
         let season_center = season_center(season);
 
@@ -348,21 +351,21 @@ pub mod scoring {
                 }
             },
             (None, Some(_)) | (Some(_), None) => 0.4,
-            (None, None) => 0.5,
+            (None, None) => 0.7,
         }
     }
 
     /// Scores episode count proximity.
     ///
     /// When both counts are positive, uses a ratio-based power curve.
-    /// When either count is zero or unknown, returns `0.6`.
+    /// When either count is zero or unknown, returns `0.7`.
     pub fn score_episodes(episode_a: i32, episode_b: i32) -> f32 {
         match (episode_a, episode_b) {
             (x, y) if x > 0 && y > 0 => {
                 let ratio = (x.min(y) as f32) / (x.max(y) as f32);
                 ratio.powf(1.15).max(0.2).clamp(0.0, 1.0)
             },
-            _ => 0.6,
+            _ => 0.7,
         }
     }
 }
