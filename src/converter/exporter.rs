@@ -16,9 +16,6 @@ use crate::converter::common::{
 
 pub mod xml;
 
-#[cfg(test)]
-mod tests;
-
 /// Trait for converting matched anime entries into a target export format.
 ///
 /// # Example

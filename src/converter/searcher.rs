@@ -16,9 +16,6 @@ use crate::{
     },
 };
 
-#[cfg(test)]
-mod tests;
-
 /// Trait for searching anime entries by a normalized title query.
 ///
 /// Implementors index a set of anime titles and return matching

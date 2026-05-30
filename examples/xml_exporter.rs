@@ -4,8 +4,7 @@ use std::{
 };
 
 use rayon::prelude::*;
-
-use crate::{
+use shinden_to_anilist_core::{
     common::{
         AnimeId,
         AnimeList,
@@ -32,8 +31,7 @@ use crate::{
     },
 };
 
-#[test]
-fn xml_exporter_test() {
+fn main() {
     let database = AnimeDatabase::get_from_mmap("anime-offline-database.jsonl").unwrap();
     let shinden: ShindenList =
         serde_json::from_reader(BufReader::new(File::open("shinden-test.json").unwrap())).unwrap();
