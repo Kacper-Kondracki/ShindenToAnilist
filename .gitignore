@@ -7,6 +7,7 @@
 /gen/schemas
 
 anime-offline-database.jsonl
+anime-offline-database.jsonl.sha256
 shinden-test.json
 db-test.json
 xml-test.xml

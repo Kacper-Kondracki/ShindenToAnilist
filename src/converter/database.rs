@@ -20,18 +20,29 @@ use crate::converter::common::AnimeId;
 
 mod json;
 pub mod models;
+pub mod updater;
 
 /// Errors that can occur when loading the anime database.
 #[derive(Error, Debug)]
-#[error(transparent)]
 pub enum DatabaseError {
     /// An I/O error occurred while reading the database file.
+    #[error(transparent)]
     Io(#[from] io::Error),
     /// The database content could not be deserialized from JSON.
+    #[error(transparent)]
     Json(#[from] serde_json::Error),
+    /// A request to the upstream database release failed.
+    #[error(transparent)]
+    Request(#[from] reqwest::Error),
     /// The file was empty and contained no header line.
     #[error("can not parse empty file")]
     Empty,
+    /// The latest GitHub release does not contain the expected database asset.
+    #[error("latest anime-offline-database release does not contain {asset}")]
+    MissingReleaseAsset { asset: &'static str },
+    /// The downloaded asset does not match GitHub's advertised SHA-256 digest.
+    #[error("downloaded anime-offline-database asset sha256 mismatch: expected {expected}, got {actual}")]
+    DigestMismatch { expected: String, actual: String },
 }
 
 /// Methods for constructing an [`AnimeDatabase`] from various sources.
