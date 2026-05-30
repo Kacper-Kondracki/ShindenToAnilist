@@ -5,17 +5,16 @@ use std::{
 };
 
 use reqwest::Client;
-
-use crate::{
-    converter::common::AnimeList,
+use shinden_to_anilist_core::{
+    common::AnimeList,
     providers::shinden::{
         ShindenList,
         ShindenListLoad,
     },
 };
 
-#[tokio::test]
-async fn request_shinden_test() {
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
     let now = Instant::now();
     let shinden = ShindenList::get_from_shinden(Client::new(), 196402)
         .await

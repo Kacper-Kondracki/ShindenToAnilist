@@ -21,9 +21,6 @@ use crate::converter::common::AnimeId;
 mod json;
 pub mod models;
 
-#[cfg(test)]
-mod tests;
-
 /// Errors that can occur when loading the anime database.
 #[derive(Error, Debug)]
 #[error(transparent)]

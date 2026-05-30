@@ -11,9 +11,6 @@ pub use self::models::*;
 mod json;
 pub mod models;
 
-#[cfg(test)]
-mod tests;
-
 /// Trait for fetching a user's anime list from Shinden.
 ///
 /// Provides methods to load data from the Shinden API or from a JSON serialization.

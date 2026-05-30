@@ -4,16 +4,15 @@ use std::{
     time::Instant,
 };
 
-use crate::{
-    converter::{
-        common::AnimeList,
-        database::AnimeDatabase,
+use shinden_to_anilist_core::{
+    common::AnimeList,
+    database::{
+        AnimeDatabase,
+        AnimeDatabaseLoad,
     },
-    database::AnimeDatabaseLoad,
 };
 
-#[test]
-fn load_mmap_database_test() {
+fn main() {
     let now = Instant::now();
     let database = AnimeDatabase::get_from_mmap("anime-offline-database.jsonl").unwrap();
     let elapsed = now.elapsed();
