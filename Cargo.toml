@@ -14,24 +14,27 @@ approx = "0.5"
 bon = "3.9"
 chrono = { version = "0.4", features = ["serde"] }
 compact_str = { version = "0.9", features = ["serde"] }
-indexmap = { version = "2.13", features = ["serde", "rayon"] }
+indexmap = { version = "2.14", features = ["rayon", "serde"] }
 itertools = "0.14"
 lazy-regex = "3.6"
 memmap2 = "0.9"
-ordered-float = "5.1"
-rayon = "1.11"
+ordered-float = "5.3"
+rayon = "1.12"
 reqwest = { version = "0.13", features = ["json"] }
 roaring = { version = "0.11", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
-serde-xml-rs = "0.8"
 serde_json = "1.0"
+serde-xml-rs = "0.8"
 thiserror = "2.0"
-tokio = { version = "1.50", features = ["macros"] }
+tokio = { version = "1.52", features = ["macros"] }
 unicode-normalization = "0.1"
-unicode-segmentation = "1.12"
-wana_kana = "4.0"
+unicode-segmentation = "1.13"
+wana_kana = "5.0"
 
 [dev-dependencies]
-egobox-ego = "0.37"
+egobox-ego = "0.38"
 mimalloc = { version = "0.1", features = ["v3"] }
 ndarray = "0.16"
+
+[profile.release]
+lto = "thin"
