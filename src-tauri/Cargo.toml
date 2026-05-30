@@ -6,15 +6,18 @@ authors = ["Kacper Kondracki"]
 edition = "2024"
 
 [lib]
+crate-type = ["cdylib", "rlib", "staticlib"]
 name = "shinden_to_anilist_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+eyre = { version = "0.6", features = ["auto-install"] }
+mimalloc = { version = "0.1", features = ["v3"] }
+shinden-to-anilist-core = { path = "../shinden-to-anilist-core" }
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
-[dependencies]
-shinden-to-anilist-core = { path = "../shinden-to-anilist-core" }
-tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
-eyre = { version = "0.6", features = ["auto-install"] }
-mimalloc = { version = "0.1", features = ["v3"] }
+[profile.release]
+lto = "thin"

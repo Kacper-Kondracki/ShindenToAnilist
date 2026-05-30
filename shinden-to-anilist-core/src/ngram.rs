@@ -138,14 +138,14 @@ impl<const N: usize> NGramIndexBuilder<N> {
     }
 
     pub(crate) fn build(mut self) -> NGramIndex<N> {
-        for (_, posting) in self.postings.iter_mut() {
+        for posting in self.postings.values_mut() {
             posting.item.optimize();
         }
 
         let num_docs = self.docs.len() as f32;
         let mut doc_norms_sq = vec![0.0f32; self.docs.len()];
 
-        for (_, posting) in self.postings.iter_mut() {
+        for posting in self.postings.values_mut() {
             let df = posting.item.len() as u32;
             posting.df = df;
 
