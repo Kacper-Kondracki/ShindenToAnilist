@@ -129,7 +129,7 @@ async fn download_latest_compressed_database_if_needed(
     client: reqwest::Client,
     path: &Path,
 ) -> Result<CompressedDatabaseUpdate, DatabaseError> {
-    let sha256_path = sha256_sidecar_path(&path);
+    let sha256_path = sha256_sidecar_path(path);
     let release = client
         .get(ANIME_OFFLINE_DATABASE_RELEASE_API)
         .header(reqwest::header::USER_AGENT, GITHUB_USER_AGENT)
