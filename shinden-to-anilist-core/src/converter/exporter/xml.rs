@@ -34,7 +34,7 @@ use crate::converter::{
 #[error(transparent)]
 pub enum XmlExportError {
     /// XML serialization failed.
-    Xml(#[from] serde_xml_rs::Error),
+    Xml(#[from] quick_xml::se::SeError),
     /// A matched anime ID was not found in the source list.
     #[error("id {0} for {1} is out of index")]
     OutOfIndex(AnimeId, &'static str),
@@ -65,7 +65,7 @@ impl Exporter for XmlExporter {
                 .ok_or(XmlExportError::OutOfIndex(id, "anime list"))?;
             list_root.anime.push(AnimeXml::from_export_view(entry, db_id));
         }
-        serde_xml_rs::to_writer(writer, &list_root)?;
+        quick_xml::se::to_utf8_io_writer(writer, &list_root)?;
         Ok(())
     }
 }

@@ -34,11 +34,11 @@ pub use chrono::{
     Utc,
 };
 pub use compact_str::CompactString;
+pub use quick_xml::se::SeError as XmlError;
 pub use rayon::iter;
 pub use reqwest::{
     Client as HttpClient,
     Error as HttpError,
 };
 pub use serde_json::Error as JsonError;
-pub use serde_xml_rs::Error as XmlError;
 pub use tokio::task::JoinError;

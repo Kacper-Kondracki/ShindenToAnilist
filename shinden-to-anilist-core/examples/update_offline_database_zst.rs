@@ -18,7 +18,6 @@ async fn main() {
             path,
         } => {
             println!("updated {} from {release} ({sha256})", path.display());
-            
         },
     }
 }

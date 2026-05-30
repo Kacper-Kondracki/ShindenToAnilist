@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::BufReader,
+    time::Instant,
 };
 
 use rayon::prelude::*;
@@ -52,6 +53,7 @@ fn main() {
         .step_by(100)
         .collect();
 
+    let now = Instant::now();
     let exporter = XmlExporter {};
     shinden
         .export(
@@ -65,4 +67,6 @@ fn main() {
                 .unwrap(),
         )
         .unwrap();
+    let elapsed = now.elapsed();
+    println!("took {:.2?}", elapsed);
 }
