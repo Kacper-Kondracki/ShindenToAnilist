@@ -1,5 +1,11 @@
 # ShindenToAnilist
 Przenieś listę Shinden na Anilist lub MyAnimeList!
+> [!IMPORTANT]
+> Tworzona jest nowa wersja programu, v3
+> 
+> Lepszy algorytm, 100-krotnie szybszy od obecnej wersji i również dokładniejszy.
+> 
+> [ShindenToAnilist v3](https://github.com/Kacper-Kondracki/ShindenToAnilist/tree/v3)
 
 Wsparcie dla Anime Zone już działa, a Oglądaj Anime jest w budowie.
 ## Nowa odsłona programu, możliwość ręcznego dopasowania nieznalezionych tytułów.
