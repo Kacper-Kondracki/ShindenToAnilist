@@ -1,192 +1,204 @@
 <script lang="ts">
-  import './layout.css';
+  type ProviderOption = {
+    id: string;
+    label: string;
+    site: string;
+    accent: string;
+    disabled?: boolean;
+  };
 
-  type Provider = 'Shinden' | 'OgladajAnime' | 'AnimeZone';
-  const providersValues = new Map<Provider, { name: string; site: string }>([
-    [
-      'Shinden',
-      {
-        name: 'Shinden',
-        site: 'shinden.pl'
-      }
-    ],
-    [
-      'OgladajAnime',
-      {
-        name: 'Oglądaj Anime',
-        site: 'ogladajanime.pl'
-      }
-    ],
-    [
-      'AnimeZone',
-      {
-        name: 'AnimeZone',
-        site: 'animezone.pl'
-      }
-    ]
-  ]);
+  const providers = [
+    {
+      id: 'shinden',
+      label: 'Shinden',
+      site: 'shinden.pl',
+      accent: 'var(--color-purple-300)',
+      disabled: false
+    },
+    {
+      id: 'ogladaj-anime',
+      label: 'Oglądaj Anime',
+      site: 'ogladajanime.pl',
+      accent: 'var(--color-cyan-300)',
+      disabled: false
+    },
+    {
+      id: 'anime-zone',
+      label: 'AnimeZone',
+      site: 'animezone.pl',
+      accent: 'var(--color-rose-300)',
+      disabled: false
+    }
+  ] as const satisfies readonly ProviderOption[];
 
-  let selectedProvider = $state<Provider>('Shinden');
+  type Provider = (typeof providers)[number]['id'];
+
+  let selectedProvider = $state<Provider>('shinden');
   let userQuery = $state('');
+  let trimmedQuery = $derived(userQuery.trim());
+  let selectedProviderDetails = $derived(
+    providers.find(({ id }) => id === selectedProvider) ?? providers[0]
+  );
 
-  function handleSubmit(event: SubmitEvent) {
-    event.preventDefault();
-
-    if (!userQuery.trim()) return;
+  function handleSubmit() {
+    if (!trimmedQuery) return;
 
     console.log('Load user list', {
       provider: selectedProvider,
-      query: userQuery.trim()
+      query: trimmedQuery
     });
   }
 </script>
 
-<main class="flex h-screen flex-col bg-base-300">
-  <header class="shrink-0 bg-base-200" style:height="80px">
-    <div class="flex h-full grow items-center gap-4 px-4">
-      <div>
-        <h1 class="text-xl font-bold">ShindenToAnilist</h1>
-        <p class="pn text-sm font-medium text-base-content/70">Konwerter listy Anime</p>
-      </div>
-      <div class="flex">
-        <div class="join">
-          {#each providersValues as [key, provider]}
+<main class="app-shell" style:--provider-accent={selectedProviderDetails.accent}>
+  <header class="app-header">
+    <div class="app-header-body">
+      <div class="app-header-primary">
+        <div class="min-w-52">
+          <h1 class="text-xl font-bold">ShindenToAnilist</h1>
+          <p class="text-sm text-muted">Konwerter listy anime</p>
+        </div>
+
+        <div class="join shrink-0">
+          {#each providers as provider}
             <button
               type="button"
-              class="btn join-item border-2 border-primary/30 {selectedProvider === key
-                ? 'btn-primary'
-                : 'btn-ghost'}"
-              aria-pressed={selectedProvider === key}
-              onclick={() => (selectedProvider = key)}
+              class:provider-button--selected={selectedProvider === provider.id}
+              class:btn-ghost={selectedProvider !== provider.id}
+              class="provider-button btn join-item border-0 btn-soft"
+              style:--provider-button-accent={provider.accent}
+              disabled={provider.disabled}
+              aria-pressed={selectedProvider === provider.id}
+              title={provider.site}
+              onclick={() => (selectedProvider = provider.id)}
             >
-              {provider.name}
+              {provider.label}
             </button>
           {/each}
         </div>
       </div>
 
-      <div class="flex grow">
-        <form class="join w-full" onsubmit={handleSubmit}>
-          <label class="w-full">
-            <input
-              class="input join-item w-full focus:ring-0"
-              type="text"
-              placeholder="ID lub nazwa użytkownika"
-              bind:value={userQuery}
-              autocomplete="off"
-            />
-          </label>
-          <button class="btn join-item btn-primary" type="submit" disabled={!userQuery.trim()}>
-            Wczytaj
-          </button>
-        </form>
-      </div>
+      <form class="join flex-1" onsubmit={handleSubmit}>
+        <label class="input join-item flex-1">
+          <span class="sr-only">ID lub nazwa użytkownika</span>
+          <input
+            bind:value={userQuery}
+            type="text"
+            placeholder="ID lub nazwa użytkownika"
+            autocomplete="off"
+          />
+        </label>
+        <button class="btn join-item btn-primary" type="submit" disabled={!trimmedQuery}
+          >Wczytaj</button
+        >
+      </form>
     </div>
   </header>
-  <div class="scene p-4">
-    <div class="grid-box">
-      <div class="grid" aria-hidden="true"></div>
-      <div class="grid-layer text-center">
-        <p class="text-4xl font-bold">Wczytaj listę, żeby rozpocząć dopasowywanie</p>
-        <p class="text-xl font-medium text-base-content/70">
-          Aktywny import z Shinden, pozostałe źródła w budowie
+
+  <section class="app-content">
+    <div class="empty-state grid place-items-center overflow-hidden surface-panel">
+      <div class="empty-state__grid" aria-hidden="true"></div>
+      <div class="isolate grid max-w-3xl justify-items-center gap-2 px-6 text-center">
+        <p class="text-2xl font-bold md:text-4xl">Wczytaj listę, żeby rozpocząć dopasowywanie</p>
+        <p class="text-base font-medium text-muted md:text-xl">
+          Aktywny import z {selectedProviderDetails.label}, pozostałe źródła w budowie
         </p>
       </div>
     </div>
-  </div>
+  </section>
 </main>
 
 <style>
-  .scene {
-    overflow: hidden;
-    width: 100%;
-    height: 100%;
+  @property --empty-state-accent {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: transparent;
+  }
+  @property --empty-state-grid-line {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: transparent;
+  }
+  @property --empty-state-glow {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: transparent;
   }
 
-  .grid-box {
+  .empty-state {
+    --empty-state-accent: var(--provider-accent, var(--color-primary));
+    --empty-state-glow: color-mix(in oklab, var(--empty-state-accent) 36%, transparent);
+    --empty-state-grid-line: color-mix(in oklab, var(--empty-state-accent) 40%, transparent);
+
+    transition:
+      --empty-state-accent 100ms ease,
+      --empty-state-grid-line 100ms ease,
+      --empty-state-glow 100ms ease,
+      box-shadow 100ms ease;
+
     position: relative;
-    display: grid;
-    place-items: center;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    border: 2px solid color-mix(in oklab, var(--color-primary) 36%, transparent);
-    border-radius: 8px;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--color-base-300) 72%, transparent) 0%,
-        color-mix(in oklab, var(--color-base-300) 28%, transparent) 42%,
-        color-mix(in oklab, var(--color-base-100) 92%, transparent) 100%
-      ),
-      var(--color-base-300);
-    box-shadow:
-      inset 0 0 34px color-mix(in oklab, var(--color-primary) 18%, transparent),
-      0 18px 44px rgb(0 0 0 / 0.22);
-    transform-style: preserve-3d;
+    box-shadow: inset 0 0 2rem var(--empty-state-glow);
   }
 
-  .grid-box::before,
-  .grid-box::after {
+  .provider-button {
+    --provider-button-color: var(--provider-button-accent, var(--color-primary));
+    --btn-color: color-mix(in oklab, var(--provider-button-color) 70%, transparent);
+  }
+
+  .provider-button--selected {
+    border-color: var(--provider-button-color);
+    background-color: var(--provider-button-color);
+    color: var(--color-primary-content);
+  }
+
+  .empty-state::before,
+  .empty-state::after,
+  .empty-state__grid {
     position: absolute;
-    z-index: 1;
     inset: 0;
-    content: '';
     pointer-events: none;
   }
 
-  .grid-box::before {
+  .empty-state::before,
+  .empty-state::after {
+    z-index: 1;
+    content: '';
+  }
+
+  .empty-state::before {
     background: linear-gradient(
       180deg,
-      var(--color-base-300) 0%,
-      color-mix(in oklab, var(--color-base-300) 72%, transparent) 20%,
-      transparent 52%
+      var(--color-base-300),
+      color-mix(in oklab, var(--color-base-300) 70%, transparent) 22%,
+      transparent 56%
     );
   }
 
-  .grid-box::after {
+  .empty-state::after {
     background: radial-gradient(
       ellipse at center,
-      transparent 42%,
-      color-mix(in oklab, var(--color-base-300) 82%, transparent) 100%
+      transparent 44%,
+      color-mix(in oklab, var(--color-base-300) 84%, transparent)
     );
   }
 
-  .grid {
-    position: absolute;
-    z-index: 0;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+  .empty-state__grid {
     background-image:
-      linear-gradient(
-        color-mix(in oklab, var(--color-primary) 20%, transparent) 2px,
-        transparent 3px
-      ),
-      linear-gradient(
-        90deg,
-        color-mix(in oklab, var(--color-primary) 20%, transparent) 2px,
-        transparent 3px
-      );
-    background-size: 64px 64px;
-
-    animation: moveGrid 7.2s linear infinite;
+      linear-gradient(var(--empty-state-grid-line) 2px, transparent 2px),
+      linear-gradient(90deg, var(--empty-state-grid-line) 2px, transparent 2px);
+    background-size: 4rem 4rem;
+    animation: move-grid 6s linear infinite;
+    filter: blur(1px);
   }
 
-  .grid-layer {
-    position: relative;
-    z-index: 2;
-    display: grid;
-    gap: 0.4rem;
-    justify-items: center;
-  }
-
-  @keyframes moveGrid {
-    from {
-      background-position: 0 0;
-    }
+  @keyframes move-grid {
     to {
-      background-position: 64px 256px;
+      background-position: 8rem 12rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    @keyframes move-grid {
     }
   }
 </style>

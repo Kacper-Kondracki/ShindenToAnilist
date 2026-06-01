@@ -1,3 +1,3 @@
 import { createCatppuccinPlugin } from '@catppuccin/daisyui';
 
-export default createCatppuccinPlugin('mocha');
+export default createCatppuccinPlugin('mocha', {});
