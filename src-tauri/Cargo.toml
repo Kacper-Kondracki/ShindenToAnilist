@@ -11,7 +11,7 @@ name = "shinden_to_anilist_lib"
 
 [dependencies]
 eyre = { version = "0.6", features = ["auto-install"] }
-mimalloc = { version = "0.1", features = ["v3"] }
+mimalloc = { version = "0.1" }
 shinden-to-anilist-core = { path = "../shinden-to-anilist-core" }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"

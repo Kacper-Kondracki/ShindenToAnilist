@@ -8,3 +8,7 @@ bun.lockb
 # Miscellaneous
 /static/
 /src-tauri/
+
+**/target/
+.svelte-kit/
+build/

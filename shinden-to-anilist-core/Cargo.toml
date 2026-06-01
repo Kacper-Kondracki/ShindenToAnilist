@@ -35,7 +35,7 @@ zstd = "0.13"
 
 [dev-dependencies]
 egobox-ego = "0.38"
-mimalloc = { version = "0.1", features = ["v3"] }
+mimalloc = { version = "0.1" }
 ndarray = "0.16"
 
 [profile.release]
