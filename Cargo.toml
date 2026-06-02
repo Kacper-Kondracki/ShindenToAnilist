@@ -37,6 +37,3 @@ zstd = "0.13"
 egobox-ego = "0.38"
 mimalloc = { version = "0.1" }
 ndarray = "0.16"
-
-[profile.release]
-lto = "thin"
