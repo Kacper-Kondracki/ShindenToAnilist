@@ -3694,6 +3694,7 @@ version = "0.1.0"
 dependencies = [
  "eyre",
  "mimalloc",
+ "serde",
  "shinden-to-anilist-core",
  "tauri",
  "tauri-build",

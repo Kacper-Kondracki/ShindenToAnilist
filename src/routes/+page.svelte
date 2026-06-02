@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+
+  import AnimatedGridPanel from '$lib/components/AnimatedGridPanel.svelte';
+  import WorkspaceView from '$lib/components/WorkspaceView.svelte';
+  import { getAppStatus, loadDatabase, updateDatabase } from '$lib/tauri/pipeline';
+
   type ProviderOption = {
     id: string;
     label: string;
@@ -32,16 +38,81 @@
   ] as const satisfies readonly ProviderOption[];
 
   type Provider = (typeof providers)[number]['id'];
+  type DatabaseLoadState = 'loading' | 'loaded' | 'error';
+  type AppView = 'start' | 'workspace';
 
   let selectedProvider = $state<Provider>('shinden');
   let userQuery = $state('');
+  let appView = $state<AppView>('start');
+  let databaseLoadState = $state<DatabaseLoadState>('loading');
+  let databaseLastUpdate = $state<string | null>(null);
+  let databaseError = $state<string | null>(null);
   let trimmedQuery = $derived(userQuery.trim());
   let selectedProviderDetails = $derived(
     providers.find(({ id }) => id === selectedProvider) ?? providers[0]
   );
+  let databaseStatusText = $derived.by(() => {
+    if (databaseLoadState === 'loaded') {
+      return databaseLastUpdate ? `Baza danych: ${databaseLastUpdate}` : 'Baza danych załadowana';
+    }
 
-  function handleSubmit() {
+    if (databaseLoadState === 'error') {
+      return 'Baza danych niedostępna';
+    }
+
+    return 'Ładowanie bazy danych';
+  });
+
+  onMount(() => {
+    void initializeDatabase();
+  });
+
+  async function initializeDatabase() {
+    databaseLoadState = 'loading';
+    databaseError = null;
+
+    try {
+      const status = await getAppStatus();
+
+      if (status.databaseLoaded && status.databaseLastUpdate) {
+        databaseLastUpdate = status.databaseLastUpdate;
+      } else {
+        if (status.databaseExists) {
+          try {
+            await updateDatabase();
+          } catch (error) {
+            console.warn('Database update failed, loading local database', error);
+          }
+        } else {
+          await updateDatabase();
+        }
+
+        const database = await loadDatabase();
+        databaseLastUpdate = database.lastUpdate;
+      }
+
+      databaseLoadState = 'loaded';
+    } catch (error) {
+      databaseError = getErrorMessage(error);
+      databaseLoadState = 'error';
+    }
+  }
+
+  function getErrorMessage(error: unknown) {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'object' && error && 'message' in error) {
+      return String(error.message);
+    }
+
+    return String(error);
+  }
+
+  function handleSubmit(event: SubmitEvent) {
+    event.preventDefault();
+
     if (!trimmedQuery) return;
+
+    appView = 'workspace';
 
     console.log('Load user list', {
       provider: selectedProvider,
@@ -56,7 +127,25 @@
       <div class="app-header-primary">
         <div class="min-w-52">
           <h1 class="text-xl font-bold">ShindenToAnilist</h1>
-          <p class="text-sm text-muted">Konwerter listy anime</p>
+
+          <div
+            class="database-status flex items-center gap-1 text-xs font-medium"
+            class:database-status--loaded={databaseLoadState === 'loaded'}
+            class:database-status--error={databaseLoadState === 'error'}
+            aria-live="polite"
+            title={databaseError ?? undefined}
+          >
+            {#if databaseLoadState === 'loading'}
+              <span class="loading loading-xs loading-spinner" aria-hidden="true"></span>
+            {:else if databaseLoadState === 'loaded'}
+              <span class="database-status__icon database-status__icon--loaded" aria-hidden="true"
+              ></span>
+            {:else}
+              <span class="database-status__icon database-status__icon--error" aria-hidden="true"
+              ></span>
+            {/if}
+            <span>{databaseStatusText}</span>
+          </div>
         </div>
 
         <div class="join shrink-0">
@@ -88,58 +177,38 @@
             autocomplete="off"
           />
         </label>
-        <button class="btn join-item btn-primary" type="submit" disabled={!trimmedQuery}
+        <button class="btn join-item btn-info" type="submit" disabled={!trimmedQuery}
           >Wczytaj</button
         >
       </form>
     </div>
   </header>
 
-  <section class="app-content">
-    <div class="empty-state grid place-items-center overflow-hidden surface-panel">
-      <div class="empty-state__grid" aria-hidden="true"></div>
-      <div class="isolate grid max-w-3xl justify-items-center gap-2 px-6 text-center">
-        <p class="text-2xl font-bold md:text-4xl">Wczytaj listę, żeby rozpocząć dopasowywanie</p>
-        <p class="text-base font-medium text-muted md:text-xl">
-          Aktywny import z {selectedProviderDetails.label}, pozostałe źródła w budowie
-        </p>
+  <div class="view-stage">
+    {#if appView === 'start'}
+      <div class="view-frame">
+        <section class="app-content">
+          <AnimatedGridPanel class="grid place-items-center overflow-hidden surface-panel">
+            <div class="isolate grid max-w-3xl justify-items-center gap-2 px-6 text-center">
+              <p class="text-2xl font-bold md:text-4xl">
+                Wczytaj listę, żeby rozpocząć dopasowywanie
+              </p>
+              <p class="text-base font-medium text-muted md:text-xl">
+                Aktywny import z {selectedProviderDetails.label}, pozostałe źródła w budowie
+              </p>
+            </div>
+          </AnimatedGridPanel>
+        </section>
       </div>
-    </div>
-  </section>
+    {:else}
+      <div class="view-frame view-frame--workspace-enter">
+        <WorkspaceView providerLabel={selectedProviderDetails.label} />
+      </div>
+    {/if}
+  </div>
 </main>
 
 <style>
-  @property --empty-state-accent {
-    syntax: '<color>';
-    inherits: true;
-    initial-value: transparent;
-  }
-  @property --empty-state-grid-line {
-    syntax: '<color>';
-    inherits: true;
-    initial-value: transparent;
-  }
-  @property --empty-state-glow {
-    syntax: '<color>';
-    inherits: true;
-    initial-value: transparent;
-  }
-
-  .empty-state {
-    --empty-state-accent: var(--provider-accent, var(--color-primary));
-    --empty-state-glow: color-mix(in oklab, var(--empty-state-accent) 36%, transparent);
-    --empty-state-grid-line: color-mix(in oklab, var(--empty-state-accent) 40%, transparent);
-
-    transition:
-      --empty-state-accent 100ms ease,
-      --empty-state-grid-line 100ms ease,
-      --empty-state-glow 100ms ease,
-      box-shadow 100ms ease;
-
-    position: relative;
-    box-shadow: inset 0 0 2rem var(--empty-state-glow);
-  }
-
   .provider-button {
     --provider-button-color: var(--provider-button-accent, var(--color-primary));
     --btn-color: color-mix(in oklab, var(--provider-button-color) 70%, transparent);
@@ -151,54 +220,98 @@
     color: var(--color-primary-content);
   }
 
-  .empty-state::before,
-  .empty-state::after,
-  .empty-state__grid {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
+  .database-status {
+    color: color-mix(in oklab, var(--color-base-content) 64%, transparent);
   }
 
-  .empty-state::before,
-  .empty-state::after {
-    z-index: 1;
+  .database-status--loaded {
+    color: var(--color-success);
+  }
+
+  .database-status--error {
+    color: var(--color-error);
+  }
+
+  .database-status__icon {
+    display: inline-grid;
+    position: relative;
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 1rem;
+    place-items: center;
+
+    border-radius: 999px;
+    background-color: currentColor;
+  }
+
+  .database-status__icon--loaded::before {
+    position: absolute;
+    width: 0.32rem;
+    height: 0.58rem;
+    border-right: 2px solid var(--color-base-300);
+    border-bottom: 2px solid var(--color-base-300);
+    content: '';
+    transform: rotate(45deg) translate(-0.02rem, -0.08rem);
+  }
+
+  .database-status__icon--error::before,
+  .database-status__icon--error::after {
+    position: absolute;
+    border-radius: 999px;
+    background-color: var(--color-base-300);
     content: '';
   }
 
-  .empty-state::before {
-    background: linear-gradient(
-      180deg,
-      var(--color-base-300),
-      color-mix(in oklab, var(--color-base-300) 70%, transparent) 22%,
-      transparent 56%
-    );
+  .database-status__icon--error::before {
+    width: 0.12rem;
+    height: 0.5rem;
+    transform: translateY(-0.12rem);
   }
 
-  .empty-state::after {
-    background: radial-gradient(
-      ellipse at center,
-      transparent 44%,
-      color-mix(in oklab, var(--color-base-300) 84%, transparent)
-    );
+  .database-status__icon--error::after {
+    width: 0.14rem;
+    height: 0.14rem;
+    transform: translateY(0.3rem);
   }
 
-  .empty-state__grid {
-    background-image:
-      linear-gradient(var(--empty-state-grid-line) 2px, transparent 2px),
-      linear-gradient(90deg, var(--empty-state-grid-line) 2px, transparent 2px);
-    background-size: 4rem 4rem;
-    animation: move-grid 6s linear infinite;
-    filter: blur(1px);
+  .view-stage {
+    position: relative;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+    contain: layout paint;
   }
 
-  @keyframes move-grid {
+  .view-frame {
+    display: flex;
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .view-frame--workspace-enter {
+    animation: workspace-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    will-change: transform, opacity;
+  }
+
+  @keyframes workspace-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 4rem, 0);
+    }
+
     to {
-      background-position: 8rem 12rem;
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    @keyframes move-grid {
+    .view-frame--workspace-enter {
+      animation: none;
     }
   }
 </style>

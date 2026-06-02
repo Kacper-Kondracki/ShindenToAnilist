@@ -34,6 +34,11 @@ pub struct AnimeDatabase {
     pub(super) entries: IndexMap<AnimeId, AnimeEntry>,
 }
 
+impl AnimeDatabase {
+    /// Date advertised by the database source as its last update.
+    pub fn last_update(&self) -> NaiveDate { self.last_update }
+}
+
 /// A single anime entry from the offline database.
 ///
 /// All fields are read-only via accessor methods.  An entry carries both
