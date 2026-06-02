@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=ShindenToAnilist
+Comment=Desktop tool for syncing Shinden entries to AniList.
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/shindentoanilist %u
+Terminal=false
+Type=Application
+Icon=shindentoanilist
+Categories=Utility;
+StartupWMClass=shindentoanilist
+
+ 

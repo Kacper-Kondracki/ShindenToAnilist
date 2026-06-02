@@ -1,0 +1,15 @@
+{
+  "svelte.enable-ts-plugin": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.experimentalTernaries": true,
+
+  "editor.quickSuggestions": {
+    "strings": "on"
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "[svelte]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}
