@@ -1,7 +1,7 @@
 # This file contains the configuration for this project.
 # When you update `info` or `fileAssociations`, run `wails3 task common:update:build-assets` to update the assets.
 # Note that this will overwrite any changes you have made to the assets.
-version: '3'
+version: "3"
 
 # This information is used to generate the build assets.
 info:
@@ -11,7 +11,7 @@ info:
   description: "Desktop tool for syncing Shinden entries to AniList." # The application description
   copyright: "(c) 2026, ShindenToAnilist" # Copyright text
   comments: "ShindenToAnilist desktop application" # Comments
-  version: "0.0.1" # The application version
+  version: "0.1.0" # The application version
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)
   #                               # Should match the name of your .icon file without the extension
   #                               # If not set and Assets.car exists, defaults to "appicon"
@@ -46,6 +46,7 @@ dev_mode:
       - .gitignore
       - .gitkeep
       - "*_test.go"
+      - "driver_hash.go"
     watched_extension:
       - "*.go"
       - "*.js" # Watch for changes to JS/TS files included using the //wails:include directive.

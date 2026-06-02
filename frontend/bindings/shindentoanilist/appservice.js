@@ -12,3 +12,25 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 export function AppName() {
     return $Call.ByID(2191506962);
 }
+
+/**
+ * @returns {$CancellablePromise<number>}
+ */
+export function CounterValue() {
+    return $Call.ByID(1548171427);
+}
+
+/**
+ * @returns {$CancellablePromise<number>}
+ */
+export function IncrementCounter() {
+    return $Call.ByID(1697898373);
+}
+
+/**
+ * @param {number} amount
+ * @returns {$CancellablePromise<number>}
+ */
+export function IncrementCounterBy(amount) {
+    return $Call.ByID(2071564404, amount);
+}

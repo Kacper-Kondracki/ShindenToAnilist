@@ -3,26 +3,26 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "shindentoanilist"
+name: "ShindenToAnilist"
 arch: ${GOARCH}
 platform: "linux"
-version: "0.0.1"
+version: "0.1.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
 description: "Desktop tool for syncing Shinden entries to AniList."
 vendor: "ShindenToAnilist"
-homepage: "https://wails.io"
-license: "MIT"
+homepage: "https://github.com/Kacper-Kondracki/ShindenToAnilist"
+license: "MIT+MPL-2.0"
 release: "1"
 
 contents:
-  - src: "./bin/shindentoanilist"
-    dst: "/usr/local/bin/shindentoanilist"
+  - src: "./bin/ShindenToAnilist"
+    dst: "/usr/local/bin/ShindenToAnilist"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/shindentoanilist.png"
-  - src: "./build/linux/shindentoanilist.desktop"
-    dst: "/usr/share/applications/shindentoanilist.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/ShindenToAnilist.png"
+  - src: "./build/linux/ShindenToAnilist.desktop"
+    dst: "/usr/share/applications/ShindenToAnilist.desktop"
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:

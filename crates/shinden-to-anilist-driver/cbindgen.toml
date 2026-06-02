@@ -1,0 +1,7 @@
+language = "C"
+include_guard = "SHINDEN_TO_ANILIST_DRIVER_H"
+cpp_compat = true
+tab_width = 4
+
+[parse]
+parse_deps = false

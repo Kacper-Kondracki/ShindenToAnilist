@@ -2,7 +2,7 @@ module shindentoanilist
 
 go 1.25.0
 
-require github.com/wailsapp/wails/v3 v3.0.0-alpha.97
+require github.com/wailsapp/wails/v3 v3.0.0-alpha.98
 
 require (
 	dario.cat/mergo v1.0.2 // indirect

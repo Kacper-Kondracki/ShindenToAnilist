@@ -1,15 +1,15 @@
 {
-	"fixed": {
-		"file_version": "0.0.1"
-	},
-	"info": {
-		"0000": {
-			"ProductVersion": "0.0.1",
-			"CompanyName": "ShindenToAnilist",
-			"FileDescription": "Desktop tool for syncing Shinden entries to AniList.",
-			"LegalCopyright": "(c) 2026, ShindenToAnilist",
-			"ProductName": "ShindenToAnilist",
-			"Comments": "ShindenToAnilist desktop application"
-		}
-	}
+  "fixed": {
+    "file_version": "0.1.0"
+  },
+  "info": {
+    "0000": {
+      "ProductVersion": "0.1.0",
+      "CompanyName": "ShindenToAnilist",
+      "FileDescription": "Desktop tool for syncing Shinden entries to AniList.",
+      "LegalCopyright": "(c) 2026, ShindenToAnilist",
+      "ProductName": "ShindenToAnilist",
+      "Comments": "ShindenToAnilist desktop application"
+    }
+  }
 }
