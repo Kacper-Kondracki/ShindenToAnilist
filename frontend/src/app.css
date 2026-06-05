@@ -42,3 +42,70 @@
     local(""),
     url("/Inter-Medium.ttf") format("truetype");
 }
+
+/* App-wide layout and design primitives. Keep page-only visuals in component styles. */
+@utility app-shell {
+  display: flex;
+
+  min-height: 100dvh;
+  flex-direction: column;
+
+  background-color: var(--color-base-300);
+}
+
+@utility app-header {
+  border-bottom: var(--border) solid
+    color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background-color: var(--color-base-200);
+}
+
+@utility app-header-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+
+  gap: calc(var(--spacing) * 4);
+  padding-inline: calc(var(--spacing) * 4);
+  padding-block: calc(var(--spacing) * 3);
+}
+
+@utility app-header-primary {
+  display: flex;
+  flex: 0 0 max-content;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+@media (width <= 58rem) {
+  .app-header-primary {
+    flex: 1 0 100%;
+    justify-content: space-between;
+  }
+}
+
+@utility app-content {
+  display: grid;
+  flex: 1;
+  padding: calc(var(--spacing) * 4);
+}
+
+@utility surface-panel {
+  border: var(--border) solid
+    color-mix(in oklab, var(--color-primary) 30%, transparent);
+  border-radius: var(--radius-box);
+  background-color: var(--color-base-100);
+}
+
+@utility text-muted {
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+}
+
+/* DaisyUI input normalization for inputs wrapped by .input labels. */
+.input > input {
+  box-shadow: none;
+}
+
+@utility input {
+  border-width: 2px;
+}

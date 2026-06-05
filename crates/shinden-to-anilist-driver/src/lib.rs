@@ -65,7 +65,7 @@ fn error_result(status: StaStatus, message: &str) -> StaError {
     }
 }
 
-fn with_driver_out_i64(driver: *mut StaDriver, out: *mut i64, f: impl FnOnce(&StaDriver) -> i64) -> StaError {
+fn with_driver_out<T>(driver: *mut StaDriver, out: *mut T, f: impl FnOnce(&StaDriver) -> T) -> StaError {
     if driver.is_null() {
         return error_result(StaStatus::StaStatusNullPointer, "driver pointer is null");
     }
@@ -114,7 +114,7 @@ pub unsafe extern "C" fn sta_string_free(value: *mut c_char) {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn sta_driver_counter_value(driver: *mut StaDriver, out: *mut i64) -> StaError {
-    with_driver_out_i64(driver, out, |driver| driver.counter.load(Ordering::Relaxed))
+    with_driver_out(driver, out, |driver| driver.counter.load(Ordering::Relaxed))
 }
 
 #[unsafe(no_mangle)]
@@ -123,7 +123,7 @@ pub extern "C" fn sta_driver_counter_increment(
     amount: u32,
     out: *mut i64,
 ) -> StaError {
-    with_driver_out_i64(driver, out, |driver| {
+    with_driver_out(driver, out, |driver| {
         let amount = i64::from(amount);
         driver.counter.fetch_add(amount, Ordering::Relaxed) + amount
     })
