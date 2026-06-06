@@ -20,6 +20,24 @@
   } = $props();
 
   let activeAnimeListTab = $state<AnimeListTabId>("manual");
+  const matchStatusSortRanks: Record<AnimeMatchStatus, number> = {
+    unmatched: 0,
+    review: 1,
+    matched: 2,
+  };
+
+  let automaticMatchedEntryIds = $derived.by(() => {
+    const ids = new Set<number>();
+
+    for (const matchEntry of matchResult?.entries ?? []) {
+      if (matchEntry.result.winner !== null) {
+        ids.add(matchEntry.shindenId);
+      }
+    }
+
+    return ids;
+  });
+
   let matchStatuses = $derived.by(() => {
     const statuses = new Map<number, AnimeMatchStatus>();
 
@@ -35,6 +53,48 @@
 
     return statuses;
   });
+
+  let visibleEntries = $derived.by(() =>
+    entries
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => {
+        if (activeAnimeListTab === "all") {
+          return true;
+        }
+
+        if (activeAnimeListTab === "automatic") {
+          return automaticMatchedEntryIds.has(entry.id);
+        }
+
+        return !automaticMatchedEntryIds.has(entry.id);
+      })
+      .sort((left, right) => {
+        const leftStatus = matchStatuses.get(left.entry.id) ?? "unmatched";
+        const rightStatus = matchStatuses.get(right.entry.id) ?? "unmatched";
+
+        return (
+          matchStatusSortRanks[leftStatus] -
+            matchStatusSortRanks[rightStatus] || left.index - right.index
+        );
+      })
+      .map(({ entry }) => entry),
+  );
+
+  let emptyListText = $derived.by(() => {
+    if (entries.length === 0) {
+      return "Lista jest pusta";
+    }
+
+    if (activeAnimeListTab === "automatic") {
+      return "Brak automatycznie dopasowanych wpisów";
+    }
+
+    if (activeAnimeListTab === "manual") {
+      return "Brak wpisów wymagających ręcznej interwencji";
+    }
+
+    return "Brak wpisów do wyświetlenia";
+  });
 </script>
 
 <section class="workspace-pane" aria-label={`Lista anime z ${providerLabel}`}>
@@ -42,8 +102,12 @@
     <AnimeListTabs bind:activeTab={activeAnimeListTab} />
   </div>
   <div id="anime-list-tab-panel" role="tabpanel" class="workspace-pane__body">
-    {#if entries.length > 0}
-      <VList data={entries} class="size-full" getKey={(entry) => entry.id}>
+    {#if visibleEntries.length > 0}
+      <VList
+        data={visibleEntries}
+        class="size-full"
+        getKey={(entry) => entry.id}
+      >
         {#snippet children(entry)}
           <AnimeRow
             {entry}
@@ -55,7 +119,7 @@
       </VList>
     {:else}
       <p class="workspace-empty text-sm font-medium text-muted">
-        Lista jest pusta
+        {emptyListText}
       </p>
     {/if}
   </div>
