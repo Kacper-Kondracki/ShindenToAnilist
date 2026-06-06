@@ -30,15 +30,71 @@ export function EnsureDatabase() {
 }
 
 /**
+ * @param {appsvc$0.MatchSelection[]} matches
+ * @returns {$CancellablePromise<appsvc$0.ExportResult>}
+ */
+export function ExportMatches(matches) {
+    return $Call.ByID(3537829349, matches).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
+
+/**
+ * @returns {$CancellablePromise<appsvc$0.AnimeDatabase>}
+ */
+export function GetAnimeDatabase() {
+    return $Call.ByID(3905279475).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType2($result);
+    }));
+}
+
+/**
  * @param {number} userID
  * @returns {$CancellablePromise<appsvc$0.ShindenList>}
  */
 export function LoadShindenList(userID) {
     return $Call.ByID(697250205, userID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
+        return $$createType3($result);
+    }));
+}
+
+/**
+ * @param {appsvc$0.MatchOptions} options
+ * @returns {$CancellablePromise<appsvc$0.MatchListResult>}
+ */
+export function MatchLoadedShindenList(options) {
+    return $Call.ByID(2016064325, options).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType4($result);
+    }));
+}
+
+/**
+ * @param {string} query
+ * @param {appsvc$0.MatchQueryOptions} options
+ * @returns {$CancellablePromise<appsvc$0.MatchResult>}
+ */
+export function MatchQuery(query, options) {
+    return $Call.ByID(693679561, query, options).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType5($result);
+    }));
+}
+
+/**
+ * @param {string} query
+ * @param {appsvc$0.SearchOptions} options
+ * @returns {$CancellablePromise<appsvc$0.SearchResult>}
+ */
+export function SearchAnime(query, options) {
+    return $Call.ByID(596840122, query, options).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType6($result);
     }));
 }
 
 // Private type creation functions
 const $$createType0 = anime$0.DatabaseInfo.createFrom;
-const $$createType1 = anime$0.ShindenList.createFrom;
+const $$createType1 = anime$0.ExportResult.createFrom;
+const $$createType2 = anime$0.AnimeDatabase.createFrom;
+const $$createType3 = anime$0.ShindenList.createFrom;
+const $$createType4 = anime$0.MatchListResult.createFrom;
+const $$createType5 = anime$0.MatchResult.createFrom;
+const $$createType6 = anime$0.SearchResult.createFrom;

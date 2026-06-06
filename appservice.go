@@ -35,3 +35,23 @@ func (s *AppService) EnsureDatabase() (appsvc.DatabaseInfo, error) {
 func (s *AppService) LoadShindenList(userID int) (appsvc.ShindenList, error) {
 	return s.service.LoadShindenList(userID)
 }
+
+func (s *AppService) GetAnimeDatabase() (appsvc.AnimeDatabase, error) {
+	return s.service.GetAnimeDatabase()
+}
+
+func (s *AppService) MatchLoadedShindenList(options appsvc.MatchOptions) (appsvc.MatchListResult, error) {
+	return s.service.MatchLoadedShindenList(options)
+}
+
+func (s *AppService) SearchAnime(query string, options appsvc.SearchOptions) (appsvc.SearchResult, error) {
+	return s.service.SearchAnime(query, options)
+}
+
+func (s *AppService) MatchQuery(query string, options appsvc.MatchQueryOptions) (appsvc.MatchResult, error) {
+	return s.service.MatchQuery(query, options)
+}
+
+func (s *AppService) ExportMatches(matches []appsvc.MatchSelection) (appsvc.ExportResult, error) {
+	return s.service.ExportMatches(matches)
+}

@@ -6,6 +6,305 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+export class AnimeDatabase {
+    /**
+     * Creates a new AnimeDatabase instance.
+     * @param {Partial<AnimeDatabase>} [$$source = {}] - The source object to create the AnimeDatabase.
+     */
+    constructor($$source = {}) {
+        if (!("lastUpdate" in $$source)) {
+            /**
+             * @member
+             * @type {string | null}
+             */
+            this["lastUpdate"] = null;
+        }
+        if (!("entries" in $$source)) {
+            /**
+             * @member
+             * @type {DatabaseEntry[]}
+             */
+            this["entries"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AnimeDatabase instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {AnimeDatabase}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("entries" in $$parsedSource) {
+            $$parsedSource["entries"] = $$createField1_0($$parsedSource["entries"]);
+        }
+        return new AnimeDatabase(/** @type {Partial<AnimeDatabase>} */($$parsedSource));
+    }
+}
+
+export class ConsolidatedMetadata {
+    /**
+     * Creates a new ConsolidatedMetadata instance.
+     * @param {Partial<ConsolidatedMetadata>} [$$source = {}] - The source object to create the ConsolidatedMetadata.
+     */
+    constructor($$source = {}) {
+        if (!("season" in $$source)) {
+            /**
+             * @member
+             * @type {OptionalFloat}
+             */
+            this["season"] = null;
+        }
+        if (!("part" in $$source)) {
+            /**
+             * @member
+             * @type {OptionalFloat}
+             */
+            this["part"] = null;
+        }
+        if (!("episode" in $$source)) {
+            /**
+             * @member
+             * @type {OptionalFloat}
+             */
+            this["episode"] = null;
+        }
+        if (!("isFinalSeason" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["isFinalSeason"] = false;
+        }
+        if (!("isFinalPart" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["isFinalPart"] = false;
+        }
+        if (!("isFinalEpisode" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["isFinalEpisode"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ConsolidatedMetadata instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ConsolidatedMetadata}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ConsolidatedMetadata(/** @type {Partial<ConsolidatedMetadata>} */($$parsedSource));
+    }
+}
+
+export class DatabaseEntry {
+    /**
+     * Creates a new DatabaseEntry instance.
+     * @param {Partial<DatabaseEntry>} [$$source = {}] - The source object to create the DatabaseEntry.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["id"] = 0;
+        }
+        if (!("consolidatedMetadata" in $$source)) {
+            /**
+             * @member
+             * @type {ConsolidatedMetadata}
+             */
+            this["consolidatedMetadata"] = (new ConsolidatedMetadata());
+        }
+        if (!("sources" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["sources"] = [];
+        }
+        if (!("title" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["title"] = "";
+        }
+        if (!("normalizedTitle" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["normalizedTitle"] = "";
+        }
+        if (!("metadata" in $$source)) {
+            /**
+             * @member
+             * @type {TitleMetadata}
+             */
+            this["metadata"] = (new TitleMetadata());
+        }
+        if (!("animeType" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["animeType"] = "";
+        }
+        if (!("episodes" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["episodes"] = 0;
+        }
+        if (!("status" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["status"] = "";
+        }
+        if (!("season" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["season"] = "";
+        }
+        if (!("year" in $$source)) {
+            /**
+             * @member
+             * @type {number | null}
+             */
+            this["year"] = null;
+        }
+        if (!("picture" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["picture"] = "";
+        }
+        if (!("thumbnail" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["thumbnail"] = "";
+        }
+        if (!("duration" in $$source)) {
+            /**
+             * @member
+             * @type {number | null}
+             */
+            this["duration"] = null;
+        }
+        if (!("synonyms" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["synonyms"] = [];
+        }
+        if (!("normalizedSynonyms" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["normalizedSynonyms"] = [];
+        }
+        if (!("studios" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["studios"] = [];
+        }
+        if (!("producers" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["producers"] = [];
+        }
+        if (!("relatedAnime" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["relatedAnime"] = [];
+        }
+        if (!("tags" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["tags"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DatabaseEntry instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {DatabaseEntry}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType2;
+        const $$createField2_0 = $$createType3;
+        const $$createField5_0 = $$createType4;
+        const $$createField14_0 = $$createType3;
+        const $$createField15_0 = $$createType3;
+        const $$createField16_0 = $$createType3;
+        const $$createField17_0 = $$createType3;
+        const $$createField18_0 = $$createType3;
+        const $$createField19_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("consolidatedMetadata" in $$parsedSource) {
+            $$parsedSource["consolidatedMetadata"] = $$createField1_0($$parsedSource["consolidatedMetadata"]);
+        }
+        if ("sources" in $$parsedSource) {
+            $$parsedSource["sources"] = $$createField2_0($$parsedSource["sources"]);
+        }
+        if ("metadata" in $$parsedSource) {
+            $$parsedSource["metadata"] = $$createField5_0($$parsedSource["metadata"]);
+        }
+        if ("synonyms" in $$parsedSource) {
+            $$parsedSource["synonyms"] = $$createField14_0($$parsedSource["synonyms"]);
+        }
+        if ("normalizedSynonyms" in $$parsedSource) {
+            $$parsedSource["normalizedSynonyms"] = $$createField15_0($$parsedSource["normalizedSynonyms"]);
+        }
+        if ("studios" in $$parsedSource) {
+            $$parsedSource["studios"] = $$createField16_0($$parsedSource["studios"]);
+        }
+        if ("producers" in $$parsedSource) {
+            $$parsedSource["producers"] = $$createField17_0($$parsedSource["producers"]);
+        }
+        if ("relatedAnime" in $$parsedSource) {
+            $$parsedSource["relatedAnime"] = $$createField18_0($$parsedSource["relatedAnime"]);
+        }
+        if ("tags" in $$parsedSource) {
+            $$parsedSource["tags"] = $$createField19_0($$parsedSource["tags"]);
+        }
+        return new DatabaseEntry(/** @type {Partial<DatabaseEntry>} */($$parsedSource));
+    }
+}
+
 export class DatabaseInfo {
     /**
      * Creates a new DatabaseInfo instance.
@@ -59,6 +358,507 @@ export class DatabaseInfo {
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new DatabaseInfo(/** @type {Partial<DatabaseInfo>} */($$parsedSource));
+    }
+}
+
+export class ExportResult {
+    /**
+     * Creates a new ExportResult instance.
+     * @param {Partial<ExportResult>} [$$source = {}] - The source object to create the ExportResult.
+     */
+    constructor($$source = {}) {
+        if (!("path" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["path"] = "";
+        }
+        if (!("exportedCount" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["exportedCount"] = 0;
+        }
+        if (!("cancelled" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["cancelled"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ExportResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ExportResult}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ExportResult(/** @type {Partial<ExportResult>} */($$parsedSource));
+    }
+}
+
+export class MatchListResult {
+    /**
+     * Creates a new MatchListResult instance.
+     * @param {Partial<MatchListResult>} [$$source = {}] - The source object to create the MatchListResult.
+     */
+    constructor($$source = {}) {
+        if (!("entries" in $$source)) {
+            /**
+             * @member
+             * @type {ShindenMatchResult[]}
+             */
+            this["entries"] = [];
+        }
+        if (!("total" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["total"] = 0;
+        }
+        if (!("winners" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["winners"] = 0;
+        }
+        if (!("hasTop" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["hasTop"] = 0;
+        }
+        if (!("unmatched" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["unmatched"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MatchListResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {MatchListResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType6;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("entries" in $$parsedSource) {
+            $$parsedSource["entries"] = $$createField0_0($$parsedSource["entries"]);
+        }
+        return new MatchListResult(/** @type {Partial<MatchListResult>} */($$parsedSource));
+    }
+}
+
+export class MatchOptions {
+    /**
+     * Creates a new MatchOptions instance.
+     * @param {Partial<MatchOptions>} [$$source = {}] - The source object to create the MatchOptions.
+     */
+    constructor($$source = {}) {
+        if (!("candidateLimit" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["candidateLimit"] = 0;
+        }
+        if (!("searchThreshold" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["searchThreshold"] = 0;
+        }
+        if (!("resultLimit" in $$source)) {
+            /**
+             * @member
+             * @type {number | null}
+             */
+            this["resultLimit"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MatchOptions instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {MatchOptions}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MatchOptions(/** @type {Partial<MatchOptions>} */($$parsedSource));
+    }
+}
+
+export class MatchQueryOptions {
+    /**
+     * Creates a new MatchQueryOptions instance.
+     * @param {Partial<MatchQueryOptions>} [$$source = {}] - The source object to create the MatchQueryOptions.
+     */
+    constructor($$source = {}) {
+        if (!("search" in $$source)) {
+            /**
+             * @member
+             * @type {SearchOptions}
+             */
+            this["search"] = (new SearchOptions());
+        }
+        if (!("resultLimit" in $$source)) {
+            /**
+             * @member
+             * @type {number | null}
+             */
+            this["resultLimit"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MatchQueryOptions instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {MatchQueryOptions}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType7;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("search" in $$parsedSource) {
+            $$parsedSource["search"] = $$createField0_0($$parsedSource["search"]);
+        }
+        return new MatchQueryOptions(/** @type {Partial<MatchQueryOptions>} */($$parsedSource));
+    }
+}
+
+export class MatchResult {
+    /**
+     * Creates a new MatchResult instance.
+     * @param {Partial<MatchResult>} [$$source = {}] - The source object to create the MatchResult.
+     */
+    constructor($$source = {}) {
+        if (!("items" in $$source)) {
+            /**
+             * @member
+             * @type {ScoredCandidate[]}
+             */
+            this["items"] = [];
+        }
+        if (!("top" in $$source)) {
+            /**
+             * @member
+             * @type {ScoredCandidate[]}
+             */
+            this["top"] = [];
+        }
+        if (!("winner" in $$source)) {
+            /**
+             * @member
+             * @type {ScoredCandidate | null}
+             */
+            this["winner"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MatchResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {MatchResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType9;
+        const $$createField1_0 = $$createType9;
+        const $$createField2_0 = $$createType10;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("items" in $$parsedSource) {
+            $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
+        }
+        if ("top" in $$parsedSource) {
+            $$parsedSource["top"] = $$createField1_0($$parsedSource["top"]);
+        }
+        if ("winner" in $$parsedSource) {
+            $$parsedSource["winner"] = $$createField2_0($$parsedSource["winner"]);
+        }
+        return new MatchResult(/** @type {Partial<MatchResult>} */($$parsedSource));
+    }
+}
+
+export class MatchSelection {
+    /**
+     * Creates a new MatchSelection instance.
+     * @param {Partial<MatchSelection>} [$$source = {}] - The source object to create the MatchSelection.
+     */
+    constructor($$source = {}) {
+        if (!("shindenId" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["shindenId"] = 0;
+        }
+        if (!("databaseId" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["databaseId"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MatchSelection instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {MatchSelection}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MatchSelection(/** @type {Partial<MatchSelection>} */($$parsedSource));
+    }
+}
+
+/**
+ * @typedef {number | null} OptionalFloat
+ */
+
+export class ScoreBreakdown {
+    /**
+     * Creates a new ScoreBreakdown instance.
+     * @param {Partial<ScoreBreakdown>} [$$source = {}] - The source object to create the ScoreBreakdown.
+     */
+    constructor($$source = {}) {
+        if (!("searchScore" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["searchScore"] = 0;
+        }
+        if (!("seasonScore" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["seasonScore"] = 0;
+        }
+        if (!("yearScore" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["yearScore"] = 0;
+        }
+        if (!("typeScore" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["typeScore"] = 0;
+        }
+        if (!("statusScore" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["statusScore"] = 0;
+        }
+        if (!("seasonalScore" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["seasonalScore"] = 0;
+        }
+        if (!("episodesScore" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["episodesScore"] = 0;
+        }
+        if (!("finalScore" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["finalScore"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ScoreBreakdown instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ScoreBreakdown}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ScoreBreakdown(/** @type {Partial<ScoreBreakdown>} */($$parsedSource));
+    }
+}
+
+export class ScoredCandidate {
+    /**
+     * Creates a new ScoredCandidate instance.
+     * @param {Partial<ScoredCandidate>} [$$source = {}] - The source object to create the ScoredCandidate.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["id"] = 0;
+        }
+        if (!("score" in $$source)) {
+            /**
+             * @member
+             * @type {ScoreBreakdown}
+             */
+            this["score"] = (new ScoreBreakdown());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ScoredCandidate instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ScoredCandidate}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType11;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("score" in $$parsedSource) {
+            $$parsedSource["score"] = $$createField1_0($$parsedSource["score"]);
+        }
+        return new ScoredCandidate(/** @type {Partial<ScoredCandidate>} */($$parsedSource));
+    }
+}
+
+export class SearchItem {
+    /**
+     * Creates a new SearchItem instance.
+     * @param {Partial<SearchItem>} [$$source = {}] - The source object to create the SearchItem.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["id"] = 0;
+        }
+        if (!("score" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["score"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SearchItem instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {SearchItem}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SearchItem(/** @type {Partial<SearchItem>} */($$parsedSource));
+    }
+}
+
+export class SearchOptions {
+    /**
+     * Creates a new SearchOptions instance.
+     * @param {Partial<SearchOptions>} [$$source = {}] - The source object to create the SearchOptions.
+     */
+    constructor($$source = {}) {
+        if (!("mode" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["mode"] = "";
+        }
+        if (!("limit" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["limit"] = 0;
+        }
+        if (!("threshold" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["threshold"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SearchOptions instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {SearchOptions}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SearchOptions(/** @type {Partial<SearchOptions>} */($$parsedSource));
+    }
+}
+
+export class SearchResult {
+    /**
+     * Creates a new SearchResult instance.
+     * @param {Partial<SearchResult>} [$$source = {}] - The source object to create the SearchResult.
+     */
+    constructor($$source = {}) {
+        if (!("items" in $$source)) {
+            /**
+             * @member
+             * @type {SearchItem[]}
+             */
+            this["items"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SearchResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {SearchResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType13;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("items" in $$parsedSource) {
+            $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
+        }
+        return new SearchResult(/** @type {Partial<SearchResult>} */($$parsedSource));
     }
 }
 
@@ -204,7 +1004,7 @@ export class ShindenList {
      * @returns {ShindenList}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType1;
+        const $$createField0_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("entries" in $$parsedSource) {
             $$parsedSource["entries"] = $$createField0_0($$parsedSource["entries"]);
@@ -213,6 +1013,123 @@ export class ShindenList {
     }
 }
 
+export class ShindenMatchResult {
+    /**
+     * Creates a new ShindenMatchResult instance.
+     * @param {Partial<ShindenMatchResult>} [$$source = {}] - The source object to create the ShindenMatchResult.
+     */
+    constructor($$source = {}) {
+        if (!("shindenId" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["shindenId"] = 0;
+        }
+        if (!("result" in $$source)) {
+            /**
+             * @member
+             * @type {MatchResult}
+             */
+            this["result"] = (new MatchResult());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ShindenMatchResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ShindenMatchResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType16;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("result" in $$parsedSource) {
+            $$parsedSource["result"] = $$createField1_0($$parsedSource["result"]);
+        }
+        return new ShindenMatchResult(/** @type {Partial<ShindenMatchResult>} */($$parsedSource));
+    }
+}
+
+export class TitleMetadata {
+    /**
+     * Creates a new TitleMetadata instance.
+     * @param {Partial<TitleMetadata>} [$$source = {}] - The source object to create the TitleMetadata.
+     */
+    constructor($$source = {}) {
+        if (!("season" in $$source)) {
+            /**
+             * @member
+             * @type {OptionalFloat}
+             */
+            this["season"] = null;
+        }
+        if (!("part" in $$source)) {
+            /**
+             * @member
+             * @type {OptionalFloat}
+             */
+            this["part"] = null;
+        }
+        if (!("episode" in $$source)) {
+            /**
+             * @member
+             * @type {OptionalFloat}
+             */
+            this["episode"] = null;
+        }
+        if (!("hasSeasonKeyword" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["hasSeasonKeyword"] = false;
+        }
+        if (!("hasPartKeyword" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["hasPartKeyword"] = false;
+        }
+        if (!("hasEpisodeKeyword" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["hasEpisodeKeyword"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TitleMetadata instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TitleMetadata}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TitleMetadata(/** @type {Partial<TitleMetadata>} */($$parsedSource));
+    }
+}
+
 // Private type creation functions
-const $$createType0 = ShindenEntry.createFrom;
+const $$createType0 = DatabaseEntry.createFrom;
 const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = ConsolidatedMetadata.createFrom;
+const $$createType3 = $Create.Array($Create.Any);
+const $$createType4 = TitleMetadata.createFrom;
+const $$createType5 = ShindenMatchResult.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = SearchOptions.createFrom;
+const $$createType8 = ScoredCandidate.createFrom;
+const $$createType9 = $Create.Array($$createType8);
+const $$createType10 = $Create.Nullable($$createType8);
+const $$createType11 = ScoreBreakdown.createFrom;
+const $$createType12 = SearchItem.createFrom;
+const $$createType13 = $Create.Array($$createType12);
+const $$createType14 = ShindenEntry.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = MatchResult.createFrom;

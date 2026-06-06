@@ -2,6 +2,7 @@ use shinden_to_anilist_core::{
     database::{
         AnimeStatus,
         AnimeType,
+        Season,
     },
     exporter::WatchStatus,
 };
@@ -23,6 +24,16 @@ pub fn anime_type(value: AnimeType) -> &'static str {
         AnimeType::Ona => "ona",
         AnimeType::Special => "special",
         AnimeType::Unknown => "unknown",
+    }
+}
+
+pub fn season(value: Season) -> &'static str {
+    match value {
+        Season::Spring => "spring",
+        Season::Summer => "summer",
+        Season::Fall => "fall",
+        Season::Winter => "winter",
+        Season::Undefined => "undefined",
     }
 }
 

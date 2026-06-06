@@ -10,10 +10,64 @@ import { Create as $Create } from "@wailsio/runtime";
 // @ts-ignore: Unused imports
 import * as anime$0 from "../anime/models.js";
 
+export const AnimeDatabase = anime$0.AnimeDatabase;
+
+/**
+ * @typedef {anime$0.AnimeDatabase} AnimeDatabase
+ */
+
 export const DatabaseInfo = anime$0.DatabaseInfo;
 
 /**
  * @typedef {anime$0.DatabaseInfo} DatabaseInfo
+ */
+
+export const ExportResult = anime$0.ExportResult;
+
+/**
+ * @typedef {anime$0.ExportResult} ExportResult
+ */
+
+export const MatchListResult = anime$0.MatchListResult;
+
+/**
+ * @typedef {anime$0.MatchListResult} MatchListResult
+ */
+
+export const MatchOptions = anime$0.MatchOptions;
+
+/**
+ * @typedef {anime$0.MatchOptions} MatchOptions
+ */
+
+export const MatchQueryOptions = anime$0.MatchQueryOptions;
+
+/**
+ * @typedef {anime$0.MatchQueryOptions} MatchQueryOptions
+ */
+
+export const MatchResult = anime$0.MatchResult;
+
+/**
+ * @typedef {anime$0.MatchResult} MatchResult
+ */
+
+export const MatchSelection = anime$0.MatchSelection;
+
+/**
+ * @typedef {anime$0.MatchSelection} MatchSelection
+ */
+
+export const SearchOptions = anime$0.SearchOptions;
+
+/**
+ * @typedef {anime$0.SearchOptions} SearchOptions
+ */
+
+export const SearchResult = anime$0.SearchResult;
+
+/**
+ * @typedef {anime$0.SearchResult} SearchResult
  */
 
 export const ShindenList = anime$0.ShindenList;
