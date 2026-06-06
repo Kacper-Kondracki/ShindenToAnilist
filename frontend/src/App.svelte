@@ -38,8 +38,6 @@
   ] as const satisfies readonly ProviderOption[];
 
   type Provider = (typeof providers)[number]["id"];
-  type DatabaseLoadState = "loading" | "loaded" | "error";
-  type AppView = "start" | "workspace";
   type DatabaseInfo = {
     lastUpdate: string;
     release: string;
@@ -66,18 +64,31 @@
   type ShindenList = {
     entries: ShindenEntry[];
   };
+  type LoadedUserList = {
+    provider: Provider;
+    query: string;
+    entries: ShindenEntry[];
+  };
+  type DatabaseState =
+    | { status: "loading" }
+    | { status: "ready"; info: DatabaseInfo }
+    | { status: "error"; message: string };
+  type UserListRequestState =
+    | { status: "idle" }
+    | { status: "loading"; provider: Provider; query: string }
+    | ({ status: "loaded" } & LoadedUserList)
+    | { status: "error"; provider: Provider; query: string; message: string };
+  type WorkspaceState =
+    | { status: "empty" }
+    | ({ status: "active" } & LoadedUserList);
 
-  const databaseRetryDelays = [0, 500, 1500] as const;
+  const databaseRetryDelays = [10000, 500, 1500] as const;
 
   let selectedProvider = $state<Provider>("shinden");
   let userQuery = $state("");
-  let appView = $state<AppView>("start");
-  let databaseLoadState = $state<DatabaseLoadState>("loading");
-  let databaseLastUpdate = $state<string | null>(null);
-  let databaseInfo = $state<DatabaseInfo | null>(null);
-  let databaseError = $state<string | null>(null);
-  let shindenEntries = $state<ShindenEntry[]>([]);
-  let isUserListLoading = $state(false);
+  let databaseState = $state<DatabaseState>({ status: "loading" });
+  let userListRequestState = $state<UserListRequestState>({ status: "idle" });
+  let workspaceState = $state<WorkspaceState>({ status: "empty" });
   let trimmedQuery = $derived(userQuery.trim());
   let parsedShindenUserId = $derived(parseShindenUserId(userQuery));
   let isShindenProfileInput = $derived(hasShindenProfileHost(userQuery));
@@ -85,18 +96,35 @@
     providers.find(({ id }) => id === selectedProvider) ?? providers[0],
   );
   let databaseStatusText = $derived.by(() => {
-    if (databaseLoadState === "loaded") {
-      return databaseLastUpdate
-        ? `Baza danych: ${databaseLastUpdate}`
+    if (databaseState.status === "ready") {
+      return databaseState.info.lastUpdate
+        ? `Baza danych: ${databaseState.info.lastUpdate}`
         : "Baza danych załadowana";
     }
 
-    if (databaseLoadState === "error") {
+    if (databaseState.status === "error") {
       return "Baza danych niedostępna";
     }
 
     return "Ładowanie bazy danych";
   });
+  let activeProviderDetails = $derived.by(() => {
+    const state = workspaceState;
+
+    if (state.status === "active") {
+      return providers.find(({ id }) => id === state.provider) ?? providers[0];
+    }
+
+    return selectedProviderDetails;
+  });
+  let isUserListLoading = $derived(userListRequestState.status === "loading");
+  let isWaitingForDatabase = $derived(
+    userListRequestState.status === "loaded" &&
+      databaseState.status !== "ready",
+  );
+  let isLoadButtonBusy = $derived(isUserListLoading || isWaitingForDatabase);
+  let hasUserListError = $derived(userListRequestState.status === "error");
+  let canSubmit = $derived(Boolean(trimmedQuery) && !isUserListLoading);
 
   onMount(() => {
     void initializeDatabase();
@@ -108,11 +136,22 @@
     }
   });
 
+  $effect(() => {
+    if (
+      databaseState.status === "ready" &&
+      userListRequestState.status === "loaded"
+    ) {
+      workspaceState = {
+        status: "active",
+        provider: userListRequestState.provider,
+        query: userListRequestState.query,
+        entries: userListRequestState.entries,
+      };
+    }
+  });
+
   async function initializeDatabase() {
-    databaseLoadState = "loading";
-    databaseError = null;
-    databaseInfo = null;
-    databaseLastUpdate = null;
+    databaseState = { status: "loading" };
 
     let lastError: unknown = null;
 
@@ -123,9 +162,7 @@
 
       try {
         const info = (await AppService.EnsureDatabase()) as DatabaseInfo;
-        databaseInfo = info;
-        databaseLastUpdate = info.lastUpdate;
-        databaseLoadState = "loaded";
+        databaseState = { status: "ready", info };
         return;
       } catch (error) {
         lastError = error;
@@ -135,8 +172,7 @@
       }
     }
 
-    databaseLoadState = "error";
-    databaseError = errorMessage(lastError);
+    databaseState = { status: "error", message: errorMessage(lastError) };
   }
 
   function delay(ms: number) {
@@ -175,38 +211,59 @@
     );
   }
 
+  function clearUserListError() {
+    if (userListRequestState.status === "error") {
+      userListRequestState = { status: "idle" };
+    }
+  }
+
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
+    clearUserListError();
 
     if (!trimmedQuery) return;
 
+    const provider = selectedProvider;
+    const query = trimmedQuery;
+
     if (selectedProvider !== "shinden") {
       console.log("Provider loading is not implemented yet", {
-        provider: selectedProvider,
-        query: trimmedQuery,
+        provider,
+        query,
       });
       return;
     }
 
     if (parsedShindenUserId === null) {
-      console.error("Unable to parse Shinden user id", {
-        query: trimmedQuery,
-      });
+      userListRequestState = {
+        status: "error",
+        provider,
+        query,
+        message: "Nie udało się rozpoznać użytkownika Shinden",
+      };
       return;
     }
 
-    isUserListLoading = true;
+    userListRequestState = { status: "loading", provider, query };
 
     try {
       const list = (await AppService.LoadShindenList(
         parsedShindenUserId,
       )) as ShindenList;
-      shindenEntries = list.entries;
-      appView = "workspace";
+      userListRequestState = {
+        status: "loaded",
+        provider,
+        query,
+        entries: list.entries,
+      };
     } catch (error) {
       console.error("Unable to load Shinden user list", error);
-    } finally {
-      isUserListLoading = false;
+      userListRequestState = {
+        status: "error",
+        provider,
+        query,
+        message: errorMessage(error),
+      };
     }
   }
 </script>
@@ -223,17 +280,21 @@
 
           <div
             class="database-status flex items-center gap-1 text-xs font-medium"
-            class:database-status--loaded={databaseLoadState === "loaded"}
-            class:database-status--error={databaseLoadState === "error"}
+            class:database-status--loaded={databaseState.status === "ready"}
+            class:database-status--error={databaseState.status === "error"}
             aria-live="polite"
-            title={databaseError ?? databaseInfo?.path ?? undefined}
+            title={databaseState.status === "error"
+              ? databaseState.message
+              : databaseState.status === "ready"
+                ? databaseState.info.path
+                : undefined}
           >
-            {#if databaseLoadState === "loading"}
+            {#if databaseState.status === "loading"}
               <span
                 class="loading loading-xs loading-spinner"
                 aria-hidden="true"
               ></span>
-            {:else if databaseLoadState === "loaded"}
+            {:else if databaseState.status === "ready"}
               <span
                 class="database-status__icon database-status__icon--loaded"
                 aria-hidden="true"
@@ -268,20 +329,28 @@
       </div>
 
       <form class="join flex-1" onsubmit={handleSubmit}>
-        <label class="input join-item flex-1">
+        <label
+          class="input join-item flex-1 user-list-input"
+          class:input-error={hasUserListError}
+          title={userListRequestState.status === "error"
+            ? userListRequestState.message
+            : undefined}
+        >
           <span class="sr-only">ID lub nazwa użytkownika</span>
           <input
             bind:value={userQuery}
             type="text"
             placeholder="ID, profil Shinden lub nazwa użytkownika"
             autocomplete="off"
+            oninput={clearUserListError}
+            aria-invalid={hasUserListError}
           />
         </label>
         <button
-          class:load-button--active={isUserListLoading}
+          class:load-button--active={isLoadButtonBusy}
           class="load-button btn join-item btn-info"
           type="submit"
-          disabled={!trimmedQuery || isUserListLoading}
+          disabled={!canSubmit}
         >
           <span class="load-button__text">Wczytaj</span>
         </button>
@@ -290,7 +359,7 @@
   </header>
 
   <div class="view-stage">
-    {#if appView === "start"}
+    {#if workspaceState.status === "empty"}
       <div class="view-frame">
         <section class="app-content">
           <AnimatedGridPanel
@@ -313,8 +382,8 @@
     {:else}
       <div class="view-frame view-frame--workspace-enter">
         <WorkspaceView
-          providerLabel={selectedProviderDetails.label}
-          entries={shindenEntries}
+          providerLabel={activeProviderDetails.label}
+          entries={workspaceState.entries}
         />
       </div>
     {/if}
@@ -322,6 +391,10 @@
 </main>
 
 <style>
+  .user-list-input {
+    transition: border-color 150ms ease;
+  }
+
   .provider-button {
     --provider-button-color: var(
       --provider-button-accent,
