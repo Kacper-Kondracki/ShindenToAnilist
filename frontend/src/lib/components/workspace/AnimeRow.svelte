@@ -14,7 +14,7 @@
   </div>
 
   {#if entry.score !== null}
-    <span class="badge badge-soft badge-info shrink-0">
+    <span class="badge shrink-0 badge-soft badge-info">
       {entry.score}/10
     </span>
   {/if}

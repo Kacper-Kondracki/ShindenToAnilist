@@ -20,7 +20,7 @@
 
 <form class="join flex-1" onsubmit={onSubmit}>
   <label
-    class="input join-item flex-1 user-list-input"
+    class="user-list-input input join-item flex-1"
     class:input-error={hasError}
     title={errorMessage}
   >

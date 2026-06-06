@@ -174,18 +174,18 @@
         </span>
       {/if}
       <span
-        class="badge status-badge status-badge--recognized"
+        class="status-badge status-badge--recognized badge"
         data-status-required
       >
         <span class="status-badge__label">Rozpoznano</span>
         <span class="status-badge__value">{matchedPercentage}%</span>
       </span>
-      <span class="badge status-badge status-badge--total" data-status-required>
+      <span class="status-badge status-badge--total badge" data-status-required>
         <span class="status-badge__label">Wszystkie</span>
         <span class="status-badge__value">{totalCount}</span>
       </span>
       <span
-        class="badge status-badge status-badge--review"
+        class="status-badge status-badge--review badge"
         data-status-required
       >
         <span class="status-badge__label">Do sprawdzenia</span>
@@ -194,7 +194,7 @@
       <span
         class:hidden-status-badge={!showApiBadge}
         class:is-measuring={isMeasuringOptionalBadges}
-        class="badge status-badge status-badge--api"
+        class="status-badge status-badge--api badge"
         bind:this={apiBadgeElement}
       >
         <span class="status-badge__label">API</span>
@@ -205,7 +205,7 @@
       <span
         class:hidden-status-badge={!showMatchBadge}
         class:is-measuring={isMeasuringOptionalBadges}
-        class="badge status-badge status-badge--match"
+        class="status-badge status-badge--match badge"
         bind:this={matchBadgeElement}
       >
         <span class="status-badge__label">Program</span>
@@ -214,7 +214,7 @@
         >
       </span>
     </div>
-    <button class="btn xl:btn-wide btn-error" type="button">Eksport</button>
+    <button class="btn btn-error xl:btn-wide" type="button">Eksport</button>
   </div>
 </footer>
 
