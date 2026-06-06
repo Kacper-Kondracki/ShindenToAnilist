@@ -9,10 +9,14 @@
     providerLabel,
     entries,
     matchResult,
+    selectedEntryId,
+    onSelectEntry,
   }: {
     providerLabel: string;
     entries: ShindenEntry[];
     matchResult: MatchListResult | null;
+    selectedEntryId: number | null;
+    onSelectEntry: (entryId: number) => void;
   } = $props();
 
   let activeAnimeListTab = $state<AnimeListTabId>("manual");
@@ -44,6 +48,8 @@
           <AnimeRow
             {entry}
             matchStatus={matchStatuses.get(entry.id) ?? "unmatched"}
+            isSelected={entry.id === selectedEntryId}
+            onSelect={() => onSelectEntry(entry.id)}
           />
         {/snippet}
       </VList>

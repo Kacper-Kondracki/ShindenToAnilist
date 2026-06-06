@@ -6,7 +6,14 @@
   let {
     entry,
     matchStatus,
-  }: { entry: ShindenEntry; matchStatus: AnimeMatchStatus } = $props();
+    isSelected,
+    onSelect,
+  }: {
+    entry: ShindenEntry;
+    matchStatus: AnimeMatchStatus;
+    isSelected: boolean;
+    onSelect: () => void;
+  } = $props();
 
   const animeTypeLabels: Record<string, string> = {
     tv: "Serial TV",
@@ -47,13 +54,17 @@
   }
 </script>
 
-<article
+<button
+  type="button"
   class:anime-row--matched={matchStatus === "matched"}
   class:anime-row--review={matchStatus === "review"}
   class:anime-row--unmatched={matchStatus === "unmatched"}
+  class:anime-row--selected={isSelected}
   class="anime-row"
   aria-label={`${entry.title}: ${matchStatusLabels[matchStatus]}`}
+  aria-pressed={isSelected}
   title={matchStatusLabels[matchStatus]}
+  onclick={onSelect}
 >
   <div class="min-w-0">
     <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
@@ -70,23 +81,48 @@
       {entry.score}/10
     </span>
   {/if}
-</article>
+</button>
 
 <style>
   .anime-row {
     --match-indicator-color: var(--color-error);
+    --row-separator-color: color-mix(
+      in oklab,
+      var(--color-base-content) 8%,
+      transparent
+    );
 
     display: flex;
     position: relative;
+    width: 100%;
     min-height: 4.5rem;
     align-items: center;
     justify-content: space-between;
     gap: calc(var(--spacing) * 3);
-    border-bottom: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 8%, transparent);
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    background-color: transparent;
+    background-image:
+      linear-gradient(var(--row-separator-color), var(--row-separator-color)),
+      linear-gradient(var(--row-separator-color), var(--row-separator-color));
+    background-position:
+      top left,
+      bottom left;
+    background-repeat: no-repeat;
+    background-size:
+      100% var(--border),
+      100% var(--border);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
     padding-inline: calc(var(--spacing) * 4);
     padding-left: calc(var(--spacing) * 5);
     padding-block: calc(var(--spacing) * 3);
+    transition:
+      background-color 160ms ease,
+      box-shadow 160ms ease;
   }
 
   .anime-row::before {
@@ -111,5 +147,37 @@
 
   .anime-row--unmatched {
     --match-indicator-color: var(--color-error);
+  }
+
+  .anime-row:hover {
+    background-color: color-mix(
+      in oklab,
+      var(--color-base-content) 5%,
+      transparent
+    );
+  }
+
+  .anime-row:focus-visible {
+    outline: 1px solid
+      color-mix(in oklab, var(--match-indicator-color) 80%, white);
+    outline-offset: -1px;
+  }
+
+  .anime-row--selected {
+    background-color: color-mix(
+      in oklab,
+      var(--match-indicator-color) 13%,
+      transparent
+    );
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--match-indicator-color) 30%, transparent);
+  }
+
+  .anime-row--selected:hover {
+    background-color: color-mix(
+      in oklab,
+      var(--match-indicator-color) 17%,
+      transparent
+    );
   }
 </style>

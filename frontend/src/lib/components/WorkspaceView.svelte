@@ -23,12 +23,34 @@
     matchDurationMs: number | null;
     manualSelections: Record<number, number>;
   } = $props();
+
+  let selectedEntryId = $state<number | null>(null);
+  let selectedEntry = $derived(
+    entries.find((entry) => entry.id === selectedEntryId) ?? null,
+  );
+
+  $effect(() => {
+    if (
+      selectedEntryId !== null &&
+      !entries.some((entry) => entry.id === selectedEntryId)
+    ) {
+      selectedEntryId = null;
+    }
+  });
 </script>
 
 <section class="workspace-content">
   <div class="workspace-layout">
-    <AnimeListPane {providerLabel} {entries} {matchResult} />
-    <WorkspaceEditorPane />
+    <AnimeListPane
+      {providerLabel}
+      {entries}
+      {matchResult}
+      {selectedEntryId}
+      onSelectEntry={(entryId) => {
+        selectedEntryId = entryId;
+      }}
+    />
+    <WorkspaceEditorPane {selectedEntryId} {selectedEntry} />
   </div>
 </section>
 
