@@ -155,13 +155,9 @@
   }
 
   function formatDuration(durationMs: number | null) {
-    if (durationMs === null) return "-";
+    if (durationMs === null) return "--.--s";
 
-    if (durationMs < 1000) {
-      return `${Math.round(durationMs)} ms`;
-    }
-
-    return `${(durationMs / 1000).toFixed(1)} s`;
+    return `${(durationMs / 1000).toFixed(2)}s`;
   }
 </script>
 
@@ -202,7 +198,7 @@
         bind:this={apiBadgeElement}
       >
         <span class="status-badge__label">API</span>
-        <span class="status-badge__value"
+        <span class="status-badge__value status-badge__value--duration"
           >{formatDuration(fetchDurationMs)}</span
         >
       </span>
@@ -212,8 +208,10 @@
         class="badge status-badge status-badge--match"
         bind:this={matchBadgeElement}
       >
-        <span class="status-badge__label">Dopasowano w</span>
-        <span class="status-badge__value">{matchTimeText}</span>
+        <span class="status-badge__label">Program</span>
+        <span class="status-badge__value status-badge__value--duration"
+          >{matchTimeText}</span
+        >
       </span>
     </div>
     <button class="btn xl:btn-wide btn-error" type="button">Eksport</button>
@@ -311,6 +309,12 @@
     font-weight: bolder;
     font-synthesis-weight: auto;
     letter-spacing: 0;
+  }
+
+  .status-badge__value--duration {
+    min-width: 5ch;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
   }
 
   .status-badge--recognized {
