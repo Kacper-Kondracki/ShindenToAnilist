@@ -71,13 +71,13 @@ typedef struct StaError {
 extern "C" {
 #endif // __cplusplus
 
-struct StaDriver *sta_driver_new(void);
-
 /**
  * # Safety
  * Safe if takes ownership and consumes the object.
  */
 void sta_driver_free(struct StaDriver *driver);
+
+struct StaDriver *sta_driver_new(void);
 
 /**
  * # Safety
@@ -97,15 +97,9 @@ void sta_database_info_free(struct StaDatabaseInfo value);
  */
 void sta_shinden_list_free(struct StaShindenList value);
 
-struct StaError sta_driver_counter_value(struct StaDriver *driver, int64_t *out);
-
-struct StaError sta_driver_counter_increment(struct StaDriver *driver,
-                                             uint32_t amount,
-                                             int64_t *out);
-
 /**
  * # Safety
- * `path` must be valid C string
+ * `path` must be valid C string.
  */
 struct StaError sta_driver_ensure_database(struct StaDriver *driver,
                                            const char *path,

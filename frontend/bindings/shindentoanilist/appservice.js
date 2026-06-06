@@ -8,7 +8,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as $models from "./models.js";
+import * as anime$0 from "./internal/anime/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as appsvc$0 from "./internal/appsvc/models.js";
 
 /**
  * @returns {$CancellablePromise<string>}
@@ -18,14 +21,7 @@ export function AppName() {
 }
 
 /**
- * @returns {$CancellablePromise<number>}
- */
-export function CounterValue() {
-    return $Call.ByID(1548171427);
-}
-
-/**
- * @returns {$CancellablePromise<$models.DatabaseInfo>}
+ * @returns {$CancellablePromise<appsvc$0.DatabaseInfo>}
  */
 export function EnsureDatabase() {
     return $Call.ByID(2117668153).then(/** @type {($result: any) => any} */(($result) => {
@@ -34,23 +30,8 @@ export function EnsureDatabase() {
 }
 
 /**
- * @returns {$CancellablePromise<number>}
- */
-export function IncrementCounter() {
-    return $Call.ByID(1697898373);
-}
-
-/**
- * @param {number} amount
- * @returns {$CancellablePromise<number>}
- */
-export function IncrementCounterBy(amount) {
-    return $Call.ByID(2071564404, amount);
-}
-
-/**
  * @param {number} userID
- * @returns {$CancellablePromise<$models.ShindenList>}
+ * @returns {$CancellablePromise<appsvc$0.ShindenList>}
  */
 export function LoadShindenList(userID) {
     return $Call.ByID(697250205, userID).then(/** @type {($result: any) => any} */(($result) => {
@@ -59,5 +40,5 @@ export function LoadShindenList(userID) {
 }
 
 // Private type creation functions
-const $$createType0 = $models.DatabaseInfo.createFrom;
-const $$createType1 = $models.ShindenList.createFrom;
+const $$createType0 = anime$0.DatabaseInfo.createFrom;
+const $$createType1 = anime$0.ShindenList.createFrom;

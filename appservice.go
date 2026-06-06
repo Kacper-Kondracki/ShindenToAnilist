@@ -2,142 +2,36 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"path/filepath"
-
-	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"shindentoanilist/internal/appsvc"
 )
 
 type AppService struct {
-	mu       sync.RWMutex
-	ensureMu sync.Mutex
-	driver   *Driver
+	service *appsvc.Service
 }
 
-const (
-	maxCounterAmount = int64(1<<32 - 1)
-	maxShindenUserID = int64(1<<53 - 1)
-	appDataDirName   = "ShindenToAnilist"
-	databaseFileName = "anime-offline-database.jsonl"
-)
-
 func NewAppService() *AppService {
-	return &AppService{}
+	return &AppService{service: appsvc.New()}
 }
 
 func (s *AppService) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	driver, err := NewDriver()
-	if err != nil {
-		return err
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.driver != nil {
-		return driver.Close()
-	}
-
-	s.driver = driver
-	return nil
+	return s.service.Startup(ctx)
 }
 
 func (s *AppService) ServiceShutdown() error {
-	s.mu.Lock()
-	driver := s.driver
-	s.driver = nil
-	s.mu.Unlock()
-
-	if driver == nil {
-		return nil
-	}
-
-	return driver.Close()
+	return s.service.Shutdown()
 }
 
 func (s *AppService) AppName() string {
-	return "ShindenToAnilist"
+	return s.service.AppName()
 }
 
-func (s *AppService) CounterValue() (int, error) {
-	driver, err := s.activeDriver()
-	if err != nil {
-		return 0, err
-	}
-
-	value, err := driver.CounterValue()
-	if err != nil {
-		return 0, err
-	}
-
-	return int(value), nil
+func (s *AppService) EnsureDatabase() (appsvc.DatabaseInfo, error) {
+	return s.service.EnsureDatabase()
 }
 
-func (s *AppService) IncrementCounter() (int, error) {
-	return s.IncrementCounterBy(1)
-}
-
-func (s *AppService) IncrementCounterBy(amount int) (int, error) {
-	if amount < 0 || int64(amount) > maxCounterAmount {
-		return 0, fmt.Errorf("counter amount must be between 0 and %d", maxCounterAmount)
-	}
-
-	driver, err := s.activeDriver()
-	if err != nil {
-		return 0, err
-	}
-
-	value, err := driver.IncrementCounter(uint32(amount))
-	if err != nil {
-		return 0, err
-	}
-
-	return int(value), nil
-}
-
-func (s *AppService) EnsureDatabase() (DatabaseInfo, error) {
-	s.ensureMu.Lock()
-	defer s.ensureMu.Unlock()
-
-	driver, err := s.activeDriver()
-	if err != nil {
-		return DatabaseInfo{}, err
-	}
-
-	return driver.EnsureDatabase(databasePath())
-}
-
-func (s *AppService) LoadShindenList(userID int) (ShindenList, error) {
-	if userID <= 0 || int64(userID) > maxShindenUserID {
-		return ShindenList{}, fmt.Errorf("shinden user id must be between 1 and %d", maxShindenUserID)
-	}
-
-	driver, err := s.activeDriver()
-	if err != nil {
-		return ShindenList{}, err
-	}
-
-	return driver.LoadShindenList(uint64(userID))
-}
-
-func (s *AppService) activeDriver() (*Driver, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.driver == nil {
-		return nil, errors.New("driver is not ready")
-	}
-
-	return s.driver, nil
-}
-
-func databasePath() string {
-	return filepath.Join(application.Path(application.PathDataHome), appDataDirName, databaseFileName)
+func (s *AppService) LoadShindenList(userID int) (appsvc.ShindenList, error) {
+	return s.service.LoadShindenList(userID)
 }
