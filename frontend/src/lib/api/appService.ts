@@ -1,6 +1,5 @@
 import { AppService } from "../../../bindings/shindentoanilist";
 import type {
-  AnimeDatabase,
   DatabaseEntry,
   DatabaseInfo,
   ExportResult,
@@ -23,8 +22,8 @@ export async function loadShindenList(userId: number) {
   return (await AppService.LoadShindenList(userId)) as ShindenListIndex;
 }
 
-export async function getAnimeDatabase() {
-  return (await AppService.GetAnimeDatabase()) as AnimeDatabase;
+export async function getLoadedShindenEntryIds(view: string) {
+  return (await AppService.GetLoadedShindenEntryIDs(view)) as ShindenListIndex;
 }
 
 export async function getLoadedShindenEntries(entryIds: number[]) {

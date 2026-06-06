@@ -16,15 +16,13 @@ func main() {
 	driver := exampleutil.NewDriver()
 	defer driver.Close()
 
-	exampleutil.EnsureDatabase(driver, *databasePath)
-
 	started := time.Now()
-	database := exampleutil.GetAnimeDatabase(driver)
+	info := exampleutil.EnsureDatabase(driver, *databasePath)
 
-	fmt.Printf("%d entries\n", len(database.Entries))
+	fmt.Printf("database: %s\n", info.Path)
 	fmt.Printf("took %s\n", exampleutil.Elapsed(started))
 
 	if *outputPath != "" {
-		exampleutil.WriteJSON(*outputPath, database)
+		exampleutil.WriteJSON(*outputPath, info)
 	}
 }

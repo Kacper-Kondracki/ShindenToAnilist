@@ -8,8 +8,12 @@ use shinden_to_anilist_core::{
 };
 
 use crate::{
-    driver::StaDriver,
+    driver::{
+        StaDriver,
+        StoredShindenEntryIds,
+    },
     ffi::{
+        StaIdList,
         StaShindenEntry,
         StaShindenList,
         optional_date,
@@ -20,30 +24,109 @@ use crate::{
     labels,
 };
 
-pub fn load_list(driver: &StaDriver, user_id: u64) -> Result<StaShindenList, String> {
+pub fn load_list(driver: &StaDriver, user_id: u64) -> Result<StaIdList, String> {
     driver.check_aborted()?;
 
     let list = ShindenList::get_from_shinden_blocking(BlockingHttpClient::new(), user_id)
         .map_err(|error| error.to_string())?;
     driver.check_aborted()?;
 
-    let mut shinden_list = driver
+    let sorted_ids = sorted_entry_ids(&list);
+
+    {
+        let mut shinden_list = driver
+            .shinden_list()
+            .lock()
+            .map_err(|_| "shinden list lock is poisoned".to_owned())?;
+        *shinden_list = Some(list);
+    }
+    {
+        let mut match_results = driver
+            .match_results()
+            .lock()
+            .map_err(|_| "match results lock is poisoned".to_owned())?;
+        *match_results = None;
+    }
+    {
+        let mut entry_ids = driver
+            .shinden_entry_ids()
+            .lock()
+            .map_err(|_| "shinden entry ids lock is poisoned".to_owned())?;
+        *entry_ids = StoredShindenEntryIds {
+            manual: sorted_ids.clone(),
+            automatic: Vec::new(),
+            all: sorted_ids.clone(),
+        };
+    }
+
+    id_list_to_ffi(sorted_ids)
+}
+
+pub fn get_entry_ids(driver: &StaDriver, view: &str) -> Result<StaIdList, String> {
+    driver.check_aborted()?;
+
+    let entry_ids = driver
+        .shinden_entry_ids()
+        .lock()
+        .map_err(|_| "shinden entry ids lock is poisoned".to_owned())?;
+    let ids = match view {
+        "" | "manual" => &entry_ids.manual,
+        "automatic" => &entry_ids.automatic,
+        "all" => &entry_ids.all,
+        _ => return Err(format!("unknown shinden entry id view: {view}")),
+    };
+
+    id_list_to_ffi(ids.clone())
+}
+
+pub fn get_entries(driver: &StaDriver, ids: &[u64]) -> Result<StaShindenList, String> {
+    driver.check_aborted()?;
+
+    let shinden_list = driver
         .shinden_list()
         .lock()
         .map_err(|_| "shinden list lock is poisoned".to_owned())?;
-    *shinden_list = Some(list);
-
     let list = shinden_list
         .as_ref()
-        .ok_or_else(|| "loaded shinden list is unavailable".to_owned())?;
+        .ok_or_else(|| "shinden list is not loaded".to_owned())?;
 
-    let mut entries = list.values().map(entry_to_ffi).collect::<Vec<_>>();
+    let mut entries = Vec::with_capacity(ids.len());
+    for id in ids {
+        let entry = list
+            .get(*id)
+            .ok_or_else(|| format!("shinden entry {id} is not loaded"))?;
+        entries.push(entry_to_ffi(entry));
+    }
 
     entries.shrink_to_fit();
     let len = entries.len();
     let entries = entries.leak().as_mut_ptr();
 
     Ok(StaShindenList { entries, len })
+}
+
+pub(crate) fn sorted_entry_ids(list: &ShindenList) -> Vec<u64> {
+    let mut ids = list.keys().collect::<Vec<_>>();
+    ids.sort_by(|left_id, right_id| {
+        let left = list.get_unwrap(*left_id);
+        let right = list.get_unwrap(*right_id);
+
+        match (left.premiere_date(), right.premiere_date()) {
+            (Some(left_date), Some(right_date)) => right_date.cmp(&left_date),
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, None) => std::cmp::Ordering::Equal,
+        }
+    });
+    ids
+}
+
+pub(crate) fn id_list_to_ffi(mut ids: Vec<u64>) -> Result<StaIdList, String> {
+    ids.shrink_to_fit();
+    let len = ids.len();
+    let entries = ids.leak().as_mut_ptr();
+
+    Ok(StaIdList { entries, len })
 }
 
 fn entry_to_ffi(entry: &<ShindenList as AnimeList>::Entry) -> StaShindenEntry {

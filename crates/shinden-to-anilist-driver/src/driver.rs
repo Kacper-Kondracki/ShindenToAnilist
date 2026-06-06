@@ -27,12 +27,20 @@ pub(crate) struct StoredShindenMatchResult {
     pub result: StoredMatchResult,
 }
 
+#[derive(Clone, Default)]
+pub(crate) struct StoredShindenEntryIds {
+    pub manual: Vec<u64>,
+    pub automatic: Vec<u64>,
+    pub all: Vec<u64>,
+}
+
 pub struct StaDriver {
     aborted: AtomicBool,
     database: Mutex<Option<AnimeDatabase>>,
     searcher: Mutex<Option<DefaultSearcher>>,
     shinden_list: Mutex<Option<ShindenList>>,
     match_results: Mutex<Option<Vec<StoredShindenMatchResult>>>,
+    shinden_entry_ids: Mutex<StoredShindenEntryIds>,
 }
 
 impl StaDriver {
@@ -43,6 +51,7 @@ impl StaDriver {
             searcher: Mutex::new(None),
             shinden_list: Mutex::new(None),
             match_results: Mutex::new(None),
+            shinden_entry_ids: Mutex::new(StoredShindenEntryIds::default()),
         }
     }
 
@@ -66,6 +75,10 @@ impl StaDriver {
 
     pub(crate) fn match_results(&self) -> &Mutex<Option<Vec<StoredShindenMatchResult>>> {
         &self.match_results
+    }
+
+    pub(crate) fn shinden_entry_ids(&self) -> &Mutex<StoredShindenEntryIds> {
+        &self.shinden_entry_ids
     }
 }
 

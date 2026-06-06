@@ -61,30 +61,6 @@ pub fn ensure_database(driver: &StaDriver, path: &str) -> Result<StaDatabaseInfo
     })
 }
 
-pub fn get_database(driver: &StaDriver) -> Result<StaAnimeDatabase, String> {
-    driver.check_aborted()?;
-
-    let database = driver
-        .database()
-        .lock()
-        .map_err(|_| "database lock is poisoned".to_owned())?;
-    let database = database
-        .as_ref()
-        .ok_or_else(|| "anime database is not loaded".to_owned())?;
-
-    let mut entries = database.values().map(entry_to_ffi).collect::<Vec<_>>();
-    driver.check_aborted()?;
-    entries.shrink_to_fit();
-    let len = entries.len();
-    let entries = entries.leak().as_mut_ptr();
-
-    Ok(StaAnimeDatabase {
-        last_update: optional_date(Some(database.last_update())),
-        entries,
-        len,
-    })
-}
-
 pub fn get_database_entries(driver: &StaDriver, ids: &[u64]) -> Result<StaAnimeDatabase, String> {
     driver.check_aborted()?;
 

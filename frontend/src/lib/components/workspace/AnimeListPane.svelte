@@ -2,8 +2,8 @@
   import { tick } from "svelte";
   import { VList } from "virtua/svelte";
   import type { VListHandle } from "virtua/svelte";
-  import { getLoadedShindenEntries } from "../../api/appService";
-  import type { MatchListResult, ShindenEntry } from "../../domain/anime";
+  import type { EntryStore } from "../../data/entryStore.svelte";
+  import type { MatchListResult, ShindenListViews } from "../../domain/anime";
   import AnimeListTabs from "./AnimeListTabs.svelte";
   import AnimeRow, { type AnimeMatchStatus } from "./AnimeRow.svelte";
   import type { AnimeListTabId } from "./tabs";
@@ -21,13 +21,15 @@
 
   let {
     providerLabel,
-    entryIds,
+    entryIdsByView,
+    entryStore,
     matchResult,
     selectedEntryId,
     onSelectEntry,
   }: {
     providerLabel: string;
-    entryIds: number[];
+    entryIdsByView: ShindenListViews;
+    entryStore: EntryStore;
     matchResult: MatchListResult | null;
     selectedEntryId: number | null;
     onSelectEntry: (entryId: number) => void;
@@ -43,29 +45,8 @@
   >(initialSelectedScrollAnchors());
   let pendingScrollRestore = $state<PendingScrollRestore | null>(null);
   let hasTrackedWorkspaceData = $state(false);
-  let previousEntryIds = $state<number[] | null>(null);
+  let previousEntryIdsByView = $state<ShindenListViews | null>(null);
   let previousMatchResult = $state<MatchListResult | null>(null);
-  let shindenEntriesById = $state<Record<number, ShindenEntry>>({});
-  let pendingDetailIds = new Set<number>();
-  let detailBatchScheduled = false;
-
-  const matchStatusSortRanks: Record<AnimeMatchStatus, number> = {
-    unmatched: 0,
-    review: 1,
-    matched: 2,
-  };
-
-  let automaticMatchedEntryIds = $derived.by(() => {
-    const ids = new Set<number>();
-
-    for (const matchEntry of matchResult?.entries ?? []) {
-      if (matchEntry.result.winner !== null) {
-        ids.add(matchEntry.shindenId);
-      }
-    }
-
-    return ids;
-  });
 
   let matchStatuses = $derived.by(() => {
     const statuses = new Map<number, AnimeMatchStatus>();
@@ -83,14 +64,12 @@
     return statuses;
   });
 
-  let visibleEntryIds = $derived.by(() =>
-    getVisibleEntryIds(activeAnimeListTab),
-  );
+  let visibleEntryIds = $derived.by(() => entryIdsByView[activeAnimeListTab]);
 
   $effect(() => {
     if (
       hasTrackedWorkspaceData &&
-      previousEntryIds === entryIds &&
+      previousEntryIdsByView === entryIdsByView &&
       previousMatchResult === matchResult
     ) {
       return;
@@ -98,10 +77,8 @@
 
     const shouldReset = hasTrackedWorkspaceData;
     hasTrackedWorkspaceData = true;
-    previousEntryIds = entryIds;
+    previousEntryIdsByView = entryIdsByView;
     previousMatchResult = matchResult;
-    shindenEntriesById = {};
-    pendingDetailIds = new Set();
 
     if (shouldReset) {
       resetListNavigationState();
@@ -118,31 +95,6 @@
     visibleEntryIds;
     void restoreScrollPosition(restore);
   });
-
-  function getVisibleEntryIds(tabId: AnimeListTabId): number[] {
-    return entryIds
-      .map((entryId, index) => ({ entryId, index }))
-      .filter(({ entryId }) => {
-        if (tabId === "all") {
-          return true;
-        }
-
-        if (tabId === "automatic") {
-          return automaticMatchedEntryIds.has(entryId);
-        }
-
-        return !automaticMatchedEntryIds.has(entryId);
-      })
-      .sort((left, right) => {
-        const leftStatus = matchStatuses.get(left.entryId) ?? "unmatched";
-        const rightStatus = matchStatuses.get(right.entryId) ?? "unmatched";
-        const statusComparison =
-          matchStatusSortRanks[leftStatus] - matchStatusSortRanks[rightStatus];
-
-        return statusComparison || left.index - right.index;
-      })
-      .map(({ entryId }) => entryId);
-  }
 
   function initialTabScrollOffsets(): Record<AnimeListTabId, number> {
     return {
@@ -172,7 +124,7 @@
   }
 
   let emptyListText = $derived.by(() => {
-    if (entryIds.length === 0) {
+    if (entryIdsByView.all.length === 0) {
       return "Lista jest pusta";
     }
 
@@ -310,46 +262,6 @@
 
     return isOutsideViewport ? 0 : itemOffset - scrollOffset;
   }
-
-  function handleRowVisible(entryId: number) {
-    if (
-      shindenEntriesById[entryId] !== undefined ||
-      pendingDetailIds.has(entryId)
-    ) {
-      return;
-    }
-
-    pendingDetailIds.add(entryId);
-
-    if (detailBatchScheduled) {
-      return;
-    }
-
-    detailBatchScheduled = true;
-    queueMicrotask(loadPendingRowDetails);
-  }
-
-  async function loadPendingRowDetails() {
-    detailBatchScheduled = false;
-
-    const entryIdsToLoad = [...pendingDetailIds].filter(
-      (entryId) => shindenEntriesById[entryId] === undefined,
-    );
-    pendingDetailIds = new Set();
-
-    if (entryIdsToLoad.length === 0) {
-      return;
-    }
-
-    const loadedEntries = await getLoadedShindenEntries(entryIdsToLoad);
-    const nextEntriesById = { ...shindenEntriesById };
-
-    for (const entry of loadedEntries) {
-      nextEntriesById[entry.id] = entry;
-    }
-
-    shindenEntriesById = nextEntriesById;
-  }
 </script>
 
 <section class="workspace-pane" aria-label={`Lista anime z ${providerLabel}`}>
@@ -371,11 +283,11 @@
         {#snippet children(entryId)}
           <AnimeRow
             {entryId}
-            entry={shindenEntriesById[entryId] ?? null}
+            entry={entryStore.getShindenEntry(entryId)}
             matchStatus={matchStatuses.get(entryId) ?? "unmatched"}
             isSelected={entryId === selectedEntryId}
             onSelect={() => onSelectEntry(entryId)}
-            onVisible={handleRowVisible}
+            {entryStore}
           />
         {/snippet}
       </VList>

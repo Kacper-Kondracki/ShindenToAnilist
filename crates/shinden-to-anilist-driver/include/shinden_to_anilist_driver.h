@@ -119,6 +119,11 @@ typedef struct StaShindenList {
     uintptr_t len;
 } StaShindenList;
 
+typedef struct StaIdList {
+    uint64_t *entries;
+    uintptr_t len;
+} StaIdList;
+
 typedef struct StaSearchItem {
     uint64_t id;
     float score;
@@ -129,20 +134,9 @@ typedef struct StaSearchResult {
     uintptr_t len;
 } StaSearchResult;
 
-typedef struct StaScoreBreakdown {
-    float search_score;
-    float season_score;
-    float year_score;
-    float type_score;
-    float status_score;
-    float seasonal_score;
-    float episodes_score;
-    float final_score;
-} StaScoreBreakdown;
-
 typedef struct StaScoredCandidate {
     uint64_t id;
-    struct StaScoreBreakdown score;
+    float score;
 } StaScoredCandidate;
 
 typedef struct StaMatchWinner {
@@ -246,6 +240,12 @@ void sta_shinden_list_free(struct StaShindenList value);
 
 /**
  * # Safety
+ * Safe if takes ownership and consumes the id array.
+ */
+void sta_id_list_free(struct StaIdList value);
+
+/**
+ * # Safety
  * Safe if takes ownership and consumes the search result array.
  */
 void sta_search_result_free(struct StaSearchResult value);
@@ -278,10 +278,24 @@ struct StaError sta_driver_ensure_database(struct StaDriver *driver,
 
 struct StaError sta_driver_load_shinden_list(struct StaDriver *driver,
                                              uint64_t user_id,
-                                             struct StaShindenList *out);
+                                             struct StaIdList *out);
 
-struct StaError sta_driver_get_anime_database(struct StaDriver *driver,
-                                              struct StaAnimeDatabase *out);
+/**
+ * # Safety
+ * `view` must be valid C string.
+ */
+struct StaError sta_driver_get_loaded_shinden_entry_ids(struct StaDriver *driver,
+                                                        const char *view,
+                                                        struct StaIdList *out);
+
+/**
+ * # Safety
+ * `ids` must point to `len` entries or be null when `len` is 0.
+ */
+struct StaError sta_driver_get_loaded_shinden_entries(struct StaDriver *driver,
+                                                      const uint64_t *ids,
+                                                      uintptr_t len,
+                                                      struct StaShindenList *out);
 
 /**
  * # Safety

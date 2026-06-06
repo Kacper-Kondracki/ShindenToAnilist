@@ -36,8 +36,8 @@ func (s *AppService) LoadShindenList(userID int) (appsvc.ShindenListIndex, error
 	return s.service.LoadShindenList(userID)
 }
 
-func (s *AppService) GetAnimeDatabase() (appsvc.AnimeDatabase, error) {
-	return s.service.GetAnimeDatabase()
+func (s *AppService) GetLoadedShindenEntryIDs(view string) (appsvc.ShindenListIndex, error) {
+	return s.service.GetLoadedShindenEntryIDs(view)
 }
 
 func (s *AppService) GetLoadedShindenEntries(entryIDs []uint64) ([]appsvc.ShindenEntry, error) {

@@ -17,8 +17,6 @@ func main() {
 	defer driver.Close()
 
 	exampleutil.EnsureDatabase(driver, *databasePath)
-	database := exampleutil.GetAnimeDatabase(driver)
-	entries := exampleutil.DatabaseByID(database)
 
 	queries := []string{
 		"oshi no ko 1",
@@ -38,10 +36,15 @@ func main() {
 			ResultLimit: limit,
 		})
 		exampleutil.Check(err)
+		entryIDs := make([]uint64, 0, len(result.Items))
+		for _, item := range result.Items {
+			entryIDs = append(entryIDs, item.ID)
+		}
+		entries := exampleutil.DatabaseByID(driver, entryIDs)
 
 		for _, item := range result.Items {
 			entry := entries[item.ID]
-			fmt.Printf("[%.2f] %s\n", item.Score.FinalScore, entry.Title)
+			fmt.Printf("[%.2f] %s\n", item.Score, entry.Title)
 		}
 	}
 }

@@ -53,11 +53,6 @@ type ConsolidatedMetadata struct {
 	IsFinalEpisode bool          `json:"isFinalEpisode"`
 }
 
-type AnimeDatabase struct {
-	LastUpdate *string         `json:"lastUpdate"`
-	Entries    []DatabaseEntry `json:"entries"`
-}
-
 type DatabaseEntry struct {
 	ID                   uint64               `json:"id"`
 	ConsolidatedMetadata ConsolidatedMetadata `json:"consolidatedMetadata"`
@@ -107,20 +102,9 @@ type SearchResult struct {
 	Items []SearchItem `json:"items"`
 }
 
-type ScoreBreakdown struct {
-	SearchScore   float32 `json:"searchScore"`
-	SeasonScore   float32 `json:"seasonScore"`
-	YearScore     float32 `json:"yearScore"`
-	TypeScore     float32 `json:"typeScore"`
-	StatusScore   float32 `json:"statusScore"`
-	SeasonalScore float32 `json:"seasonalScore"`
-	EpisodesScore float32 `json:"episodesScore"`
-	FinalScore    float32 `json:"finalScore"`
-}
-
 type ScoredCandidate struct {
-	ID    uint64         `json:"id"`
-	Score ScoreBreakdown `json:"score"`
+	ID    uint64  `json:"id"`
+	Score float32 `json:"score"`
 }
 
 type MatchResult struct {

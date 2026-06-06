@@ -106,56 +106,6 @@ func (d *Driver) EnsureDatabase(path string) (anime.DatabaseInfo, error) {
 	}, nil
 }
 
-func (d *Driver) GetAnimeDatabase() (anime.AnimeDatabase, error) {
-	if d == nil {
-		return anime.AnimeDatabase{}, errors.New("driver is nil")
-	}
-
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
-
-	var out C.StaAnimeDatabase
-	if err := d.call(func(ptr *C.StaDriver) C.StaError {
-		return C.sta_driver_get_anime_database(ptr, &out)
-	}); err != nil {
-		return anime.AnimeDatabase{}, err
-	}
-	defer C.sta_anime_database_free(out)
-
-	entries := unsafe.Slice(out.entries, int(out.len))
-	result := anime.AnimeDatabase{
-		LastUpdate: optionalDate(out.last_update),
-		Entries:    make([]anime.DatabaseEntry, 0, len(entries)),
-	}
-
-	for _, entry := range entries {
-		result.Entries = append(result.Entries, anime.DatabaseEntry{
-			ID:                   uint64(entry.id),
-			ConsolidatedMetadata: consolidatedMetadata(entry.consolidated_metadata),
-			Sources:              stringViewArray(entry.sources),
-			Title:                stringView(entry.title),
-			NormalizedTitle:      stringView(entry.normalized_title),
-			Metadata:             titleMetadata(entry.metadata),
-			AnimeType:            stringView(entry.anime_type),
-			Episodes:             int(entry.episodes),
-			Status:               stringView(entry.status),
-			Season:               stringView(entry.season),
-			Year:                 optionalInt(entry.year),
-			Picture:              stringView(entry.picture),
-			Thumbnail:            stringView(entry.thumbnail),
-			Duration:             optionalInt(entry.duration),
-			Synonyms:             stringViewArray(entry.synonyms),
-			NormalizedSynonyms:   stringViewArray(entry.normalized_synonyms),
-			Studios:              stringViewArray(entry.studios),
-			Producers:            stringViewArray(entry.producers),
-			RelatedAnime:         stringViewArray(entry.related_anime),
-			Tags:                 stringViewArray(entry.tags),
-		})
-	}
-
-	return result, nil
-}
-
 func (d *Driver) GetAnimeDatabaseEntries(entryIDs []uint64) ([]anime.DatabaseEntry, error) {
 	if d == nil {
 		return nil, errors.New("driver is nil")
@@ -213,9 +163,9 @@ func (d *Driver) GetAnimeDatabaseEntries(entryIDs []uint64) ([]anime.DatabaseEnt
 	return result, nil
 }
 
-func (d *Driver) LoadShindenList(userID uint64) (anime.ShindenList, error) {
+func (d *Driver) LoadShindenList(userID uint64) (anime.ShindenListIndex, error) {
 	if d == nil {
-		return anime.ShindenList{}, errors.New("driver is nil")
+		return anime.ShindenListIndex{}, errors.New("driver is nil")
 	}
 
 	d.loadMu.Lock()
@@ -225,22 +175,70 @@ func (d *Driver) LoadShindenList(userID uint64) (anime.ShindenList, error) {
 	defer d.mu.RUnlock()
 
 	if d.closed || d.ptr == nil {
-		return anime.ShindenList{}, errors.New("driver is closed")
+		return anime.ShindenListIndex{}, errors.New("driver is closed")
+	}
+
+	var out C.StaIdList
+	if err := intoGoError(C.sta_driver_load_shinden_list(d.ptr, C.uint64_t(userID), &out)); err != nil {
+		return anime.ShindenListIndex{}, err
+	}
+	defer C.sta_id_list_free(out)
+
+	return anime.ShindenListIndex{EntryIDs: idList(out)}, nil
+}
+
+func (d *Driver) GetLoadedShindenEntryIDs(view string) (anime.ShindenListIndex, error) {
+	if d == nil {
+		return anime.ShindenListIndex{}, errors.New("driver is nil")
+	}
+
+	d.loadMu.Lock()
+	defer d.loadMu.Unlock()
+
+	cView := C.CString(view)
+	defer C.free(unsafe.Pointer(cView))
+
+	var out C.StaIdList
+	if err := d.call(func(ptr *C.StaDriver) C.StaError {
+		return C.sta_driver_get_loaded_shinden_entry_ids(ptr, cView, &out)
+	}); err != nil {
+		return anime.ShindenListIndex{}, err
+	}
+	defer C.sta_id_list_free(out)
+
+	return anime.ShindenListIndex{EntryIDs: idList(out)}, nil
+}
+
+func (d *Driver) GetLoadedShindenEntries(entryIDs []uint64) ([]anime.ShindenEntry, error) {
+	if d == nil {
+		return nil, errors.New("driver is nil")
+	}
+
+	d.loadMu.Lock()
+	defer d.loadMu.Unlock()
+
+	var idPtr *C.uint64_t
+	if len(entryIDs) > 0 {
+		idPtr = (*C.uint64_t)(unsafe.Pointer(&entryIDs[0]))
 	}
 
 	var out C.StaShindenList
-	if err := intoGoError(C.sta_driver_load_shinden_list(d.ptr, C.uint64_t(userID), &out)); err != nil {
-		return anime.ShindenList{}, err
+	if err := d.call(func(ptr *C.StaDriver) C.StaError {
+		return C.sta_driver_get_loaded_shinden_entries(
+			ptr,
+			idPtr,
+			C.uintptr_t(len(entryIDs)),
+			&out,
+		)
+	}); err != nil {
+		return nil, err
 	}
 	defer C.sta_shinden_list_free(out)
 
 	entries := unsafe.Slice(out.entries, int(out.len))
-	result := anime.ShindenList{
-		Entries: make([]anime.ShindenEntry, 0, len(entries)),
-	}
-
+	result := make([]anime.ShindenEntry, 0, len(entries))
 	for _, entry := range entries {
-		result.Entries = append(result.Entries, anime.ShindenEntry{
+		result = append(result, anime.ShindenEntry{
 			ID:              uint64(entry.id),
 			CoverID:         optionalInt(entry.cover_id),
 			Title:           stringView(entry.title),
@@ -519,6 +517,20 @@ func stringViewArray(value C.StaStringViewArray) []string {
 	return result
 }
 
+func idList(value C.StaIdList) []uint64 {
+	if value.entries == nil || value.len == 0 {
+		return nil
+	}
+
+	entries := unsafe.Slice(value.entries, int(value.len))
+	result := make([]uint64, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, uint64(entry))
+	}
+
+	return result
+}
+
 func titleMetadata(value C.StaTitleMetadata) anime.TitleMetadata {
 	return anime.TitleMetadata{
 		Season:            optionalFloat(value.season),
@@ -541,23 +553,10 @@ func consolidatedMetadata(value C.StaConsolidatedMetadata) anime.ConsolidatedMet
 	}
 }
 
-func scoreBreakdown(value C.StaScoreBreakdown) anime.ScoreBreakdown {
-	return anime.ScoreBreakdown{
-		SearchScore:   float32(value.search_score),
-		SeasonScore:   float32(value.season_score),
-		YearScore:     float32(value.year_score),
-		TypeScore:     float32(value.type_score),
-		StatusScore:   float32(value.status_score),
-		SeasonalScore: float32(value.seasonal_score),
-		EpisodesScore: float32(value.episodes_score),
-		FinalScore:    float32(value.final_score),
-	}
-}
-
 func scoredCandidate(value C.StaScoredCandidate) anime.ScoredCandidate {
 	return anime.ScoredCandidate{
 		ID:    uint64(value.id),
-		Score: scoreBreakdown(value.score),
+		Score: float32(value.score),
 	}
 }
 

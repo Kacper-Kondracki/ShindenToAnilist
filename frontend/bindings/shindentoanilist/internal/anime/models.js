@@ -6,45 +6,6 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
-export class AnimeDatabase {
-    /**
-     * Creates a new AnimeDatabase instance.
-     * @param {Partial<AnimeDatabase>} [$$source = {}] - The source object to create the AnimeDatabase.
-     */
-    constructor($$source = {}) {
-        if (!("lastUpdate" in $$source)) {
-            /**
-             * @member
-             * @type {string | null}
-             */
-            this["lastUpdate"] = null;
-        }
-        if (!("entries" in $$source)) {
-            /**
-             * @member
-             * @type {DatabaseEntry[]}
-             */
-            this["entries"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new AnimeDatabase instance from a string or object.
-     * @param {any} [$$source = {}]
-     * @returns {AnimeDatabase}
-     */
-    static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType1;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("entries" in $$parsedSource) {
-            $$parsedSource["entries"] = $$createField1_0($$parsedSource["entries"]);
-        }
-        return new AnimeDatabase(/** @type {Partial<AnimeDatabase>} */($$parsedSource));
-    }
-}
-
 export class ConsolidatedMetadata {
     /**
      * Creates a new ConsolidatedMetadata instance.
@@ -264,15 +225,15 @@ export class DatabaseEntry {
      * @returns {DatabaseEntry}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType2;
-        const $$createField2_0 = $$createType3;
-        const $$createField5_0 = $$createType4;
-        const $$createField14_0 = $$createType3;
-        const $$createField15_0 = $$createType3;
-        const $$createField16_0 = $$createType3;
-        const $$createField17_0 = $$createType3;
-        const $$createField18_0 = $$createType3;
-        const $$createField19_0 = $$createType3;
+        const $$createField1_0 = $$createType0;
+        const $$createField2_0 = $$createType1;
+        const $$createField5_0 = $$createType2;
+        const $$createField14_0 = $$createType1;
+        const $$createField15_0 = $$createType1;
+        const $$createField16_0 = $$createType1;
+        const $$createField17_0 = $$createType1;
+        const $$createField18_0 = $$createType1;
+        const $$createField19_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("consolidatedMetadata" in $$parsedSource) {
             $$parsedSource["consolidatedMetadata"] = $$createField1_0($$parsedSource["consolidatedMetadata"]);
@@ -454,7 +415,7 @@ export class MatchListResult {
      * @returns {MatchListResult}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType6;
+        const $$createField0_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("entries" in $$parsedSource) {
             $$parsedSource["entries"] = $$createField0_0($$parsedSource["entries"]);
@@ -535,7 +496,7 @@ export class MatchQueryOptions {
      * @returns {MatchQueryOptions}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType7;
+        const $$createField0_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("search" in $$parsedSource) {
             $$parsedSource["search"] = $$createField0_0($$parsedSource["search"]);
@@ -581,9 +542,9 @@ export class MatchResult {
      * @returns {MatchResult}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType9;
-        const $$createField1_0 = $$createType9;
-        const $$createField2_0 = $$createType10;
+        const $$createField0_0 = $$createType7;
+        const $$createField1_0 = $$createType7;
+        const $$createField2_0 = $$createType8;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -637,83 +598,6 @@ export class MatchSelection {
  * @typedef {number | null} OptionalFloat
  */
 
-export class ScoreBreakdown {
-    /**
-     * Creates a new ScoreBreakdown instance.
-     * @param {Partial<ScoreBreakdown>} [$$source = {}] - The source object to create the ScoreBreakdown.
-     */
-    constructor($$source = {}) {
-        if (!("searchScore" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["searchScore"] = 0;
-        }
-        if (!("seasonScore" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["seasonScore"] = 0;
-        }
-        if (!("yearScore" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["yearScore"] = 0;
-        }
-        if (!("typeScore" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["typeScore"] = 0;
-        }
-        if (!("statusScore" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["statusScore"] = 0;
-        }
-        if (!("seasonalScore" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["seasonalScore"] = 0;
-        }
-        if (!("episodesScore" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["episodesScore"] = 0;
-        }
-        if (!("finalScore" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["finalScore"] = 0;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ScoreBreakdown instance from a string or object.
-     * @param {any} [$$source = {}]
-     * @returns {ScoreBreakdown}
-     */
-    static createFrom($$source = {}) {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ScoreBreakdown(/** @type {Partial<ScoreBreakdown>} */($$parsedSource));
-    }
-}
-
 export class ScoredCandidate {
     /**
      * Creates a new ScoredCandidate instance.
@@ -730,9 +614,9 @@ export class ScoredCandidate {
         if (!("score" in $$source)) {
             /**
              * @member
-             * @type {ScoreBreakdown}
+             * @type {number}
              */
-            this["score"] = (new ScoreBreakdown());
+            this["score"] = 0;
         }
 
         Object.assign(this, $$source);
@@ -744,11 +628,7 @@ export class ScoredCandidate {
      * @returns {ScoredCandidate}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("score" in $$parsedSource) {
-            $$parsedSource["score"] = $$createField1_0($$parsedSource["score"]);
-        }
         return new ScoredCandidate(/** @type {Partial<ScoredCandidate>} */($$parsedSource));
     }
 }
@@ -853,7 +733,7 @@ export class SearchResult {
      * @returns {SearchResult}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType13;
+        const $$createField0_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("items" in $$parsedSource) {
             $$parsedSource["items"] = $$createField0_0($$parsedSource["items"]);
@@ -1004,7 +884,7 @@ export class ShindenListIndex {
      * @returns {ShindenListIndex}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType14;
+        const $$createField0_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("entryIds" in $$parsedSource) {
             $$parsedSource["entryIds"] = $$createField0_0($$parsedSource["entryIds"]);
@@ -1043,7 +923,7 @@ export class ShindenMatchResult {
      * @returns {ShindenMatchResult}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType15;
+        const $$createField1_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("result" in $$parsedSource) {
             $$parsedSource["result"] = $$createField1_0($$parsedSource["result"]);
@@ -1116,19 +996,16 @@ export class TitleMetadata {
 }
 
 // Private type creation functions
-const $$createType0 = DatabaseEntry.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = ConsolidatedMetadata.createFrom;
-const $$createType3 = $Create.Array($Create.Any);
-const $$createType4 = TitleMetadata.createFrom;
-const $$createType5 = ShindenMatchResult.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = SearchOptions.createFrom;
-const $$createType8 = ScoredCandidate.createFrom;
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = $Create.Nullable($$createType8);
-const $$createType11 = ScoreBreakdown.createFrom;
-const $$createType12 = SearchItem.createFrom;
-const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = $Create.Array($Create.Any);
-const $$createType15 = MatchResult.createFrom;
+const $$createType0 = ConsolidatedMetadata.createFrom;
+const $$createType1 = $Create.Array($Create.Any);
+const $$createType2 = TitleMetadata.createFrom;
+const $$createType3 = ShindenMatchResult.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = SearchOptions.createFrom;
+const $$createType6 = ScoredCandidate.createFrom;
+const $$createType7 = $Create.Array($$createType6);
+const $$createType8 = $Create.Nullable($$createType6);
+const $$createType9 = SearchItem.createFrom;
+const $$createType10 = $Create.Array($$createType9);
+const $$createType11 = $Create.Array($Create.Any);
+const $$createType12 = MatchResult.createFrom;

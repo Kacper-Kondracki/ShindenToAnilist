@@ -160,6 +160,12 @@ pub struct StaShindenList {
 }
 
 #[repr(C)]
+pub struct StaIdList {
+    pub entries: *mut u64,
+    pub len: usize,
+}
+
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct StaSearchOptions {
     pub mode: StaStringView,
@@ -199,22 +205,9 @@ pub struct StaSearchResult {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct StaScoreBreakdown {
-    pub search_score: f32,
-    pub season_score: f32,
-    pub year_score: f32,
-    pub type_score: f32,
-    pub status_score: f32,
-    pub seasonal_score: f32,
-    pub episodes_score: f32,
-    pub final_score: f32,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
 pub struct StaScoredCandidate {
     pub id: u64,
-    pub score: StaScoreBreakdown,
+    pub score: f32,
 }
 
 #[repr(C)]
@@ -356,16 +349,7 @@ pub fn empty_match_result() -> StaMatchResult {
         winner: StaMatchWinner {
             item: StaScoredCandidate {
                 id: 0,
-                score: StaScoreBreakdown {
-                    search_score: 0.0,
-                    season_score: 0.0,
-                    year_score: 0.0,
-                    type_score: 0.0,
-                    status_score: 0.0,
-                    seasonal_score: 0.0,
-                    episodes_score: 0.0,
-                    final_score: 0.0,
-                },
+                score: 0.0,
             },
             has_value: false,
         },
@@ -450,6 +434,14 @@ pub unsafe fn free_anime_database(value: StaAnimeDatabase) {
 /// # Safety
 /// Takes ownership of the list entry array. String pointers are borrowed from driver-owned list data.
 pub unsafe fn free_shinden_list(value: StaShindenList) {
+    if !value.entries.is_null() {
+        drop(unsafe { Vec::from_raw_parts(value.entries, value.len, value.len) });
+    }
+}
+
+/// # Safety
+/// Takes ownership of id array.
+pub unsafe fn free_id_list(value: StaIdList) {
     if !value.entries.is_null() {
         drop(unsafe { Vec::from_raw_parts(value.entries, value.len, value.len) });
     }

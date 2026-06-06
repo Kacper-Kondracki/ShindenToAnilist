@@ -28,32 +28,53 @@ func EnsureDatabase(driver *stadriver.Driver, path string) anime.DatabaseInfo {
 	return info
 }
 
-func LoadShindenList(driver *stadriver.Driver, userID uint64) anime.ShindenList {
+func LoadShindenList(driver *stadriver.Driver, userID uint64) anime.ShindenListIndex {
 	list, err := driver.LoadShindenList(userID)
 	Check(err)
 	return list
 }
 
-func GetAnimeDatabase(driver *stadriver.Driver) anime.AnimeDatabase {
-	database, err := driver.GetAnimeDatabase()
+func LoadShindenEntries(driver *stadriver.Driver, entryIDs []uint64) []anime.ShindenEntry {
+	entries, err := driver.GetLoadedShindenEntries(entryIDs)
 	Check(err)
-	return database
+	return entries
 }
 
-func DatabaseByID(database anime.AnimeDatabase) map[uint64]anime.DatabaseEntry {
-	entries := make(map[uint64]anime.DatabaseEntry, len(database.Entries))
-	for _, entry := range database.Entries {
+func DatabaseByID(driver *stadriver.Driver, entryIDs []uint64) map[uint64]anime.DatabaseEntry {
+	databaseEntries, err := driver.GetAnimeDatabaseEntries(UniqueIDs(entryIDs))
+	Check(err)
+
+	entries := make(map[uint64]anime.DatabaseEntry, len(databaseEntries))
+	for _, entry := range databaseEntries {
 		entries[entry.ID] = entry
 	}
 	return entries
 }
 
-func ShindenByID(list anime.ShindenList) map[uint64]anime.ShindenEntry {
-	entries := make(map[uint64]anime.ShindenEntry, len(list.Entries))
-	for _, entry := range list.Entries {
+func ShindenByID(driver *stadriver.Driver, entryIDs []uint64) map[uint64]anime.ShindenEntry {
+	shindenEntries := LoadShindenEntries(driver, UniqueIDs(entryIDs))
+
+	entries := make(map[uint64]anime.ShindenEntry, len(shindenEntries))
+	for _, entry := range shindenEntries {
 		entries[entry.ID] = entry
 	}
 	return entries
+}
+
+func UniqueIDs(entryIDs []uint64) []uint64 {
+	seen := make(map[uint64]struct{}, len(entryIDs))
+	result := make([]uint64, 0, len(entryIDs))
+
+	for _, entryID := range entryIDs {
+		if _, ok := seen[entryID]; ok {
+			continue
+		}
+
+		seen[entryID] = struct{}{}
+		result = append(result, entryID)
+	}
+
+	return result
 }
 
 func DatabasePathFlag() *string {

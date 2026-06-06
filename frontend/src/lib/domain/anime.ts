@@ -33,6 +33,10 @@ export type ShindenListIndex = {
   entryIds: number[];
 };
 
+export type ShindenListView = "manual" | "automatic" | "all";
+
+export type ShindenListViews = Record<ShindenListView, number[]>;
+
 export type TitleMetadata = {
   season: number | null;
   part: number | null;
@@ -74,11 +78,6 @@ export type DatabaseEntry = {
   tags: string[];
 };
 
-export type AnimeDatabase = {
-  lastUpdate: string | null;
-  entries: DatabaseEntry[];
-};
-
 export type SearchOptions = {
   mode?: "strict" | "fuzzy" | "";
   limit?: number;
@@ -105,20 +104,9 @@ export type SearchResult = {
   items: SearchItem[];
 };
 
-export type ScoreBreakdown = {
-  searchScore: number;
-  seasonScore: number;
-  yearScore: number;
-  typeScore: number;
-  statusScore: number;
-  seasonalScore: number;
-  episodesScore: number;
-  finalScore: number;
-};
-
 export type ScoredCandidate = {
   id: number;
-  score: ScoreBreakdown;
+  score: number;
 };
 
 export type MatchResult = {
@@ -154,7 +142,7 @@ export type ExportResult = {
 export type LoadedUserList = {
   provider: Provider;
   query: string;
-  entryIds: number[];
+  entryIdsByView: ShindenListViews;
 };
 
 export type DatabaseState =

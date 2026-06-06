@@ -19,10 +19,11 @@ func main() {
 	started := time.Now()
 	list := exampleutil.LoadShindenList(driver, *userID)
 
-	fmt.Printf("%d entries\n", len(list.Entries))
+	fmt.Printf("%d entries\n", len(list.EntryIDs))
 	fmt.Printf("took %s\n", exampleutil.Elapsed(started))
 
 	if *outputPath != "" {
-		exampleutil.WriteJSON(*outputPath, list)
+		entries := exampleutil.LoadShindenEntries(driver, list.EntryIDs)
+		exampleutil.WriteJSON(*outputPath, entries)
 	}
 }

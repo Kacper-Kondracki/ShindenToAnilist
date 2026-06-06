@@ -17,11 +17,14 @@ func main() {
 	defer driver.Close()
 
 	exampleutil.EnsureDatabase(driver, *databasePath)
-	database := exampleutil.GetAnimeDatabase(driver)
-	entries := exampleutil.DatabaseByID(database)
 
 	results, err := driver.SearchAnime(*query, anime.SearchOptions{Mode: "fuzzy"})
 	exampleutil.Check(err)
+	entryIDs := make([]uint64, 0, len(results.Items))
+	for _, item := range results.Items {
+		entryIDs = append(entryIDs, item.ID)
+	}
+	entries := exampleutil.DatabaseByID(driver, entryIDs)
 
 	for _, item := range results.Items {
 		entry := entries[item.ID]

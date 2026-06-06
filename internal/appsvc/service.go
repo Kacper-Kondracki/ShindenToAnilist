@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -21,7 +20,6 @@ const (
 )
 
 type DatabaseInfo = anime.DatabaseInfo
-type AnimeDatabase = anime.AnimeDatabase
 type ShindenList = anime.ShindenList
 type ShindenListIndex = anime.ShindenListIndex
 type ShindenEntry = anime.ShindenEntry
@@ -36,11 +34,9 @@ type MatchSelection = anime.MatchSelection
 type ExportResult = anime.ExportResult
 
 type Service struct {
-	mu                   sync.RWMutex
-	ensureMu             sync.Mutex
-	loadedShindenEntries map[uint64]anime.ShindenEntry
-	loadedShindenOrder   []uint64
-	driver               *stadriver.Driver
+	mu       sync.RWMutex
+	ensureMu sync.Mutex
+	driver   *stadriver.Driver
 }
 
 func New() *Service {
@@ -111,55 +107,16 @@ func (s *Service) LoadShindenList(userID int) (ShindenListIndex, error) {
 		return ShindenListIndex{}, err
 	}
 
-	list, err := driver.LoadShindenList(uint64(userID))
+	return driver.LoadShindenList(uint64(userID))
+}
+
+func (s *Service) GetLoadedShindenEntryIDs(view string) (ShindenListIndex, error) {
+	driver, err := s.activeDriver()
 	if err != nil {
 		return ShindenListIndex{}, err
 	}
 
-	entries := make(map[uint64]anime.ShindenEntry, len(list.Entries))
-	entryIDs := make([]uint64, 0, len(list.Entries))
-
-	for _, entry := range list.Entries {
-		entries[entry.ID] = entry
-		entryIDs = append(entryIDs, entry.ID)
-	}
-	slices.SortStableFunc(entryIDs, func(leftID, rightID uint64) int {
-		left := entries[leftID]
-		right := entries[rightID]
-
-		if left.PremiereDate == right.PremiereDate {
-			return 0
-		}
-		if left.PremiereDate == nil {
-			return 1
-		}
-		if right.PremiereDate == nil {
-			return -1
-		}
-		if *left.PremiereDate > *right.PremiereDate {
-			return -1
-		}
-		if *left.PremiereDate < *right.PremiereDate {
-			return 1
-		}
-		return 0
-	})
-
-	s.mu.Lock()
-	s.loadedShindenEntries = entries
-	s.loadedShindenOrder = entryIDs
-	s.mu.Unlock()
-
-	return ShindenListIndex{EntryIDs: entryIDs}, nil
-}
-
-func (s *Service) GetAnimeDatabase() (AnimeDatabase, error) {
-	driver, err := s.activeDriver()
-	if err != nil {
-		return AnimeDatabase{}, err
-	}
-
-	return driver.GetAnimeDatabase()
+	return driver.GetLoadedShindenEntryIDs(view)
 }
 
 func (s *Service) GetLoadedShindenEntries(entryIDs []uint64) ([]ShindenEntry, error) {
@@ -167,29 +124,18 @@ func (s *Service) GetLoadedShindenEntries(entryIDs []uint64) ([]ShindenEntry, er
 		return []ShindenEntry{}, nil
 	}
 
-	s.mu.RLock()
-	entriesByID := s.loadedShindenEntries
-	s.mu.RUnlock()
-
-	if len(entriesByID) == 0 {
-		return nil, errors.New("shinden list is not loaded")
-	}
-
-	entries := make([]ShindenEntry, 0, len(entryIDs))
 	for _, entryID := range entryIDs {
 		if entryID == 0 {
 			return nil, errors.New("shinden entry id must be positive")
 		}
-
-		entry, ok := entriesByID[entryID]
-		if !ok {
-			return nil, fmt.Errorf("shinden entry %d is not loaded", entryID)
-		}
-
-		entries = append(entries, entry)
 	}
 
-	return entries, nil
+	driver, err := s.activeDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	return driver.GetLoadedShindenEntries(entryIDs)
 }
 
 func (s *Service) GetAnimeDatabaseEntries(entryIDs []uint64) ([]DatabaseEntry, error) {

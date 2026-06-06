@@ -40,21 +40,12 @@ export function ExportMatches(matches) {
 }
 
 /**
- * @returns {$CancellablePromise<appsvc$0.AnimeDatabase>}
- */
-export function GetAnimeDatabase() {
-    return $Call.ByID(3905279475).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType2($result);
-    }));
-}
-
-/**
  * @param {number[]} entryIDs
  * @returns {$CancellablePromise<appsvc$0.DatabaseEntry[]>}
  */
 export function GetAnimeDatabaseEntries(entryIDs) {
     return $Call.ByID(1682880417, entryIDs).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType4($result);
+        return $$createType3($result);
     }));
 }
 
@@ -64,6 +55,16 @@ export function GetAnimeDatabaseEntries(entryIDs) {
  */
 export function GetLoadedShindenEntries(entryIDs) {
     return $Call.ByID(2375228226, entryIDs).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType5($result);
+    }));
+}
+
+/**
+ * @param {string} view
+ * @returns {$CancellablePromise<appsvc$0.ShindenListIndex>}
+ */
+export function GetLoadedShindenEntryIDs(view) {
+    return $Call.ByID(1210751588, view).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType6($result);
     }));
 }
@@ -74,7 +75,7 @@ export function GetLoadedShindenEntries(entryIDs) {
  */
 export function LoadShindenList(userID) {
     return $Call.ByID(697250205, userID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType7($result);
+        return $$createType6($result);
     }));
 }
 
@@ -84,7 +85,7 @@ export function LoadShindenList(userID) {
  */
 export function MatchLoadedShindenList(options) {
     return $Call.ByID(2016064325, options).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType8($result);
+        return $$createType7($result);
     }));
 }
 
@@ -95,7 +96,7 @@ export function MatchLoadedShindenList(options) {
  */
 export function MatchQuery(query, options) {
     return $Call.ByID(693679561, query, options).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType8($result);
     }));
 }
 
@@ -106,19 +107,18 @@ export function MatchQuery(query, options) {
  */
 export function SearchAnime(query, options) {
     return $Call.ByID(596840122, query, options).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType10($result);
+        return $$createType9($result);
     }));
 }
 
 // Private type creation functions
 const $$createType0 = anime$0.DatabaseInfo.createFrom;
 const $$createType1 = anime$0.ExportResult.createFrom;
-const $$createType2 = anime$0.AnimeDatabase.createFrom;
-const $$createType3 = anime$0.DatabaseEntry.createFrom;
-const $$createType4 = $Create.Array($$createType3);
-const $$createType5 = anime$0.ShindenEntry.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = anime$0.ShindenListIndex.createFrom;
-const $$createType8 = anime$0.MatchListResult.createFrom;
-const $$createType9 = anime$0.MatchResult.createFrom;
-const $$createType10 = anime$0.SearchResult.createFrom;
+const $$createType2 = anime$0.DatabaseEntry.createFrom;
+const $$createType3 = $Create.Array($$createType2);
+const $$createType4 = anime$0.ShindenEntry.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = anime$0.ShindenListIndex.createFrom;
+const $$createType7 = anime$0.MatchListResult.createFrom;
+const $$createType8 = anime$0.MatchResult.createFrom;
+const $$createType9 = anime$0.SearchResult.createFrom;

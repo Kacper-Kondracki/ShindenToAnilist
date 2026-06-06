@@ -13,9 +13,9 @@ use std::{
 
 pub use driver::StaDriver;
 pub use ffi::{
-    StaAnimeDatabase, StaDatabaseInfo, StaError, StaExportResult, StaMatchListResult, StaMatchOptions,
-    StaMatchQueryOptions, StaMatchResult, StaMatchSelection, StaSearchOptions, StaSearchResult,
-    StaShindenList, StaStatus,
+    StaAnimeDatabase, StaDatabaseInfo, StaError, StaExportResult, StaIdList, StaMatchListResult,
+    StaMatchOptions, StaMatchQueryOptions, StaMatchResult, StaMatchSelection, StaSearchOptions,
+    StaSearchResult, StaShindenList, StaStatus,
 };
 
 /// # Safety
@@ -73,6 +73,15 @@ pub unsafe extern "C" fn sta_anime_database_free(value: StaAnimeDatabase) {
 pub unsafe extern "C" fn sta_shinden_list_free(value: StaShindenList) {
     unsafe {
         ffi::free_shinden_list(value);
+    }
+}
+
+/// # Safety
+/// Safe if takes ownership and consumes the id array.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sta_id_list_free(value: StaIdList) {
+    unsafe {
+        ffi::free_id_list(value);
     }
 }
 
@@ -143,17 +152,46 @@ pub unsafe extern "C" fn sta_driver_ensure_database(
 pub extern "C" fn sta_driver_load_shinden_list(
     driver: *mut StaDriver,
     user_id: u64,
-    out: *mut StaShindenList,
+    out: *mut StaIdList,
 ) -> StaError {
     ffi::with_driver_out_result(driver, out, move |driver| shinden::load_list(driver, user_id))
 }
 
+/// # Safety
+/// `view` must be valid C string.
 #[unsafe(no_mangle)]
-pub extern "C" fn sta_driver_get_anime_database(
+pub unsafe extern "C" fn sta_driver_get_loaded_shinden_entry_ids(
     driver: *mut StaDriver,
-    out: *mut StaAnimeDatabase,
+    view: *const c_char,
+    out: *mut StaIdList,
 ) -> StaError {
-    ffi::with_driver_out_result(driver, out, database::get_database)
+    let view = match parse_c_string(view, "shinden entry id view") {
+        Ok(view) => view,
+        Err(error) => return error,
+    };
+
+    ffi::with_driver_out_result(driver, out, move |driver| {
+        shinden::get_entry_ids(driver, &view)
+    })
+}
+
+/// # Safety
+/// `ids` must point to `len` entries or be null when `len` is 0.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sta_driver_get_loaded_shinden_entries(
+    driver: *mut StaDriver,
+    ids: *const u64,
+    len: usize,
+    out: *mut StaShindenList,
+) -> StaError {
+    let ids = match unsafe { parse_id_slice(ids, len, "shinden entry ids") } {
+        Ok(ids) => ids.to_vec(),
+        Err(error) => return error,
+    };
+
+    ffi::with_driver_out_result(driver, out, move |driver| {
+        shinden::get_entries(driver, &ids)
+    })
 }
 
 /// # Safety

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import type { EntryStore } from "../../data/entryStore.svelte";
   import type { ShindenEntry } from "../../domain/anime";
 
   export type AnimeMatchStatus = "matched" | "review" | "unmatched";
@@ -10,14 +10,14 @@
     matchStatus,
     isSelected,
     onSelect,
-    onVisible,
+    entryStore,
   }: {
     entryId: number;
     entry: ShindenEntry | null;
     matchStatus: AnimeMatchStatus;
     isSelected: boolean;
     onSelect: () => void;
-    onVisible: (entryId: number) => void;
+    entryStore: EntryStore;
   } = $props();
 
   const animeTypeLabels: Record<string, string> = {
@@ -58,12 +58,8 @@
     return animeStatusLabels[animeStatus] ?? animeStatus;
   }
 
-  onMount(() => {
-    onVisible(entryId);
-  });
-
   $effect(() => {
-    onVisible(entryId);
+    return entryStore.retainShindenEntry(entryId);
   });
 </script>
 

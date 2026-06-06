@@ -19,11 +19,8 @@ func main() {
 	defer driver.Close()
 
 	exampleutil.EnsureDatabase(driver, *databasePath)
-	database := exampleutil.GetAnimeDatabase(driver)
-	databaseEntries := exampleutil.DatabaseByID(database)
 
 	shinden := exampleutil.LoadShindenList(driver, *userID)
-	shindenEntries := exampleutil.ShindenByID(shinden)
 
 	options := anime.MatchOptions{}
 	if *resultLimit > 0 {
@@ -34,6 +31,16 @@ func main() {
 	matches, err := driver.MatchLoadedShindenList(options)
 	exampleutil.Check(err)
 	elapsed := exampleutil.Elapsed(started)
+	shindenEntryIDs := make([]uint64, 0, len(matches.Entries))
+	databaseEntryIDs := make([]uint64, 0)
+	for _, match := range matches.Entries {
+		shindenEntryIDs = append(shindenEntryIDs, match.ShindenID)
+		for _, item := range match.Result.Items {
+			databaseEntryIDs = append(databaseEntryIDs, item.ID)
+		}
+	}
+	shindenEntries := exampleutil.ShindenByID(driver, shindenEntryIDs)
+	databaseEntries := exampleutil.DatabaseByID(driver, databaseEntryIDs)
 
 	for _, match := range matches.Entries {
 		shindenEntry := shindenEntries[match.ShindenID]
@@ -44,11 +51,12 @@ func main() {
 			if match.Result.Winner != nil && match.Result.Winner.ID == item.ID {
 				label = "WIN"
 			}
-			fmt.Printf("[%.2f %3s] %s\n", item.Score.FinalScore, label, databaseEntry.Title)
+			fmt.Printf("[%.2f %3s] %s\n", item.Score, label, databaseEntry.Title)
 		}
 	}
 
 	fmt.Printf("TOOK       : %s\n", elapsed)
+	fmt.Printf("ENTRIES    : %d\n", len(shinden.EntryIDs))
 	fmt.Printf("HAS TOP    : %d/%d\n", matches.HasTop, matches.Total)
 	fmt.Printf("HAS WINNER : %d/%d\n", matches.Winners, matches.Total)
 }

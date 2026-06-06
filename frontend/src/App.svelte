@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
 
   import {
+    getLoadedShindenEntryIds,
     loadShindenList,
     matchLoadedShindenList,
   } from "./lib/api/appService";
@@ -27,6 +28,7 @@
     hasShindenProfileHost,
     parseShindenUserId,
   } from "./lib/features/shinden/userInput";
+  import { createEntryStore } from "./lib/data/entryStore.svelte";
 
   let selectedProvider = $state<Provider>("shinden");
   let userQuery = $state("");
@@ -40,6 +42,7 @@
   let fetchDurationMs = $state<number | null>(null);
   let matchDurationMs = $state<number | null>(null);
   let manualSelections = $state<Record<number, number>>({});
+  const entryStore = createEntryStore();
 
   let trimmedQuery = $derived(userQuery.trim());
   let parsedShindenUserId = $derived(parseShindenUserId(userQuery));
@@ -151,21 +154,35 @@
 
       const matchStartedAt = performance.now();
       const nextMatchResult = await matchLoadedShindenList();
+      const [manualIds, automaticIds, allIds] = await Promise.all([
+        getLoadedShindenEntryIds("manual"),
+        getLoadedShindenEntryIds("automatic"),
+        getLoadedShindenEntryIds("all"),
+      ]);
       const nextMatchDurationMs = performance.now() - matchStartedAt;
 
       if (activeRequestId !== requestId) return;
 
+      entryStore.reset();
       userListRequestState = {
         status: "loaded",
         provider,
         query,
-        entryIds: list.entryIds,
+        entryIdsByView: {
+          manual: manualIds.entryIds,
+          automatic: automaticIds.entryIds,
+          all: allIds.entryIds.length > 0 ? allIds.entryIds : list.entryIds,
+        },
       };
       workspaceState = {
         status: "active",
         provider,
         query,
-        entryIds: list.entryIds,
+        entryIdsByView: {
+          manual: manualIds.entryIds,
+          automatic: automaticIds.entryIds,
+          all: allIds.entryIds.length > 0 ? allIds.entryIds : list.entryIds,
+        },
       };
       matchResult = nextMatchResult;
       matchErrorMessage = null;
@@ -225,7 +242,8 @@
       <div class="view-frame view-frame--workspace-enter">
         <WorkspaceView
           providerLabel={activeProviderDetails.label}
-          entryIds={workspaceState.entryIds}
+          entryIdsByView={workspaceState.entryIdsByView}
+          {entryStore}
           {matchResult}
           {matchErrorMessage}
           isMatching={false}

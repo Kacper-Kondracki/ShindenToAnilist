@@ -44,6 +44,7 @@ use crate::{
     driver::{
         StaDriver,
         StoredMatchResult,
+        StoredShindenEntryIds,
         StoredShindenMatchResult,
     },
     ffi::{
@@ -54,7 +55,6 @@ use crate::{
         StaMatchResult,
         StaMatchSelection,
         StaMatchWinner,
-        StaScoreBreakdown,
         StaScoredCandidate,
         StaSearchItem,
         StaSearchOptions,
@@ -235,6 +235,14 @@ pub fn match_loaded_shinden_list(
             .lock()
             .map_err(|_| "match results lock is poisoned".to_owned())?;
         *state = Some(stored.clone());
+    }
+    {
+        let mut entry_ids = driver
+            .shinden_entry_ids()
+            .lock()
+            .map_err(|_| "shinden entry ids lock is poisoned".to_owned())?;
+        let base_order = entry_ids.all.clone();
+        *entry_ids = sorted_entry_ids_for_results(&base_order, &stored);
     }
 
     Ok(stored_match_list_to_ffi(&stored, result_limit))
@@ -449,19 +457,43 @@ fn stored_result_to_ffi(value: &StoredMatchResult, result_limit: Option<usize>) 
 fn scored_candidate_to_ffi(id: AnimeId, score: ScoreBreakdown) -> StaScoredCandidate {
     StaScoredCandidate {
         id,
-        score: score_to_ffi(score),
+        score: score.final_score,
     }
 }
 
-fn score_to_ffi(score: ScoreBreakdown) -> StaScoreBreakdown {
-    StaScoreBreakdown {
-        search_score: score.search_score,
-        season_score: score.season_score,
-        year_score: score.year_score,
-        type_score: score.type_score,
-        status_score: score.status_score,
-        seasonal_score: score.seasonal_score,
-        episodes_score: score.episodes_score,
-        final_score: score.final_score,
+fn sorted_entry_ids_for_results(
+    base_order: &[u64],
+    results: &[StoredShindenMatchResult],
+) -> StoredShindenEntryIds {
+    let mut ranks = std::collections::HashMap::with_capacity(results.len());
+    for result in results {
+        let rank = if result.result.winner.is_some() {
+            2
+        } else if result.result.top.is_empty() {
+            0
+        } else {
+            1
+        };
+        ranks.insert(result.shinden_id, rank);
+    }
+
+    let mut all = base_order.to_vec();
+    all.sort_by_key(|id| ranks.get(id).copied().unwrap_or_default());
+
+    let manual = all
+        .iter()
+        .copied()
+        .filter(|id| ranks.get(id).copied().unwrap_or_default() != 2)
+        .collect();
+    let automatic = all
+        .iter()
+        .copied()
+        .filter(|id| ranks.get(id).copied().unwrap_or_default() == 2)
+        .collect();
+
+    StoredShindenEntryIds {
+        manual,
+        automatic,
+        all,
     }
 }

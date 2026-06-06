@@ -10,12 +10,6 @@ import { Create as $Create } from "@wailsio/runtime";
 // @ts-ignore: Unused imports
 import * as anime$0 from "../anime/models.js";
 
-export const AnimeDatabase = anime$0.AnimeDatabase;
-
-/**
- * @typedef {anime$0.AnimeDatabase} AnimeDatabase
- */
-
 export const DatabaseEntry = anime$0.DatabaseEntry;
 
 /**

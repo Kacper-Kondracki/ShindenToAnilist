@@ -23,5 +23,5 @@ func main() {
 	exampleutil.Check(err)
 
 	fmt.Println("The stateful driver exposes the strict matcher preset, not arbitrary matcher weights.")
-	fmt.Printf("Preset score: %d/%d winners\n", matches.Winners, len(shinden.Entries))
+	fmt.Printf("Preset score: %d/%d winners\n", matches.Winners, len(shinden.EntryIDs))
 }
