@@ -385,5 +385,9 @@
       align-items: stretch;
       flex-direction: column;
     }
+
+    .app-status-bar__summary {
+      justify-content: center;
+    }
   }
 </style>
