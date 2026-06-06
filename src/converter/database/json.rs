@@ -23,6 +23,12 @@ pub(super) struct DatabaseRoot {
     data: Vec<AnimeEntry>,
 }
 
+#[derive(Deserialize, Debug, Copy, Clone)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct DatabaseRootMetadata {
+    last_update: NaiveDate,
+}
+
 impl DatabaseRoot {
     pub(super) fn into_model(self) -> models::AnimeDatabase {
         let DatabaseRoot { last_update, data } = self;
@@ -45,6 +51,14 @@ impl DatabaseRoot {
                 .filter_map(|a| a.into_model())
                 .map(|a| (a.id, a))
                 .collect(),
+        }
+    }
+}
+
+impl DatabaseRootMetadata {
+    pub(super) fn into_model(self) -> models::DatabaseRootMetadata {
+        models::DatabaseRootMetadata {
+            last_update: self.last_update,
         }
     }
 }

@@ -34,7 +34,18 @@ pub struct AnimeDatabase {
     pub(super) entries: IndexMap<AnimeId, AnimeEntry>,
 }
 
+/// Header metadata from the offline database root line.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq)]
+pub struct DatabaseRootMetadata {
+    pub(super) last_update: NaiveDate,
+}
+
 impl AnimeDatabase {
+    /// Date advertised by the database source as its last update.
+    pub fn last_update(&self) -> NaiveDate { self.last_update }
+}
+
+impl DatabaseRootMetadata {
     /// Date advertised by the database source as its last update.
     pub fn last_update(&self) -> NaiveDate { self.last_update }
 }
