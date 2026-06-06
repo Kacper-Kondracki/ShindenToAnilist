@@ -61,3 +61,158 @@ export class DatabaseInfo {
         return new DatabaseInfo(/** @type {Partial<DatabaseInfo>} */($$parsedSource));
     }
 }
+
+export class ShindenEntry {
+    /**
+     * Creates a new ShindenEntry instance.
+     * @param {Partial<ShindenEntry>} [$$source = {}] - The source object to create the ShindenEntry.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["id"] = 0;
+        }
+        if (!("coverId" in $$source)) {
+            /**
+             * @member
+             * @type {number | null}
+             */
+            this["coverId"] = null;
+        }
+        if (!("title" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["title"] = "";
+        }
+        if (!("animeStatus" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["animeStatus"] = "";
+        }
+        if (!("animeType" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["animeType"] = "";
+        }
+        if (!("premiereDate" in $$source)) {
+            /**
+             * @member
+             * @type {string | null}
+             */
+            this["premiereDate"] = null;
+        }
+        if (!("finishDate" in $$source)) {
+            /**
+             * @member
+             * @type {string | null}
+             */
+            this["finishDate"] = null;
+        }
+        if (!("episodes" in $$source)) {
+            /**
+             * @member
+             * @type {number | null}
+             */
+            this["episodes"] = null;
+        }
+        if (!("isFavourite" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["isFavourite"] = false;
+        }
+        if (!("watchStatus" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["watchStatus"] = "";
+        }
+        if (!("watchedEpisodes" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["watchedEpisodes"] = 0;
+        }
+        if (!("score" in $$source)) {
+            /**
+             * @member
+             * @type {number | null}
+             */
+            this["score"] = null;
+        }
+        if (!("note" in $$source)) {
+            /**
+             * @member
+             * @type {string | null}
+             */
+            this["note"] = null;
+        }
+        if (!("description" in $$source)) {
+            /**
+             * @member
+             * @type {string | null}
+             */
+            this["description"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ShindenEntry instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ShindenEntry}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ShindenEntry(/** @type {Partial<ShindenEntry>} */($$parsedSource));
+    }
+}
+
+export class ShindenList {
+    /**
+     * Creates a new ShindenList instance.
+     * @param {Partial<ShindenList>} [$$source = {}] - The source object to create the ShindenList.
+     */
+    constructor($$source = {}) {
+        if (!("entries" in $$source)) {
+            /**
+             * @member
+             * @type {ShindenEntry[]}
+             */
+            this["entries"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ShindenList instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ShindenList}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("entries" in $$parsedSource) {
+            $$parsedSource["entries"] = $$createField0_0($$parsedSource["entries"]);
+        }
+        return new ShindenList(/** @type {Partial<ShindenList>} */($$parsedSource));
+    }
+}
+
+// Private type creation functions
+const $$createType0 = ShindenEntry.createFrom;
+const $$createType1 = $Create.Array($$createType0);

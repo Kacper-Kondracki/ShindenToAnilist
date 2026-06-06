@@ -1,9 +1,16 @@
-use std::{fs::File, io::Write, time::Instant};
+use std::{
+    fs::File,
+    io::Write,
+    time::Instant,
+};
 
 use shinden_to_anilist_core::{
-    common::AnimeList,
-    providers::shinden::{ShindenList, ShindenListLoad},
     BlockingHttpClient,
+    common::AnimeList,
+    providers::shinden::{
+        ShindenList,
+        ShindenListLoad,
+    },
 };
 
 fn main() {

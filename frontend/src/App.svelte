@@ -47,6 +47,25 @@
     path: string;
     updated: boolean;
   };
+  type ShindenEntry = {
+    id: number;
+    coverId: number | null;
+    title: string;
+    animeStatus: string;
+    animeType: string;
+    premiereDate: string | null;
+    finishDate: string | null;
+    episodes: number | null;
+    isFavourite: boolean;
+    watchStatus: string;
+    watchedEpisodes: number;
+    score: number | null;
+    note: string | null;
+    description: string | null;
+  };
+  type ShindenList = {
+    entries: ShindenEntry[];
+  };
 
   const databaseRetryDelays = [0, 500, 1500] as const;
 
@@ -57,7 +76,10 @@
   let databaseLastUpdate = $state<string | null>(null);
   let databaseInfo = $state<DatabaseInfo | null>(null);
   let databaseError = $state<string | null>(null);
+  let shindenEntries = $state<ShindenEntry[]>([]);
+  let isUserListLoading = $state(false);
   let trimmedQuery = $derived(userQuery.trim());
+  let parsedShindenUserId = $derived(parseShindenUserId(userQuery));
   let selectedProviderDetails = $derived(
     providers.find(({ id }) => id === selectedProvider) ?? providers[0],
   );
@@ -77,6 +99,12 @@
 
   onMount(() => {
     void initializeDatabase();
+  });
+
+  $effect(() => {
+    if (parsedShindenUserId !== null && selectedProvider !== "shinden") {
+      selectedProvider = "shinden";
+    }
   });
 
   async function initializeDatabase() {
@@ -126,17 +154,53 @@
     return "Nie udało się wczytać bazy danych";
   }
 
-  function handleSubmit(event: SubmitEvent) {
+  function parseShindenUserId(value: string) {
+    const query = value.trim();
+    if (!query) return null;
+
+    const match = query.match(
+      /^(?:https?:\/\/)?(?:www\.)?(?:shinden\.pl\/user\/)?(\d+)(?:-[A-Za-z0-9_-]+)?\/?$/,
+    );
+
+    if (!match) return null;
+
+    const userId = Number(match[1]);
+    return Number.isSafeInteger(userId) && userId > 0 ? userId : null;
+  }
+
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
 
     if (!trimmedQuery) return;
 
-    appView = "workspace";
+    if (selectedProvider !== "shinden") {
+      console.log("Provider loading is not implemented yet", {
+        provider: selectedProvider,
+        query: trimmedQuery,
+      });
+      return;
+    }
 
-    console.log("Load user list", {
-      provider: selectedProvider,
-      query: trimmedQuery,
-    });
+    if (parsedShindenUserId === null) {
+      console.error("Unable to parse Shinden user id", {
+        query: trimmedQuery,
+      });
+      return;
+    }
+
+    isUserListLoading = true;
+
+    try {
+      const list = (await AppService.LoadShindenList(
+        parsedShindenUserId,
+      )) as ShindenList;
+      shindenEntries = list.entries;
+      appView = "workspace";
+    } catch (error) {
+      console.error("Unable to load Shinden user list", error);
+    } finally {
+      isUserListLoading = false;
+    }
   }
 </script>
 
@@ -202,15 +266,23 @@
           <input
             bind:value={userQuery}
             type="text"
-            placeholder="ID lub nazwa użytkownika"
+            placeholder="ID, profil Shinden lub nazwa użytkownika"
             autocomplete="off"
           />
         </label>
         <button
           class="btn join-item btn-info"
           type="submit"
-          disabled={!trimmedQuery}>Wczytaj</button
+          disabled={!trimmedQuery || isUserListLoading}
         >
+          {#if isUserListLoading}
+            <span
+              class="loading loading-xs loading-spinner"
+              aria-hidden="true"
+            ></span>
+          {/if}
+          Wczytaj
+        </button>
       </form>
     </div>
   </header>
@@ -238,7 +310,10 @@
       </div>
     {:else}
       <div class="view-frame view-frame--workspace-enter">
-        <WorkspaceView providerLabel={selectedProviderDetails.label} />
+        <WorkspaceView
+          providerLabel={selectedProviderDetails.label}
+          entries={shindenEntries}
+        />
       </div>
     {/if}
   </div>

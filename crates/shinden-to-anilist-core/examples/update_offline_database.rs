@@ -1,5 +1,6 @@
 use shinden_to_anilist_core::database::updater::{
-    update_latest_jsonl_from_github_blocking, DatabaseUpdateStatus,
+    DatabaseUpdateStatus,
+    update_latest_jsonl_from_github_blocking,
 };
 
 fn main() {

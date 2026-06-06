@@ -48,5 +48,16 @@ export function IncrementCounterBy(amount) {
     return $Call.ByID(2071564404, amount);
 }
 
+/**
+ * @param {number} userID
+ * @returns {$CancellablePromise<$models.ShindenList>}
+ */
+export function LoadShindenList(userID) {
+    return $Call.ByID(697250205, userID).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
+
 // Private type creation functions
 const $$createType0 = $models.DatabaseInfo.createFrom;
+const $$createType1 = $models.ShindenList.createFrom;

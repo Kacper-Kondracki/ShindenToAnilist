@@ -23,6 +23,45 @@ typedef struct StaDatabaseInfo {
     bool updated;
 } StaDatabaseInfo;
 
+typedef struct StaOptionalI32 {
+    int32_t value;
+    bool has_value;
+} StaOptionalI32;
+
+typedef struct StaStringView {
+    const char *ptr;
+    uintptr_t len;
+} StaStringView;
+
+typedef struct StaOptionalDate {
+    int32_t year;
+    uint32_t month;
+    uint32_t day;
+    bool has_value;
+} StaOptionalDate;
+
+typedef struct StaShindenEntry {
+    uint64_t id;
+    struct StaOptionalI32 cover_id;
+    struct StaStringView title;
+    struct StaStringView anime_status;
+    struct StaStringView anime_type;
+    struct StaOptionalDate premiere_date;
+    struct StaOptionalDate finish_date;
+    struct StaOptionalI32 episodes;
+    bool is_favourite;
+    struct StaStringView watch_status;
+    int32_t watched_episodes;
+    struct StaOptionalI32 score;
+    struct StaStringView note;
+    struct StaStringView description;
+} StaShindenEntry;
+
+typedef struct StaShindenList {
+    struct StaShindenEntry *entries;
+    uintptr_t len;
+} StaShindenList;
+
 typedef struct StaError {
     enum StaStatus status;
     char *message;
@@ -52,6 +91,12 @@ void sta_string_free(char *value);
  */
 void sta_database_info_free(struct StaDatabaseInfo value);
 
+/**
+ * # Safety
+ * Safe if takes ownership and consumes the list entry array. String pointers are borrowed.
+ */
+void sta_shinden_list_free(struct StaShindenList value);
+
 struct StaError sta_driver_counter_value(struct StaDriver *driver, int64_t *out);
 
 struct StaError sta_driver_counter_increment(struct StaDriver *driver,
@@ -65,6 +110,10 @@ struct StaError sta_driver_counter_increment(struct StaDriver *driver,
 struct StaError sta_driver_ensure_database(struct StaDriver *driver,
                                            const char *path,
                                            struct StaDatabaseInfo *out);
+
+struct StaError sta_driver_load_shinden_list(struct StaDriver *driver,
+                                             uint64_t user_id,
+                                             struct StaShindenList *out);
 
 #ifdef __cplusplus
 }  // extern "C"

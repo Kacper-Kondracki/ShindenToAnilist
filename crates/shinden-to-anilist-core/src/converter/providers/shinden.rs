@@ -3,8 +3,10 @@ use std::{
     io::Read,
 };
 
-use reqwest::Client;
-use reqwest::blocking::Client as BlockingClient;
+use reqwest::{
+    Client,
+    blocking::Client as BlockingClient,
+};
 use thiserror::Error;
 
 pub use self::models::*;

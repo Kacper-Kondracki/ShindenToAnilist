@@ -1,7 +1,24 @@
 <script lang="ts">
   import { VList } from "virtua/svelte";
 
-  let { providerLabel }: { providerLabel: string } = $props();
+  type ShindenEntry = {
+    id: number;
+    title: string;
+    animeStatus: string;
+    animeType: string;
+    episodes: number | null;
+    watchStatus: string;
+    watchedEpisodes: number;
+    score: number | null;
+  };
+
+  let {
+    providerLabel,
+    entries,
+  }: {
+    providerLabel: string;
+    entries: ShindenEntry[];
+  } = $props();
 
   const animeListTabs = [
     {
@@ -17,8 +34,6 @@
       label: "Wszystko",
     },
   ] as const;
-
-  const itemList = Array.from({ length: 200 }, (v, i) => i);
 
   type AnimeListTabId = (typeof animeListTabs)[number]["id"];
 
@@ -57,13 +72,30 @@
         role="tabpanel"
         class="workspace-pane__body"
       >
-        <VList data={itemList} class="size-full" getKey={(_, i) => i}>
-          {#snippet children(item, index)}
-            <div class="p-8">
-              <h1>To jest test</h1>
-            </div>
-          {/snippet}
-        </VList>
+        {#if entries.length > 0}
+          <VList data={entries} class="size-full" getKey={(entry) => entry.id}>
+            {#snippet children(entry)}
+              <article class="anime-row">
+                <div class="min-w-0">
+                  <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
+                  <p class="truncate text-xs text-muted">
+                    {entry.animeType} · {entry.watchStatus} · {entry.watchedEpisodes}/{entry.episodes ?? "?"}
+                  </p>
+                </div>
+
+                {#if entry.score !== null}
+                  <span class="badge badge-soft badge-info shrink-0">
+                    {entry.score}/10
+                  </span>
+                {/if}
+              </article>
+            {/snippet}
+          </VList>
+        {:else}
+          <p class="workspace-empty text-sm font-medium text-muted">
+            Lista jest pusta
+          </p>
+        {/if}
       </div>
     </section>
 
@@ -114,10 +146,26 @@
   }
 
   .workspace-pane__body {
-    display: grid;
+    display: block;
     flex: 1;
-    min-height: 10rem;
-    place-items: center;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .anime-row {
+    display: flex;
+    min-height: 4.5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--spacing) * 3);
+    border-bottom: var(--border) solid
+      color-mix(in oklab, var(--color-base-content) 8%, transparent);
+    padding-inline: calc(var(--spacing) * 4);
+    padding-block: calc(var(--spacing) * 3);
+  }
+
+  .workspace-empty {
     padding: calc(var(--spacing) * 4);
   }
 

@@ -8,5 +8,7 @@ export {
 };
 
 export {
-    DatabaseInfo
+    DatabaseInfo,
+    ShindenEntry,
+    ShindenList
 } from "./models.js";

@@ -19,6 +19,7 @@ type AppService struct {
 
 const (
 	maxCounterAmount = int64(1<<32 - 1)
+	maxShindenUserID = int64(1<<53 - 1)
 	appDataDirName   = "ShindenToAnilist"
 	databaseFileName = "anime-offline-database.jsonl"
 )
@@ -111,6 +112,19 @@ func (s *AppService) EnsureDatabase() (DatabaseInfo, error) {
 	}
 
 	return driver.EnsureDatabase(databasePath())
+}
+
+func (s *AppService) LoadShindenList(userID int) (ShindenList, error) {
+	if userID <= 0 || int64(userID) > maxShindenUserID {
+		return ShindenList{}, fmt.Errorf("shinden user id must be between 1 and %d", maxShindenUserID)
+	}
+
+	driver, err := s.activeDriver()
+	if err != nil {
+		return ShindenList{}, err
+	}
+
+	return driver.LoadShindenList(uint64(userID))
 }
 
 func (s *AppService) activeDriver() (*Driver, error) {
