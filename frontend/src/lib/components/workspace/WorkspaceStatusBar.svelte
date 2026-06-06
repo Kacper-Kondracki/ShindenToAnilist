@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+
   import type { MatchListResult, ShindenEntry } from "../../domain/anime";
 
   let {
@@ -57,6 +59,100 @@
   let matchTimeText = $derived(
     isMatching ? "..." : formatDuration(matchDurationMs),
   );
+  let summaryElement: HTMLDivElement;
+  let apiBadgeElement: HTMLSpanElement;
+  let matchBadgeElement: HTMLSpanElement;
+  let showApiBadge = $state(true);
+  let showMatchBadge = $state(true);
+  let isMeasuringOptionalBadges = $state(true);
+  let apiBadgeWidth = 0;
+  let matchBadgeWidth = 0;
+  let measureAnimationFrame = 0;
+
+  onMount(() => {
+    const resizeObserver = new ResizeObserver(scheduleOptionalBadgeMeasurement);
+    resizeObserver.observe(summaryElement);
+    scheduleOptionalBadgeMeasurement();
+    return () => {
+      resizeObserver.disconnect();
+      cancelAnimationFrame(measureAnimationFrame);
+    };
+  });
+
+  $effect(() => {
+    matchedPercentage;
+    totalCount;
+    reviewCount;
+    formatDuration(fetchDurationMs);
+    matchTimeText;
+
+    scheduleOptionalBadgeMeasurement();
+  });
+
+  function scheduleOptionalBadgeMeasurement() {
+    cancelAnimationFrame(measureAnimationFrame);
+    measureAnimationFrame = requestAnimationFrame(measureOptionalBadges);
+  }
+
+  function measureOptionalBadges() {
+    if (!summaryElement || !apiBadgeElement || !matchBadgeElement) return;
+
+    if (apiBadgeElement.offsetWidth > 0) {
+      apiBadgeWidth = apiBadgeElement.getBoundingClientRect().width;
+    }
+
+    if (matchBadgeElement.offsetWidth > 0) {
+      matchBadgeWidth = matchBadgeElement.getBoundingClientRect().width;
+    }
+
+    const requiredBadges = Array.from(
+      summaryElement.querySelectorAll<HTMLElement>("[data-status-required]"),
+    );
+    const visibleRequiredBadges = requiredBadges.filter(
+      (badge) => badge.offsetWidth > 0,
+    );
+    const gap = Number.parseFloat(getComputedStyle(summaryElement).columnGap);
+    const badgeGap = Number.isFinite(gap) ? gap : 0;
+    const requiredWidth = visibleRequiredBadges.reduce(
+      (width, badge) => width + badge.getBoundingClientRect().width,
+      0,
+    );
+    const availableWidth = summaryElement.getBoundingClientRect().width;
+
+    let visibleBadgeCount = visibleRequiredBadges.length;
+    let nextWidth = requiredWidth;
+
+    const apiFits = fitsBadge(nextWidth, visibleBadgeCount, apiBadgeWidth);
+
+    if (apiFits) {
+      nextWidth += gapBeforeNextBadge(visibleBadgeCount) + apiBadgeWidth;
+      visibleBadgeCount += 1;
+    }
+
+    const matchFits =
+      apiFits && fitsBadge(nextWidth, visibleBadgeCount, matchBadgeWidth);
+
+    showApiBadge = apiFits;
+    showMatchBadge = matchFits;
+    isMeasuringOptionalBadges = false;
+
+    function fitsBadge(
+      currentWidth: number,
+      currentBadgeCount: number,
+      badgeWidth: number,
+    ) {
+      if (badgeWidth <= 0) return false;
+
+      return (
+        currentWidth + gapBeforeNextBadge(currentBadgeCount) + badgeWidth <=
+        availableWidth
+      );
+    }
+
+    function gapBeforeNextBadge(currentBadgeCount: number) {
+      return currentBadgeCount > 0 ? badgeGap : 0;
+    }
+  }
 
   function formatDuration(durationMs: number | null) {
     if (durationMs === null) return "-";
@@ -71,31 +167,56 @@
 
 <footer class="app-status-bar">
   <div class="app-status-bar__body">
-    <div class="app-status-bar__summary" aria-label="Status workspace">
+    <div
+      class="app-status-bar__summary"
+      aria-label="Status workspace"
+      bind:this={summaryElement}
+    >
       {#if matchErrorMessage !== null}
-        <span class="text-sm font-medium text-error">
+        <span class="text-sm font-medium text-error" data-status-required>
           Błąd dopasowania: {matchErrorMessage}
         </span>
       {/if}
-      <span class="badge status-badge status-badge--recognized">
-        <span class="status-badge__text">Rozpoznano: {matchedPercentage}%</span>
+      <span
+        class="badge status-badge status-badge--recognized"
+        data-status-required
+      >
+        <span class="status-badge__label">Rozpoznano</span>
+        <span class="status-badge__value">{matchedPercentage}%</span>
       </span>
-      <span class="badge status-badge status-badge--total">
-        <span class="status-badge__text">Wszystkie: {totalCount}</span>
+      <span class="badge status-badge status-badge--total" data-status-required>
+        <span class="status-badge__label">Wszystkie</span>
+        <span class="status-badge__value">{totalCount}</span>
       </span>
-      <span class="badge status-badge status-badge--review">
-        <span class="status-badge__text">Do sprawdzenia: {reviewCount}</span>
+      <span
+        class="badge status-badge status-badge--review"
+        data-status-required
+      >
+        <span class="status-badge__label">Do sprawdzenia</span>
+        <span class="status-badge__value">{reviewCount}</span>
       </span>
-      <span class="badge status-badge status-badge--api">
-        <span class="status-badge__text">
-          API: {formatDuration(fetchDurationMs)}
-        </span>
+      <span
+        class:hidden-status-badge={!showApiBadge}
+        class:is-measuring={isMeasuringOptionalBadges}
+        class="badge status-badge status-badge--api"
+        bind:this={apiBadgeElement}
+      >
+        <span class="status-badge__label">API</span>
+        <span class="status-badge__value"
+          >{formatDuration(fetchDurationMs)}</span
+        >
       </span>
-      <span class="badge status-badge status-badge--match">
-        <span class="status-badge__text">Dopasowano w: {matchTimeText}</span>
+      <span
+        class:hidden-status-badge={!showMatchBadge}
+        class:is-measuring={isMeasuringOptionalBadges}
+        class="badge status-badge status-badge--match"
+        bind:this={matchBadgeElement}
+      >
+        <span class="status-badge__label">Dopasowano w</span>
+        <span class="status-badge__value">{matchTimeText}</span>
       </span>
     </div>
-    <button class="btn btn-error md:btn-wide" type="button">Eksport</button>
+    <button class="btn xl:btn-wide btn-error" type="button">Eksport</button>
   </div>
 </footer>
 
@@ -116,9 +237,11 @@
   }
 
   .app-status-bar__summary {
+    position: relative;
     display: flex;
     min-width: 0;
-    flex-wrap: wrap;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
     align-items: center;
     gap: calc(var(--spacing) * 2);
   }
@@ -126,8 +249,18 @@
   .app-status-bar__summary > .badge {
     height: auto;
     min-height: 1.5rem;
-    white-space: normal;
+    white-space: nowrap;
     text-align: center;
+  }
+
+  .app-status-bar__summary > .hidden-status-badge {
+    position: absolute;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .app-status-bar__summary > .is-measuring {
+    visibility: hidden;
   }
 
   .status-badge {
@@ -150,9 +283,11 @@
     background:
       linear-gradient(135deg, var(--badge-from), var(--badge-to)),
       var(--color-base-200);
+    gap: calc(var(--spacing) * 1.5);
   }
 
-  .status-badge__text {
+  .status-badge__label,
+  .status-badge__value {
     background: linear-gradient(
       1deg,
       var(--badge-text-from),
@@ -163,6 +298,19 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     filter: saturate(1.5) brightness(1.04) contrast(1.08);
+  }
+
+  .status-badge__label {
+    font-size: 0.84rem;
+    font-weight: 500;
+    font-synthesis-weight: auto;
+    opacity: 0.8;
+  }
+
+  .status-badge__value {
+    font-weight: bolder;
+    font-synthesis-weight: auto;
+    letter-spacing: 0;
   }
 
   .status-badge--recognized {

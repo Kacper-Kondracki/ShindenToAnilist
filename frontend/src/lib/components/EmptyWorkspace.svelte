@@ -5,8 +5,12 @@
 </script>
 
 <section class="app-content">
-  <AnimatedGridPanel class="grid place-items-center overflow-hidden surface-panel">
-    <div class="isolate grid max-w-3xl justify-items-center gap-2 px-6 text-center">
+  <AnimatedGridPanel
+    class="grid place-items-center overflow-hidden surface-panel"
+  >
+    <div
+      class="isolate grid max-w-3xl justify-items-center gap-2 px-6 text-center"
+    >
       <p class="text-2xl font-bold md:text-4xl">
         Wczytaj listę, żeby rozpocząć dopasowywanie
       </p>

@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { loadShindenList, matchLoadedShindenList } from "./lib/api/appService";
+  import {
+    loadShindenList,
+    matchLoadedShindenList,
+  } from "./lib/api/appService";
   import AppHeader from "./lib/components/AppHeader.svelte";
   import EmptyWorkspace from "./lib/components/EmptyWorkspace.svelte";
   import WorkspaceView from "./lib/components/WorkspaceView.svelte";
@@ -66,7 +69,8 @@
   });
   let isUserListLoading = $derived(userListRequestState.status === "loading");
   let isWaitingForDatabase = $derived(
-    userListRequestState.status === "loading" && databaseState.status !== "ready",
+    userListRequestState.status === "loading" &&
+      databaseState.status !== "ready",
   );
   let isLoadButtonBusy = $derived(isUserListLoading || isWaitingForDatabase);
   let hasUserListError = $derived(userListRequestState.status === "error");

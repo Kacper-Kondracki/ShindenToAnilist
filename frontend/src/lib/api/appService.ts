@@ -41,7 +41,10 @@ export async function searchAnime(query: string, options: SearchOptions = {}) {
   })) as SearchResult;
 }
 
-export async function matchQuery(query: string, options: MatchQueryOptions = {}) {
+export async function matchQuery(
+  query: string,
+  options: MatchQueryOptions = {},
+) {
   const search = options.search ?? {};
 
   return (await AppService.MatchQuery(query, {
