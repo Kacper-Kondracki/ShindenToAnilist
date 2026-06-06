@@ -29,6 +29,10 @@ export type ShindenList = {
   entries: ShindenEntry[];
 };
 
+export type ShindenListIndex = {
+  entryIds: number[];
+};
+
 export type TitleMetadata = {
   season: number | null;
   part: number | null;
@@ -150,7 +154,7 @@ export type ExportResult = {
 export type LoadedUserList = {
   provider: Provider;
   query: string;
-  entries: ShindenEntry[];
+  entryIds: number[];
 };
 
 export type DatabaseState =

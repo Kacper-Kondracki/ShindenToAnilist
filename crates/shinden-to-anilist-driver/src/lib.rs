@@ -6,29 +6,16 @@ mod matcher;
 mod shinden;
 
 use std::{
-    ffi::{
-        CStr,
-        c_char,
-    },
+    ffi::{CStr, c_char},
     panic::catch_unwind,
     ptr,
 };
 
 pub use driver::StaDriver;
 pub use ffi::{
-    StaAnimeDatabase,
-    StaDatabaseInfo,
-    StaError,
-    StaExportResult,
-    StaMatchListResult,
-    StaMatchOptions,
-    StaMatchQueryOptions,
-    StaMatchResult,
-    StaMatchSelection,
-    StaSearchOptions,
-    StaSearchResult,
-    StaShindenList,
-    StaStatus,
+    StaAnimeDatabase, StaDatabaseInfo, StaError, StaExportResult, StaMatchListResult, StaMatchOptions,
+    StaMatchQueryOptions, StaMatchResult, StaMatchSelection, StaSearchOptions, StaSearchResult,
+    StaShindenList, StaStatus,
 };
 
 /// # Safety
@@ -49,7 +36,9 @@ pub extern "C" fn sta_driver_new() -> *mut StaDriver {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn sta_driver_abort(driver: *mut StaDriver) { driver::abort(driver); }
+pub extern "C" fn sta_driver_abort(driver: *mut StaDriver) {
+    driver::abort(driver);
+}
 
 /// # Safety
 /// Safe if takes ownership and consumes the object.
@@ -168,6 +157,25 @@ pub extern "C" fn sta_driver_get_anime_database(
 }
 
 /// # Safety
+/// `ids` must point to `len` entries or be null when `len` is 0.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sta_driver_get_anime_database_entries(
+    driver: *mut StaDriver,
+    ids: *const u64,
+    len: usize,
+    out: *mut StaAnimeDatabase,
+) -> StaError {
+    let ids = match unsafe { parse_id_slice(ids, len, "database entry ids") } {
+        Ok(ids) => ids.to_vec(),
+        Err(error) => return error,
+    };
+
+    ffi::with_driver_out_result(driver, out, move |driver| {
+        database::get_database_entries(driver, &ids)
+    })
+}
+
+/// # Safety
 /// `query` must be valid C string.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_driver_search_anime(
@@ -251,4 +259,19 @@ fn parse_c_string(value: *const c_char, label: &str) -> Result<String, StaError>
             &format!("{label} is not valid UTF-8: {error}"),
         )),
     }
+}
+
+unsafe fn parse_id_slice<'a>(value: *const u64, len: usize, label: &str) -> Result<&'a [u64], StaError> {
+    if len == 0 {
+        return Ok(&[]);
+    }
+
+    if value.is_null() {
+        return Err(ffi::error_result(
+            StaStatus::StaStatusNullPointer,
+            &format!("{label} pointer is null"),
+        ));
+    }
+
+    Ok(unsafe { std::slice::from_raw_parts(value, len) })
 }

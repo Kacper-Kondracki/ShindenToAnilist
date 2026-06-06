@@ -12,6 +12,10 @@ type ShindenList struct {
 	Entries []ShindenEntry `json:"entries"`
 }
 
+type ShindenListIndex struct {
+	EntryIDs []uint64 `json:"entryIds"`
+}
+
 type ShindenEntry struct {
 	ID              uint64  `json:"id"`
 	CoverID         *int    `json:"coverId"`

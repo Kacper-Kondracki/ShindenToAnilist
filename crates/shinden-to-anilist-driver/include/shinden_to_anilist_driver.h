@@ -285,6 +285,15 @@ struct StaError sta_driver_get_anime_database(struct StaDriver *driver,
 
 /**
  * # Safety
+ * `ids` must point to `len` entries or be null when `len` is 0.
+ */
+struct StaError sta_driver_get_anime_database_entries(struct StaDriver *driver,
+                                                      const uint64_t *ids,
+                                                      uintptr_t len,
+                                                      struct StaAnimeDatabase *out);
+
+/**
+ * # Safety
  * `query` must be valid C string.
  */
 struct StaError sta_driver_search_anime(struct StaDriver *driver,

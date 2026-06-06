@@ -981,35 +981,35 @@ export class ShindenEntry {
     }
 }
 
-export class ShindenList {
+export class ShindenListIndex {
     /**
-     * Creates a new ShindenList instance.
-     * @param {Partial<ShindenList>} [$$source = {}] - The source object to create the ShindenList.
+     * Creates a new ShindenListIndex instance.
+     * @param {Partial<ShindenListIndex>} [$$source = {}] - The source object to create the ShindenListIndex.
      */
     constructor($$source = {}) {
-        if (!("entries" in $$source)) {
+        if (!("entryIds" in $$source)) {
             /**
              * @member
-             * @type {ShindenEntry[]}
+             * @type {number[]}
              */
-            this["entries"] = [];
+            this["entryIds"] = [];
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new ShindenList instance from a string or object.
+     * Creates a new ShindenListIndex instance from a string or object.
      * @param {any} [$$source = {}]
-     * @returns {ShindenList}
+     * @returns {ShindenListIndex}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType15;
+        const $$createField0_0 = $$createType14;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("entries" in $$parsedSource) {
-            $$parsedSource["entries"] = $$createField0_0($$parsedSource["entries"]);
+        if ("entryIds" in $$parsedSource) {
+            $$parsedSource["entryIds"] = $$createField0_0($$parsedSource["entryIds"]);
         }
-        return new ShindenList(/** @type {Partial<ShindenList>} */($$parsedSource));
+        return new ShindenListIndex(/** @type {Partial<ShindenListIndex>} */($$parsedSource));
     }
 }
 
@@ -1043,7 +1043,7 @@ export class ShindenMatchResult {
      * @returns {ShindenMatchResult}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType16;
+        const $$createField1_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("result" in $$parsedSource) {
             $$parsedSource["result"] = $$createField1_0($$parsedSource["result"]);
@@ -1130,6 +1130,5 @@ const $$createType10 = $Create.Nullable($$createType8);
 const $$createType11 = ScoreBreakdown.createFrom;
 const $$createType12 = SearchItem.createFrom;
 const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = ShindenEntry.createFrom;
-const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = MatchResult.createFrom;
+const $$createType14 = $Create.Array($Create.Any);
+const $$createType15 = MatchResult.createFrom;

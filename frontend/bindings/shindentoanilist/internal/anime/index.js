@@ -19,7 +19,7 @@ export {
     SearchOptions,
     SearchResult,
     ShindenEntry,
-    ShindenList,
+    ShindenListIndex,
     ShindenMatchResult,
     TitleMetadata
 } from "./models.js";

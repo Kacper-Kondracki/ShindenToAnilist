@@ -1,6 +1,7 @@
 import { AppService } from "../../../bindings/shindentoanilist";
 import type {
   AnimeDatabase,
+  DatabaseEntry,
   DatabaseInfo,
   ExportResult,
   MatchListResult,
@@ -10,7 +11,8 @@ import type {
   MatchSelection,
   SearchOptions,
   SearchResult,
-  ShindenList,
+  ShindenEntry,
+  ShindenListIndex,
 } from "../domain/anime";
 
 export async function ensureDatabase() {
@@ -18,11 +20,21 @@ export async function ensureDatabase() {
 }
 
 export async function loadShindenList(userId: number) {
-  return (await AppService.LoadShindenList(userId)) as ShindenList;
+  return (await AppService.LoadShindenList(userId)) as ShindenListIndex;
 }
 
 export async function getAnimeDatabase() {
   return (await AppService.GetAnimeDatabase()) as AnimeDatabase;
+}
+
+export async function getLoadedShindenEntries(entryIds: number[]) {
+  return (await AppService.GetLoadedShindenEntries(entryIds)) as ShindenEntry[];
+}
+
+export async function getAnimeDatabaseEntries(entryIds: number[]) {
+  return (await AppService.GetAnimeDatabaseEntries(
+    entryIds,
+  )) as DatabaseEntry[];
 }
 
 export async function matchLoadedShindenList(options: MatchOptions = {}) {

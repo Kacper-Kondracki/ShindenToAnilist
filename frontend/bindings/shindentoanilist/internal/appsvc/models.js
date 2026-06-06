@@ -16,6 +16,12 @@ export const AnimeDatabase = anime$0.AnimeDatabase;
  * @typedef {anime$0.AnimeDatabase} AnimeDatabase
  */
 
+export const DatabaseEntry = anime$0.DatabaseEntry;
+
+/**
+ * @typedef {anime$0.DatabaseEntry} DatabaseEntry
+ */
+
 export const DatabaseInfo = anime$0.DatabaseInfo;
 
 /**
@@ -70,8 +76,14 @@ export const SearchResult = anime$0.SearchResult;
  * @typedef {anime$0.SearchResult} SearchResult
  */
 
-export const ShindenList = anime$0.ShindenList;
+export const ShindenEntry = anime$0.ShindenEntry;
 
 /**
- * @typedef {anime$0.ShindenList} ShindenList
+ * @typedef {anime$0.ShindenEntry} ShindenEntry
+ */
+
+export const ShindenListIndex = anime$0.ShindenListIndex;
+
+/**
+ * @typedef {anime$0.ShindenListIndex} ShindenListIndex
  */

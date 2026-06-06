@@ -156,6 +156,63 @@ func (d *Driver) GetAnimeDatabase() (anime.AnimeDatabase, error) {
 	return result, nil
 }
 
+func (d *Driver) GetAnimeDatabaseEntries(entryIDs []uint64) ([]anime.DatabaseEntry, error) {
+	if d == nil {
+		return nil, errors.New("driver is nil")
+	}
+
+	d.loadMu.Lock()
+	defer d.loadMu.Unlock()
+
+	var idPtr *C.uint64_t
+	if len(entryIDs) > 0 {
+		idPtr = (*C.uint64_t)(unsafe.Pointer(&entryIDs[0]))
+	}
+
+	var out C.StaAnimeDatabase
+	if err := d.call(func(ptr *C.StaDriver) C.StaError {
+		return C.sta_driver_get_anime_database_entries(
+			ptr,
+			idPtr,
+			C.uintptr_t(len(entryIDs)),
+			&out,
+		)
+	}); err != nil {
+		return nil, err
+	}
+	defer C.sta_anime_database_free(out)
+
+	entries := unsafe.Slice(out.entries, int(out.len))
+	result := make([]anime.DatabaseEntry, 0, len(entries))
+
+	for _, entry := range entries {
+		result = append(result, anime.DatabaseEntry{
+			ID:                   uint64(entry.id),
+			ConsolidatedMetadata: consolidatedMetadata(entry.consolidated_metadata),
+			Sources:              stringViewArray(entry.sources),
+			Title:                stringView(entry.title),
+			NormalizedTitle:      stringView(entry.normalized_title),
+			Metadata:             titleMetadata(entry.metadata),
+			AnimeType:            stringView(entry.anime_type),
+			Episodes:             int(entry.episodes),
+			Status:               stringView(entry.status),
+			Season:               stringView(entry.season),
+			Year:                 optionalInt(entry.year),
+			Picture:              stringView(entry.picture),
+			Thumbnail:            stringView(entry.thumbnail),
+			Duration:             optionalInt(entry.duration),
+			Synonyms:             stringViewArray(entry.synonyms),
+			NormalizedSynonyms:   stringViewArray(entry.normalized_synonyms),
+			Studios:              stringViewArray(entry.studios),
+			Producers:            stringViewArray(entry.producers),
+			RelatedAnime:         stringViewArray(entry.related_anime),
+			Tags:                 stringViewArray(entry.tags),
+		})
+	}
+
+	return result, nil
+}
+
 func (d *Driver) LoadShindenList(userID uint64) (anime.ShindenList, error) {
 	if d == nil {
 		return anime.ShindenList{}, errors.New("driver is nil")

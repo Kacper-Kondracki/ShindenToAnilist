@@ -2,7 +2,6 @@
   import { onMount } from "svelte";
 
   import {
-    getAnimeDatabase,
     loadShindenList,
     matchLoadedShindenList,
   } from "./lib/api/appService";
@@ -15,7 +14,6 @@
     type Provider,
   } from "./lib/config/providers";
   import type {
-    AnimeDatabase,
     DatabaseState,
     MatchListResult,
     UserListRequestState,
@@ -36,7 +34,6 @@
   let userListRequestState = $state<UserListRequestState>({ status: "idle" });
   let workspaceState = $state<WorkspaceState>({ status: "empty" });
   let matchResult = $state<MatchListResult | null>(null);
-  let animeDatabase = $state<AnimeDatabase | null>(null);
   let matchErrorMessage = $state<string | null>(null);
   let activeRequestId = 0;
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
@@ -152,7 +149,6 @@
         );
       }
 
-      const nextAnimeDatabase = await getAnimeDatabase();
       const matchStartedAt = performance.now();
       const nextMatchResult = await matchLoadedShindenList();
       const nextMatchDurationMs = performance.now() - matchStartedAt;
@@ -163,16 +159,15 @@
         status: "loaded",
         provider,
         query,
-        entries: list.entries,
+        entryIds: list.entryIds,
       };
       workspaceState = {
         status: "active",
         provider,
         query,
-        entries: list.entries,
+        entryIds: list.entryIds,
       };
       matchResult = nextMatchResult;
-      animeDatabase = nextAnimeDatabase;
       matchErrorMessage = null;
       fetchDurationMs = nextFetchDurationMs;
       matchDurationMs = nextMatchDurationMs;
@@ -230,8 +225,7 @@
       <div class="view-frame view-frame--workspace-enter">
         <WorkspaceView
           providerLabel={activeProviderDetails.label}
-          entries={workspaceState.entries}
-          databaseEntries={animeDatabase?.entries ?? []}
+          entryIds={workspaceState.entryIds}
           {matchResult}
           {matchErrorMessage}
           isMatching={false}

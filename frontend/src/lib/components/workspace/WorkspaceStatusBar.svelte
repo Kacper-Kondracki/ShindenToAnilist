@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import type { MatchListResult, ShindenEntry } from "../../domain/anime";
+  import type { MatchListResult } from "../../domain/anime";
 
   let {
-    entries,
+    entryIds,
     matchResult,
     matchErrorMessage,
     isMatching,
@@ -12,7 +12,7 @@
     matchDurationMs,
     manualSelections = $bindable(),
   }: {
-    entries: ShindenEntry[];
+    entryIds: number[];
     matchResult: MatchListResult | null;
     matchErrorMessage: string | null;
     isMatching: boolean;
@@ -21,7 +21,7 @@
     manualSelections: Record<number, number>;
   } = $props();
 
-  let totalCount = $derived(entries.length);
+  let totalCount = $derived(entryIds.length);
   let automaticWinnerIds = $derived.by(() => {
     const ids = new Set<number>();
 
@@ -37,10 +37,10 @@
   let manuallySelectedCount = $derived.by(() => {
     let count = 0;
 
-    for (const entry of entries) {
+    for (const entryId of entryIds) {
       if (
-        !automaticWinnerIds.has(entry.id) &&
-        manualSelections[entry.id] !== undefined
+        !automaticWinnerIds.has(entryId) &&
+        manualSelections[entryId] !== undefined
       ) {
         count += 1;
       }

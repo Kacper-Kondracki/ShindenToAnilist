@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { DatabaseEntry, ShindenEntry } from "../../domain/anime";
+  import type { DatabaseEntry } from "../../domain/anime";
 
   let {
-    selectedEntry,
+    selectedEntryId,
     selectedWinner,
   }: {
-    selectedEntry: ShindenEntry | null;
+    selectedEntryId: number | null;
     selectedWinner: DatabaseEntry | null;
   } = $props();
 
@@ -115,7 +115,7 @@
 
 <section class="workspace-pane" aria-label="Editor">
   <div class="workspace-pane__body">
-    {#if selectedEntry === null}
+    {#if selectedEntryId === null}
       <p class="workspace-empty text-sm font-medium text-muted">
         Wybierz wpis z listy
       </p>
@@ -134,7 +134,9 @@
               decoding="async"
             />
           {:else}
-            <span class="winner-cover__placeholder text-xs font-medium text-muted">
+            <span
+              class="winner-cover__placeholder text-xs font-medium text-muted"
+            >
               Brak okładki
             </span>
           {/if}

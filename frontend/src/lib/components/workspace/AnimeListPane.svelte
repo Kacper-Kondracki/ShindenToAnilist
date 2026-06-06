@@ -2,6 +2,7 @@
   import { tick } from "svelte";
   import { VList } from "virtua/svelte";
   import type { VListHandle } from "virtua/svelte";
+  import { getLoadedShindenEntries } from "../../api/appService";
   import type { MatchListResult, ShindenEntry } from "../../domain/anime";
   import AnimeListTabs from "./AnimeListTabs.svelte";
   import AnimeRow, { type AnimeMatchStatus } from "./AnimeRow.svelte";
@@ -20,13 +21,13 @@
 
   let {
     providerLabel,
-    entries,
+    entryIds,
     matchResult,
     selectedEntryId,
     onSelectEntry,
   }: {
     providerLabel: string;
-    entries: ShindenEntry[];
+    entryIds: number[];
     matchResult: MatchListResult | null;
     selectedEntryId: number | null;
     onSelectEntry: (entryId: number) => void;
@@ -42,8 +43,11 @@
   >(initialSelectedScrollAnchors());
   let pendingScrollRestore = $state<PendingScrollRestore | null>(null);
   let hasTrackedWorkspaceData = $state(false);
-  let previousEntries = $state<ShindenEntry[] | null>(null);
+  let previousEntryIds = $state<number[] | null>(null);
   let previousMatchResult = $state<MatchListResult | null>(null);
+  let shindenEntriesById = $state<Record<number, ShindenEntry>>({});
+  let pendingDetailIds = new Set<number>();
+  let detailBatchScheduled = false;
 
   const matchStatusSortRanks: Record<AnimeMatchStatus, number> = {
     unmatched: 0,
@@ -79,14 +83,14 @@
     return statuses;
   });
 
-  let visibleEntries = $derived.by(() =>
-    getVisibleEntries(activeAnimeListTab),
+  let visibleEntryIds = $derived.by(() =>
+    getVisibleEntryIds(activeAnimeListTab),
   );
 
   $effect(() => {
     if (
       hasTrackedWorkspaceData &&
-      previousEntries === entries &&
+      previousEntryIds === entryIds &&
       previousMatchResult === matchResult
     ) {
       return;
@@ -94,8 +98,10 @@
 
     const shouldReset = hasTrackedWorkspaceData;
     hasTrackedWorkspaceData = true;
-    previousEntries = entries;
+    previousEntryIds = entryIds;
     previousMatchResult = matchResult;
+    shindenEntriesById = {};
+    pendingDetailIds = new Set();
 
     if (shouldReset) {
       resetListNavigationState();
@@ -109,60 +115,33 @@
       return;
     }
 
-    visibleEntries;
+    visibleEntryIds;
     void restoreScrollPosition(restore);
   });
 
-  function getVisibleEntries(tabId: AnimeListTabId): ShindenEntry[] {
-    return entries
-      .map((entry, index) => ({ entry, index }))
-      .filter(({ entry }) => {
+  function getVisibleEntryIds(tabId: AnimeListTabId): number[] {
+    return entryIds
+      .map((entryId, index) => ({ entryId, index }))
+      .filter(({ entryId }) => {
         if (tabId === "all") {
           return true;
         }
 
         if (tabId === "automatic") {
-          return automaticMatchedEntryIds.has(entry.id);
+          return automaticMatchedEntryIds.has(entryId);
         }
 
-        return !automaticMatchedEntryIds.has(entry.id);
+        return !automaticMatchedEntryIds.has(entryId);
       })
       .sort((left, right) => {
-        const leftStatus = matchStatuses.get(left.entry.id) ?? "unmatched";
-        const rightStatus = matchStatuses.get(right.entry.id) ?? "unmatched";
+        const leftStatus = matchStatuses.get(left.entryId) ?? "unmatched";
+        const rightStatus = matchStatuses.get(right.entryId) ?? "unmatched";
         const statusComparison =
           matchStatusSortRanks[leftStatus] - matchStatusSortRanks[rightStatus];
-        const premiereDateComparison = comparePremiereDates(
-          left.entry,
-          right.entry,
-        );
 
-        return (
-          statusComparison ||
-          premiereDateComparison ||
-          left.index - right.index
-        );
+        return statusComparison || left.index - right.index;
       })
-      .map(({ entry }) => entry);
-  }
-
-  function comparePremiereDates(
-    leftEntry: ShindenEntry,
-    rightEntry: ShindenEntry,
-  ) {
-    if (leftEntry.premiereDate === rightEntry.premiereDate) {
-      return 0;
-    }
-
-    if (leftEntry.premiereDate === null) {
-      return 1;
-    }
-
-    if (rightEntry.premiereDate === null) {
-      return -1;
-    }
-
-    return rightEntry.premiereDate.localeCompare(leftEntry.premiereDate);
+      .map(({ entryId }) => entryId);
   }
 
   function initialTabScrollOffsets(): Record<AnimeListTabId, number> {
@@ -193,7 +172,7 @@
   }
 
   let emptyListText = $derived.by(() => {
-    if (entries.length === 0) {
+    if (entryIds.length === 0) {
       return "Lista jest pusta";
     }
 
@@ -221,7 +200,7 @@
     const currentSelectedIndex =
       selectedEntryId === null
         ? -1
-        : visibleEntries.findIndex((entry) => entry.id === selectedEntryId);
+        : visibleEntryIds.findIndex((entryId) => entryId === selectedEntryId);
     const selectedViewportOffset = getSelectedRestoreOffset(
       nextTabId,
       currentSelectedIndex,
@@ -247,8 +226,8 @@
     const selectedIndex =
       restore.selectedEntryId === null
         ? -1
-        : visibleEntries.findIndex(
-            (entry) => entry.id === restore.selectedEntryId,
+        : visibleEntryIds.findIndex(
+            (entryId) => entryId === restore.selectedEntryId,
           );
 
     if (selectedIndex >= 0 && restore.selectedViewportOffset !== null) {
@@ -273,7 +252,7 @@
     const selectedIndex =
       selectedEntryId === null
         ? -1
-        : visibleEntries.findIndex((entry) => entry.id === selectedEntryId);
+        : visibleEntryIds.findIndex((entryId) => entryId === selectedEntryId);
     const selectedAnchor =
       selectedEntryId !== null && selectedIndex >= 0
         ? {
@@ -331,6 +310,46 @@
 
     return isOutsideViewport ? 0 : itemOffset - scrollOffset;
   }
+
+  function handleRowVisible(entryId: number) {
+    if (
+      shindenEntriesById[entryId] !== undefined ||
+      pendingDetailIds.has(entryId)
+    ) {
+      return;
+    }
+
+    pendingDetailIds.add(entryId);
+
+    if (detailBatchScheduled) {
+      return;
+    }
+
+    detailBatchScheduled = true;
+    queueMicrotask(loadPendingRowDetails);
+  }
+
+  async function loadPendingRowDetails() {
+    detailBatchScheduled = false;
+
+    const entryIdsToLoad = [...pendingDetailIds].filter(
+      (entryId) => shindenEntriesById[entryId] === undefined,
+    );
+    pendingDetailIds = new Set();
+
+    if (entryIdsToLoad.length === 0) {
+      return;
+    }
+
+    const loadedEntries = await getLoadedShindenEntries(entryIdsToLoad);
+    const nextEntriesById = { ...shindenEntriesById };
+
+    for (const entry of loadedEntries) {
+      nextEntriesById[entry.id] = entry;
+    }
+
+    shindenEntriesById = nextEntriesById;
+  }
 </script>
 
 <section class="workspace-pane" aria-label={`Lista anime z ${providerLabel}`}>
@@ -341,20 +360,22 @@
     />
   </div>
   <div id="anime-list-tab-panel" role="tabpanel" class="workspace-pane__body">
-    {#if visibleEntries.length > 0}
+    {#if visibleEntryIds.length > 0}
       <VList
         bind:this={listRef}
-        data={visibleEntries}
+        data={visibleEntryIds}
         class="anime-list size-full"
-        getKey={(entry) => entry.id}
+        getKey={(entryId) => entryId}
         onscroll={handleScroll}
       >
-        {#snippet children(entry)}
+        {#snippet children(entryId)}
           <AnimeRow
-            {entry}
-            matchStatus={matchStatuses.get(entry.id) ?? "unmatched"}
-            isSelected={entry.id === selectedEntryId}
-            onSelect={() => onSelectEntry(entry.id)}
+            {entryId}
+            entry={shindenEntriesById[entryId] ?? null}
+            matchStatus={matchStatuses.get(entryId) ?? "unmatched"}
+            isSelected={entryId === selectedEntryId}
+            onSelect={() => onSelectEntry(entryId)}
+            onVisible={handleRowVisible}
           />
         {/snippet}
       </VList>

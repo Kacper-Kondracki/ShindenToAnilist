@@ -1,18 +1,23 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { ShindenEntry } from "../../domain/anime";
 
   export type AnimeMatchStatus = "matched" | "review" | "unmatched";
 
   let {
+    entryId,
     entry,
     matchStatus,
     isSelected,
     onSelect,
+    onVisible,
   }: {
-    entry: ShindenEntry;
+    entryId: number;
+    entry: ShindenEntry | null;
     matchStatus: AnimeMatchStatus;
     isSelected: boolean;
     onSelect: () => void;
+    onVisible: (entryId: number) => void;
   } = $props();
 
   const animeTypeLabels: Record<string, string> = {
@@ -52,6 +57,14 @@
   function translateAnimeStatus(animeStatus: string) {
     return animeStatusLabels[animeStatus] ?? animeStatus;
   }
+
+  onMount(() => {
+    onVisible(entryId);
+  });
+
+  $effect(() => {
+    onVisible(entryId);
+  });
 </script>
 
 <button
@@ -61,22 +74,27 @@
   class:anime-row--unmatched={matchStatus === "unmatched"}
   class:anime-row--selected={isSelected}
   class="anime-row"
-  aria-label={`${entry.title}: ${matchStatusLabels[matchStatus]}`}
+  aria-label={`${entry?.title ?? `Wpis #${entryId}`}: ${matchStatusLabels[matchStatus]}`}
   aria-pressed={isSelected}
   title={matchStatusLabels[matchStatus]}
   onclick={onSelect}
 >
   <div class="min-w-0">
-    <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
-    <p class="truncate text-xs text-muted">
-      {formatPremiereYear(entry.premiereDate)} · {translateAnimeType(
-        entry.animeType,
-      )}
-      · {translateAnimeStatus(entry.animeStatus)}
-    </p>
+    {#if entry === null}
+      <h2 class="truncate text-sm font-semibold">Wpis #{entryId}</h2>
+      <p class="truncate text-xs text-muted">Ładowanie danych wpisu</p>
+    {:else}
+      <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
+      <p class="truncate text-xs text-muted">
+        {formatPremiereYear(entry.premiereDate)} · {translateAnimeType(
+          entry.animeType,
+        )}
+        · {translateAnimeStatus(entry.animeStatus)}
+      </p>
+    {/if}
   </div>
 
-  {#if entry.score !== null}
+  {#if entry?.score !== null && entry?.score !== undefined}
     <span class="badge shrink-0 badge-soft badge-info">
       {entry.score}/10
     </span>

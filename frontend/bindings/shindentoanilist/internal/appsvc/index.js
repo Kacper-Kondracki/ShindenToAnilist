@@ -4,6 +4,7 @@
 
 export {
     AnimeDatabase,
+    DatabaseEntry,
     DatabaseInfo,
     ExportResult,
     MatchListResult,
@@ -13,5 +14,6 @@ export {
     MatchSelection,
     SearchOptions,
     SearchResult,
-    ShindenList
+    ShindenEntry,
+    ShindenListIndex
 } from "./models.js";

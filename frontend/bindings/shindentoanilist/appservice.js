@@ -49,12 +49,32 @@ export function GetAnimeDatabase() {
 }
 
 /**
+ * @param {number[]} entryIDs
+ * @returns {$CancellablePromise<appsvc$0.DatabaseEntry[]>}
+ */
+export function GetAnimeDatabaseEntries(entryIDs) {
+    return $Call.ByID(1682880417, entryIDs).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType4($result);
+    }));
+}
+
+/**
+ * @param {number[]} entryIDs
+ * @returns {$CancellablePromise<appsvc$0.ShindenEntry[]>}
+ */
+export function GetLoadedShindenEntries(entryIDs) {
+    return $Call.ByID(2375228226, entryIDs).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType6($result);
+    }));
+}
+
+/**
  * @param {number} userID
- * @returns {$CancellablePromise<appsvc$0.ShindenList>}
+ * @returns {$CancellablePromise<appsvc$0.ShindenListIndex>}
  */
 export function LoadShindenList(userID) {
     return $Call.ByID(697250205, userID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType3($result);
+        return $$createType7($result);
     }));
 }
 
@@ -64,7 +84,7 @@ export function LoadShindenList(userID) {
  */
 export function MatchLoadedShindenList(options) {
     return $Call.ByID(2016064325, options).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType4($result);
+        return $$createType8($result);
     }));
 }
 
@@ -75,7 +95,7 @@ export function MatchLoadedShindenList(options) {
  */
 export function MatchQuery(query, options) {
     return $Call.ByID(693679561, query, options).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType5($result);
+        return $$createType9($result);
     }));
 }
 
@@ -86,7 +106,7 @@ export function MatchQuery(query, options) {
  */
 export function SearchAnime(query, options) {
     return $Call.ByID(596840122, query, options).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType6($result);
+        return $$createType10($result);
     }));
 }
 
@@ -94,7 +114,11 @@ export function SearchAnime(query, options) {
 const $$createType0 = anime$0.DatabaseInfo.createFrom;
 const $$createType1 = anime$0.ExportResult.createFrom;
 const $$createType2 = anime$0.AnimeDatabase.createFrom;
-const $$createType3 = anime$0.ShindenList.createFrom;
-const $$createType4 = anime$0.MatchListResult.createFrom;
-const $$createType5 = anime$0.MatchResult.createFrom;
-const $$createType6 = anime$0.SearchResult.createFrom;
+const $$createType3 = anime$0.DatabaseEntry.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = anime$0.ShindenEntry.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = anime$0.ShindenListIndex.createFrom;
+const $$createType8 = anime$0.MatchListResult.createFrom;
+const $$createType9 = anime$0.MatchResult.createFrom;
+const $$createType10 = anime$0.SearchResult.createFrom;
