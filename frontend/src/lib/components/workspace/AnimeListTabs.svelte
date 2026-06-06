@@ -2,9 +2,11 @@
   import { animeListTabs, type AnimeListTabId } from "./tabs";
 
   let {
-    activeTab = $bindable(),
+    activeTab,
+    onSelectTab,
   }: {
     activeTab: AnimeListTabId;
+    onSelectTab: (tabId: AnimeListTabId) => void;
   } = $props();
 </script>
 
@@ -17,7 +19,7 @@
       class="tab"
       aria-selected={activeTab === tab.id}
       aria-controls="anime-list-tab-panel"
-      onclick={() => (activeTab = tab.id)}
+      onclick={() => onSelectTab(tab.id)}
     >
       {tab.label}
     </button>

@@ -25,9 +25,25 @@
   } = $props();
 
   let selectedEntryId = $state<number | null>(null);
+  let hasTrackedEntries = $state(false);
+  let previousEntries = $state<ShindenEntry[] | null>(null);
   let selectedEntry = $derived(
     entries.find((entry) => entry.id === selectedEntryId) ?? null,
   );
+
+  $effect(() => {
+    if (hasTrackedEntries && previousEntries === entries) {
+      return;
+    }
+
+    const shouldClearSelection = hasTrackedEntries;
+    hasTrackedEntries = true;
+    previousEntries = entries;
+
+    if (shouldClearSelection) {
+      selectedEntryId = null;
+    }
+  });
 
   $effect(() => {
     if (
