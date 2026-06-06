@@ -4,6 +4,7 @@ use std::{
 };
 
 use reqwest::Client;
+use reqwest::blocking::Client as BlockingClient;
 use thiserror::Error;
 
 pub use self::models::*;
@@ -35,6 +36,17 @@ pub trait ShindenListLoad {
         user: u64,
     ) -> impl Future<Output = Result<ShindenList, ShindenError>> + Send;
 
+    /// Fetches a specific page of a user's anime list using reqwest's blocking client.
+    fn shinden_request_blocking(
+        client: BlockingClient,
+        user: u64,
+        limit: u64,
+        offset: u64,
+    ) -> Result<ShindenList, ShindenError>;
+
+    /// Fetches the *entire* anime list for a user using reqwest's blocking client.
+    fn get_from_shinden_blocking(client: BlockingClient, user: u64) -> Result<ShindenList, ShindenError>;
+
     /// Deserializes a [`ShindenList`] from a JSON reader.
     fn from_reader(reader: &mut impl Read) -> Result<ShindenList, ShindenError>;
 }
@@ -49,8 +61,6 @@ pub enum ShindenError {
     Json(#[from] serde_json::Error),
     /// HTTP request error.
     Request(#[from] reqwest::Error),
-    /// Error in a background tokio task.
-    TaskError(#[from] tokio::task::JoinError),
     /// API returned an application-level error message.
     #[error("shinden api returned error: {0}")]
     Shinden(String),
@@ -73,17 +83,36 @@ impl ShindenListLoad for ShindenList {
             .bytes()
             .await?;
 
-        let data = tokio::task::spawn_blocking(move || {
-            serde_json::from_slice::<json::Response>(&bytes).map(|r| r.try_par_into_model())
-        });
-
-        let shinden_list = data.await??.map_err(ShindenError::Shinden)?;
+        let data = serde_json::from_slice::<json::Response>(&bytes)?;
+        let shinden_list = data.try_par_into_model().map_err(ShindenError::Shinden)?;
 
         Ok(shinden_list)
     }
 
     async fn get_from_shinden(client: Client, user: u64) -> Result<ShindenList, ShindenError> {
         Self::shinden_request(client, user, 99999, 0).await
+    }
+
+    fn shinden_request_blocking(
+        client: BlockingClient,
+        user: u64,
+        limit: u64,
+        offset: u64,
+    ) -> Result<ShindenList, ShindenError> {
+        let bytes = client
+            .get(format!(
+                "https://lista.shinden.pl/api/userlist/{}/anime?limit={}&offset={}",
+                user, limit, offset
+            ))
+            .send()?
+            .bytes()?;
+
+        let data = serde_json::from_slice::<json::Response>(&bytes)?;
+        data.try_par_into_model().map_err(ShindenError::Shinden)
+    }
+
+    fn get_from_shinden_blocking(client: BlockingClient, user: u64) -> Result<ShindenList, ShindenError> {
+        Self::shinden_request_blocking(client, user, 99999, 0)
     }
 
     fn from_reader(reader: &mut impl Read) -> Result<ShindenList, ShindenError> {

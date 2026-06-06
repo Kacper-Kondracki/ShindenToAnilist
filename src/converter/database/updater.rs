@@ -79,6 +79,35 @@ pub async fn update_latest_jsonl_from_github(
     }
 }
 
+/// Blocking variant of [`update_latest_jsonl_from_github`].
+pub fn update_latest_jsonl_from_github_blocking(
+    client: reqwest::blocking::Client,
+    path: impl AsRef<Path>,
+) -> Result<DatabaseUpdateStatus, DatabaseError> {
+    let path = path.as_ref().to_path_buf();
+    let update = download_latest_compressed_database_if_needed_blocking(client, &path)?;
+
+    match update {
+        CompressedDatabaseUpdate::UpToDate { release, sha256 } => {
+            Ok(DatabaseUpdateStatus::UpToDate { release, sha256 })
+        },
+        CompressedDatabaseUpdate::Downloaded {
+            release,
+            sha256,
+            compressed,
+        } => {
+            decompress_zstd_to_path(&compressed, &path)?;
+            std::fs::write(sha256_sidecar_path(&path), format!("{sha256}\n"))?;
+
+            Ok(DatabaseUpdateStatus::Updated {
+                release,
+                sha256,
+                path,
+            })
+        },
+    }
+}
+
 /// Downloads the latest compressed `anime-offline-database.jsonl.zst` GitHub
 /// release asset when the upstream SHA-256 differs from the local sidecar hash.
 ///
@@ -91,6 +120,35 @@ pub async fn update_latest_jsonl_zst_from_github(
 ) -> Result<DatabaseUpdateStatus, DatabaseError> {
     let path = path.as_ref().to_path_buf();
     let update = download_latest_compressed_database_if_needed(client, &path).await?;
+
+    match update {
+        CompressedDatabaseUpdate::UpToDate { release, sha256 } => {
+            Ok(DatabaseUpdateStatus::UpToDate { release, sha256 })
+        },
+        CompressedDatabaseUpdate::Downloaded {
+            release,
+            sha256,
+            compressed,
+        } => {
+            write_bytes_to_path(&compressed, &path)?;
+            std::fs::write(sha256_sidecar_path(&path), format!("{sha256}\n"))?;
+
+            Ok(DatabaseUpdateStatus::Updated {
+                release,
+                sha256,
+                path,
+            })
+        },
+    }
+}
+
+/// Blocking variant of [`update_latest_jsonl_zst_from_github`].
+pub fn update_latest_jsonl_zst_from_github_blocking(
+    client: reqwest::blocking::Client,
+    path: impl AsRef<Path>,
+) -> Result<DatabaseUpdateStatus, DatabaseError> {
+    let path = path.as_ref().to_path_buf();
+    let update = download_latest_compressed_database_if_needed_blocking(client, &path)?;
 
     match update {
         CompressedDatabaseUpdate::UpToDate { release, sha256 } => {
@@ -166,6 +224,69 @@ async fn download_latest_compressed_database_if_needed(
         .error_for_status()?
         .bytes()
         .await?
+        .to_vec();
+
+    let actual_sha256 = sha256_hex(&compressed);
+    if let Some(expected) = remote_sha256
+        && expected != actual_sha256
+    {
+        return Err(DatabaseError::DigestMismatch {
+            expected,
+            actual: actual_sha256,
+        });
+    }
+
+    if path.exists() && stored_sha256_matches(&sha256_path, &actual_sha256) {
+        return Ok(CompressedDatabaseUpdate::UpToDate {
+            release: release.tag_name,
+            sha256: actual_sha256,
+        });
+    }
+
+    Ok(CompressedDatabaseUpdate::Downloaded {
+        release: release.tag_name,
+        sha256: actual_sha256,
+        compressed,
+    })
+}
+
+fn download_latest_compressed_database_if_needed_blocking(
+    client: reqwest::blocking::Client,
+    path: &Path,
+) -> Result<CompressedDatabaseUpdate, DatabaseError> {
+    let sha256_path = sha256_sidecar_path(path);
+    let release = client
+        .get(ANIME_OFFLINE_DATABASE_RELEASE_API)
+        .header(reqwest::header::USER_AGENT, GITHUB_USER_AGENT)
+        .send()?
+        .error_for_status()?
+        .json::<GitHubRelease>()?;
+
+    let asset = release
+        .assets
+        .into_iter()
+        .find(|asset| asset.name == ANIME_OFFLINE_DATABASE_ASSET)
+        .ok_or(DatabaseError::MissingReleaseAsset {
+            asset: ANIME_OFFLINE_DATABASE_ASSET,
+        })?;
+
+    let remote_sha256 = asset.sha256_digest();
+    if let Some(remote_sha256) = remote_sha256.as_deref()
+        && path.exists()
+        && stored_sha256_matches(&sha256_path, remote_sha256)
+    {
+        return Ok(CompressedDatabaseUpdate::UpToDate {
+            release: release.tag_name,
+            sha256: remote_sha256.to_string(),
+        });
+    }
+
+    let compressed = client
+        .get(asset.browser_download_url)
+        .header(reqwest::header::USER_AGENT, GITHUB_USER_AGENT)
+        .send()?
+        .error_for_status()?
+        .bytes()?
         .to_vec();
 
     let actual_sha256 = sha256_hex(&compressed);

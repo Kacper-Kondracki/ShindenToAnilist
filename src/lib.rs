@@ -13,7 +13,7 @@
 //! # Re-exports
 //!
 //! Common external types used across the public API are re-exported for convenience,
-//! [`Datelike`], [`NaiveDate`], [`Utc`], [`CompactString`], [`iter`], [`HttpClient`], [`HttpError`], [`JsonError`], [`XmlError`], [`JoinError`].
+//! [`Datelike`], [`NaiveDate`], [`Utc`], [`CompactString`], [`iter`], [`HttpClient`], [`BlockingHttpClient`], [`HttpError`], [`JsonError`], [`XmlError`].
 
 pub mod ngram;
 
@@ -37,8 +37,8 @@ pub use compact_str::CompactString;
 pub use quick_xml::se::SeError as XmlError;
 pub use rayon::iter;
 pub use reqwest::{
+    blocking::Client as BlockingHttpClient,
     Client as HttpClient,
     Error as HttpError,
 };
 pub use serde_json::Error as JsonError;
-pub use tokio::task::JoinError;

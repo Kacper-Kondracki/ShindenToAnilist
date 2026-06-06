@@ -1,13 +1,13 @@
 use shinden_to_anilist_core::database::updater::{
-    DatabaseUpdateStatus,
-    update_latest_jsonl_zst_from_github,
+    update_latest_jsonl_zst_from_github_blocking, DatabaseUpdateStatus,
 };
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
-    match update_latest_jsonl_zst_from_github(reqwest::Client::new(), "anime-offline-database.jsonl.zst")
-        .await
-        .unwrap()
+fn main() {
+    match update_latest_jsonl_zst_from_github_blocking(
+        shinden_to_anilist_core::BlockingHttpClient::new(),
+        "anime-offline-database.jsonl.zst",
+    )
+    .unwrap()
     {
         DatabaseUpdateStatus::UpToDate { release, sha256 } => {
             println!("anime-offline-database.jsonl.zst is up to date ({release}, {sha256})");
