@@ -18,21 +18,21 @@
       id: "shinden",
       label: "Shinden",
       site: "shinden.pl",
-      accent: "var(--color-purple-300)",
+      accent: "var(--ctp-mocha-mauve)",
       disabled: false,
     },
     {
       id: "ogladaj-anime",
       label: "Oglądaj Anime",
       site: "ogladajanime.pl",
-      accent: "var(--color-cyan-300)",
+      accent: "var(--ctp-mocha-sky)",
       disabled: false,
     },
     {
       id: "anime-zone",
       label: "AnimeZone",
       site: "animezone.pl",
-      accent: "var(--color-rose-300)",
+      accent: "var(--ctp-mocha-red)",
       disabled: false,
     },
   ] as const satisfies readonly ProviderOption[];
@@ -400,14 +400,54 @@
       --provider-button-accent,
       var(--color-primary)
     );
-    --btn-color: color-mix(
+    --btn-color: var(--provider-button-color);
+    --btn-fg: var(--provider-button-color);
+    --btn-bg: color-mix(
       in oklab,
-      var(--provider-button-color) 70%,
-      transparent
+      var(--provider-button-color) 10%,
+      var(--color-base-100)
     );
+    --btn-border: transparent;
+    --btn-noise: none;
+    --btn-shadow: none;
+
+    box-shadow: none;
+    text-shadow: none;
+  }
+
+  .provider-button:not(.provider-button--selected) {
+    color: var(--provider-button-color);
+  }
+
+  .provider-button:active:not(.btn-active) {
+    --btn-border: transparent;
+    --btn-shadow: none;
+
+    box-shadow: none;
+  }
+
+  @media (hover: hover) {
+    .provider-button:not(.provider-button--selected):hover {
+      --btn-fg: var(--provider-button-color);
+      --btn-bg: color-mix(
+        in oklab,
+        var(--provider-button-color) 25%,
+        var(--color-base-100)
+      );
+      --btn-border: transparent;
+      --btn-shadow: none;
+    }
+
+    .provider-button--selected:hover {
+      --btn-bg: color-mix(in oklab, var(--provider-button-color) 94%, white);
+      --btn-border: var(--provider-button-color);
+      --btn-shadow: none;
+    }
   }
 
   .provider-button--selected {
+    --btn-bg: var(--provider-button-color);
+    --btn-fg: var(--color-primary-content);
     border-color: var(--provider-button-color);
     background-color: var(--provider-button-color);
     color: var(--color-primary-content);
