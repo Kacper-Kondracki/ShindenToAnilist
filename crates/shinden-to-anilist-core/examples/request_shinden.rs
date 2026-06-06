@@ -1,24 +1,14 @@
-use std::{
-    fs::File,
-    io::Write,
-    time::Instant,
-};
+use std::{fs::File, io::Write, time::Instant};
 
-use reqwest::Client;
 use shinden_to_anilist_core::{
     common::AnimeList,
-    providers::shinden::{
-        ShindenList,
-        ShindenListLoad,
-    },
+    providers::shinden::{ShindenList, ShindenListLoad},
+    BlockingHttpClient,
 };
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
+fn main() {
     let now = Instant::now();
-    let shinden = ShindenList::get_from_shinden(Client::new(), 196402)
-        .await
-        .unwrap();
+    let shinden = ShindenList::get_from_shinden_blocking(BlockingHttpClient::new(), 196402).unwrap();
     let elapsed = now.elapsed();
 
     println!("{} entries", shinden.len());

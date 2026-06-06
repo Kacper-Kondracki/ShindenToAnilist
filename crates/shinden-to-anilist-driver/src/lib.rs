@@ -1,27 +1,14 @@
 use std::{
-    ffi::{
-        CStr,
-        CString,
-        c_char,
-    },
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
+    ffi::{c_char, CStr, CString},
+    panic::{catch_unwind, AssertUnwindSafe},
     path::Path,
     ptr,
-    sync::atomic::{
-        AtomicI64,
-        Ordering,
-    },
+    sync::atomic::{AtomicI64, Ordering},
 };
 
 use shinden_to_anilist_core::database::{
     root_metadata_from_path,
-    updater::{
-        DatabaseUpdateStatus,
-        update_latest_jsonl_from_github,
-    },
+    updater::{update_latest_jsonl_from_github_blocking, DatabaseUpdateStatus},
 };
 
 pub struct StaDriver {
@@ -84,7 +71,9 @@ fn error_result(status: StaStatus, message: &str) -> StaError {
     }
 }
 
-fn into_raw_string(value: impl AsRef<str>) -> *mut c_char { cstring_lossy(value.as_ref()).into_raw() }
+fn into_raw_string(value: impl AsRef<str>) -> *mut c_char {
+    cstring_lossy(value.as_ref()).into_raw()
+}
 
 fn with_driver_out<T>(driver: *mut StaDriver, out: *mut T, f: impl FnOnce(&StaDriver) -> T) -> StaError {
     if driver.is_null() {
@@ -211,17 +200,11 @@ pub unsafe extern "C" fn sta_driver_ensure_database(
     };
 
     with_driver_out_result(driver, out, move |_| {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|error| format!("create async runtime: {error}"))?;
-
-        let update_status = runtime
-            .block_on(update_latest_jsonl_from_github(
-                shinden_to_anilist_core::HttpClient::new(),
-                &path,
-            ))
-            .map_err(|error| error.to_string())?;
+        let update_status = update_latest_jsonl_from_github_blocking(
+            shinden_to_anilist_core::BlockingHttpClient::new(),
+            &path,
+        )
+        .map_err(|error| error.to_string())?;
 
         let metadata = root_metadata_from_path(&path).map_err(|error| error.to_string())?;
         let (release, sha256, updated) = match update_status {
