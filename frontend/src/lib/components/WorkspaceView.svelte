@@ -1,5 +1,9 @@
 <script lang="ts">
-  import type { MatchListResult, ShindenEntry } from "../domain/anime";
+  import type {
+    DatabaseEntry,
+    MatchListResult,
+    ShindenEntry,
+  } from "../domain/anime";
   import AnimeListPane from "./workspace/AnimeListPane.svelte";
   import WorkspaceEditorPane from "./workspace/WorkspaceEditorPane.svelte";
   import WorkspaceStatusBar from "./workspace/WorkspaceStatusBar.svelte";
@@ -7,6 +11,7 @@
   let {
     providerLabel,
     entries,
+    databaseEntries,
     matchResult,
     matchErrorMessage,
     isMatching,
@@ -16,6 +21,7 @@
   }: {
     providerLabel: string;
     entries: ShindenEntry[];
+    databaseEntries: DatabaseEntry[];
     matchResult: MatchListResult | null;
     matchErrorMessage: string | null;
     isMatching: boolean;
@@ -29,6 +35,20 @@
   let previousEntries = $state<ShindenEntry[] | null>(null);
   let selectedEntry = $derived(
     entries.find((entry) => entry.id === selectedEntryId) ?? null,
+  );
+  let selectedMatchEntry = $derived(
+    selectedEntryId === null
+      ? null
+      : (matchResult?.entries.find(
+          (entry) => entry.shindenId === selectedEntryId,
+        ) ?? null),
+  );
+  let selectedWinnerId = $derived(selectedMatchEntry?.result.winner?.id ?? null);
+  let selectedWinner = $derived(
+    selectedWinnerId === null
+      ? null
+      : (databaseEntries.find((entry) => entry.id === selectedWinnerId) ??
+          null),
   );
 
   $effect(() => {
@@ -66,7 +86,7 @@
         selectedEntryId = entryId;
       }}
     />
-    <WorkspaceEditorPane {selectedEntryId} {selectedEntry} />
+    <WorkspaceEditorPane {selectedEntry} {selectedWinner} />
   </div>
 </section>
 

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
 
   import {
+    getAnimeDatabase,
     loadShindenList,
     matchLoadedShindenList,
   } from "./lib/api/appService";
@@ -14,6 +15,7 @@
     type Provider,
   } from "./lib/config/providers";
   import type {
+    AnimeDatabase,
     DatabaseState,
     MatchListResult,
     UserListRequestState,
@@ -34,6 +36,7 @@
   let userListRequestState = $state<UserListRequestState>({ status: "idle" });
   let workspaceState = $state<WorkspaceState>({ status: "empty" });
   let matchResult = $state<MatchListResult | null>(null);
+  let animeDatabase = $state<AnimeDatabase | null>(null);
   let matchErrorMessage = $state<string | null>(null);
   let activeRequestId = 0;
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
@@ -149,6 +152,7 @@
         );
       }
 
+      const nextAnimeDatabase = await getAnimeDatabase();
       const matchStartedAt = performance.now();
       const nextMatchResult = await matchLoadedShindenList();
       const nextMatchDurationMs = performance.now() - matchStartedAt;
@@ -168,6 +172,7 @@
         entries: list.entries,
       };
       matchResult = nextMatchResult;
+      animeDatabase = nextAnimeDatabase;
       matchErrorMessage = null;
       fetchDurationMs = nextFetchDurationMs;
       matchDurationMs = nextMatchDurationMs;
@@ -226,6 +231,7 @@
         <WorkspaceView
           providerLabel={activeProviderDetails.label}
           entries={workspaceState.entries}
+          databaseEntries={animeDatabase?.entries ?? []}
           {matchResult}
           {matchErrorMessage}
           isMatching={false}
