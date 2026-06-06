@@ -3,6 +3,7 @@ use std::{
     str,
 };
 
+use rayon::prelude::*;
 use shinden_to_anilist_core::{
     common::{
         AnimeId,
@@ -196,7 +197,7 @@ pub fn match_loaded_shinden_list(
     let matcher = DefaultMatcher::strict_preset();
 
     let mut results: Vec<(AnimeId, MatchResult)> = shinden
-        .values()
+        .par_values()
         .map(|entry| entry.search_by_title_ref(database, searcher, search))
         .map(|(entry, candidates)| (entry.id(), matcher.score_candidates(entry, &candidates, 0.5)))
         .collect();

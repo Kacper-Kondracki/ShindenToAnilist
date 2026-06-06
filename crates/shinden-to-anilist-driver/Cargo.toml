@@ -8,4 +8,5 @@ license = "MPL-2.0"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
+rayon = "1.12"
 shinden-to-anilist-core = { path = "../shinden-to-anilist-core" }

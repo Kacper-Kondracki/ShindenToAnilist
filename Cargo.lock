@@ -2514,6 +2514,7 @@ dependencies = [
 name = "shinden-to-anilist-driver"
 version = "0.1.0"
 dependencies = [
+ "rayon",
  "shinden-to-anilist-core",
 ]
 
