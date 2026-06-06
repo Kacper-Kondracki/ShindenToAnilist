@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ShindenEntry } from "../domain/anime";
+  import type { MatchListResult, ShindenEntry } from "../domain/anime";
   import AnimeListPane from "./workspace/AnimeListPane.svelte";
   import WorkspaceEditorPane from "./workspace/WorkspaceEditorPane.svelte";
   import WorkspaceStatusBar from "./workspace/WorkspaceStatusBar.svelte";
@@ -7,9 +7,21 @@
   let {
     providerLabel,
     entries,
+    matchResult,
+    matchErrorMessage,
+    isMatching,
+    fetchDurationMs,
+    matchDurationMs,
+    manualSelections = $bindable(),
   }: {
     providerLabel: string;
     entries: ShindenEntry[];
+    matchResult: MatchListResult | null;
+    matchErrorMessage: string | null;
+    isMatching: boolean;
+    fetchDurationMs: number | null;
+    matchDurationMs: number | null;
+    manualSelections: Record<number, number>;
   } = $props();
 </script>
 
@@ -20,7 +32,15 @@
   </div>
 </section>
 
-<WorkspaceStatusBar />
+<WorkspaceStatusBar
+  {entries}
+  {matchResult}
+  {matchErrorMessage}
+  {isMatching}
+  {fetchDurationMs}
+  {matchDurationMs}
+  bind:manualSelections
+/>
 
 <style>
   .workspace-content {

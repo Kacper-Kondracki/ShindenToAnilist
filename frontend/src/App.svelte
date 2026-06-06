@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { loadShindenList } from "./lib/api/appService";
+  import { loadShindenList, matchLoadedShindenList } from "./lib/api/appService";
   import AppHeader from "./lib/components/AppHeader.svelte";
   import EmptyWorkspace from "./lib/components/EmptyWorkspace.svelte";
   import WorkspaceView from "./lib/components/WorkspaceView.svelte";
@@ -12,6 +12,7 @@
   } from "./lib/config/providers";
   import type {
     DatabaseState,
+    MatchListResult,
     UserListRequestState,
     WorkspaceState,
   } from "./lib/domain/anime";
@@ -29,6 +30,13 @@
   let databaseState = $state<DatabaseState>({ status: "loading" });
   let userListRequestState = $state<UserListRequestState>({ status: "idle" });
   let workspaceState = $state<WorkspaceState>({ status: "empty" });
+  let matchResult = $state<MatchListResult | null>(null);
+  let matchErrorMessage = $state<string | null>(null);
+  let activeRequestId = 0;
+  let databaseInitializationPromise: Promise<DatabaseState> | null = null;
+  let fetchDurationMs = $state<number | null>(null);
+  let matchDurationMs = $state<number | null>(null);
+  let manualSelections = $state<Record<number, number>>({});
 
   let trimmedQuery = $derived(userQuery.trim());
   let parsedShindenUserId = $derived(parseShindenUserId(userQuery));
@@ -58,8 +66,7 @@
   });
   let isUserListLoading = $derived(userListRequestState.status === "loading");
   let isWaitingForDatabase = $derived(
-    userListRequestState.status === "loaded" &&
-      databaseState.status !== "ready",
+    userListRequestState.status === "loading" && databaseState.status !== "ready",
   );
   let isLoadButtonBusy = $derived(isUserListLoading || isWaitingForDatabase);
   let hasUserListError = $derived(userListRequestState.status === "error");
@@ -80,23 +87,11 @@
     }
   });
 
-  $effect(() => {
-    if (
-      databaseState.status === "ready" &&
-      userListRequestState.status === "loaded"
-    ) {
-      workspaceState = {
-        status: "active",
-        provider: userListRequestState.provider,
-        query: userListRequestState.query,
-        entries: userListRequestState.entries,
-      };
-    }
-  });
-
   async function initializeDatabase() {
     databaseState = { status: "loading" };
-    databaseState = await initializeDatabaseState();
+    databaseInitializationPromise = initializeDatabaseState();
+    databaseState = await databaseInitializationPromise;
+    return databaseState;
   }
 
   function clearUserListError() {
@@ -132,17 +127,50 @@
       return;
     }
 
+    const requestId = activeRequestId + 1;
+    activeRequestId = requestId;
     userListRequestState = { status: "loading", provider, query };
 
     try {
+      const fetchStartedAt = performance.now();
       const list = await loadShindenList(parsedShindenUserId);
+      const nextFetchDurationMs = performance.now() - fetchStartedAt;
+      const readyDatabaseState = await waitForReadyDatabase();
+
+      if (readyDatabaseState.status !== "ready") {
+        throw new Error(
+          readyDatabaseState.status === "error"
+            ? readyDatabaseState.message
+            : "Baza danych nie jest gotowa",
+        );
+      }
+
+      const matchStartedAt = performance.now();
+      const nextMatchResult = await matchLoadedShindenList();
+      const nextMatchDurationMs = performance.now() - matchStartedAt;
+
+      if (activeRequestId !== requestId) return;
+
       userListRequestState = {
         status: "loaded",
         provider,
         query,
         entries: list.entries,
       };
+      workspaceState = {
+        status: "active",
+        provider,
+        query,
+        entries: list.entries,
+      };
+      matchResult = nextMatchResult;
+      matchErrorMessage = null;
+      fetchDurationMs = nextFetchDurationMs;
+      matchDurationMs = nextMatchDurationMs;
+      manualSelections = {};
     } catch (error) {
+      if (activeRequestId !== requestId) return;
+
       console.error("Unable to load Shinden user list", error);
       userListRequestState = {
         status: "error",
@@ -151,6 +179,18 @@
         message: errorMessage(error),
       };
     }
+  }
+
+  async function waitForReadyDatabase() {
+    if (databaseState.status === "ready" || databaseState.status === "error") {
+      return databaseState;
+    }
+
+    if (databaseInitializationPromise === null) {
+      return await initializeDatabase();
+    }
+
+    return await databaseInitializationPromise;
   }
 </script>
 
@@ -182,6 +222,12 @@
         <WorkspaceView
           providerLabel={activeProviderDetails.label}
           entries={workspaceState.entries}
+          {matchResult}
+          {matchErrorMessage}
+          isMatching={false}
+          {fetchDurationMs}
+          {matchDurationMs}
+          bind:manualSelections
         />
       </div>
     {/if}

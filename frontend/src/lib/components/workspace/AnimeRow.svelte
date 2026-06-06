@@ -8,7 +8,8 @@
   <div class="min-w-0">
     <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
     <p class="truncate text-xs text-muted">
-      {entry.animeType} · {entry.watchStatus} · {entry.watchedEpisodes}/{entry.episodes ?? "?"}
+      {entry.animeType} · {entry.watchStatus} · {entry.watchedEpisodes}/{entry.episodes ??
+        "?"}
     </p>
   </div>
 
