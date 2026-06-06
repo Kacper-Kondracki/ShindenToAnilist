@@ -41,10 +41,7 @@
     min-width: 0;
     flex-direction: column;
     overflow: hidden;
-    border-left: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 10%, transparent);
-    border-right: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 10%, transparent);
+    background-color: var(--color-base-300);
   }
 
   .workspace-pane__header {

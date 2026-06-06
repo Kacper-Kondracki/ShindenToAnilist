@@ -11,7 +11,6 @@
     providerLabel: string;
     entries: ShindenEntry[];
   } = $props();
-
 </script>
 
 <section class="workspace-content">
@@ -34,7 +33,13 @@
   .workspace-layout {
     display: grid;
     min-height: 0;
+    gap: 2px;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    background-color: color-mix(
+      in oklab,
+      var(--color-base-content) 10%,
+      transparent
+    );
   }
 
   @media (width <= 48rem) {
