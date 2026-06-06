@@ -27,7 +27,7 @@
 
 <section class="workspace-content">
   <div class="workspace-layout">
-    <AnimeListPane {providerLabel} {entries} />
+    <AnimeListPane {providerLabel} {entries} {matchResult} />
     <WorkspaceEditorPane />
   </div>
 </section>

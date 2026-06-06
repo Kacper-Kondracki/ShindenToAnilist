@@ -27,7 +27,6 @@
   font-weight: 400;
   color: var(--color-base-content);
   background-color: var(--color-base-100);
-  font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: auto;
   -moz-osx-font-smoothing: auto;

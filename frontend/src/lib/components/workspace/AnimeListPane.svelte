@@ -1,19 +1,36 @@
 <script lang="ts">
   import { VList } from "virtua/svelte";
-  import type { ShindenEntry } from "../../domain/anime";
+  import type { MatchListResult, ShindenEntry } from "../../domain/anime";
   import AnimeListTabs from "./AnimeListTabs.svelte";
-  import AnimeRow from "./AnimeRow.svelte";
+  import AnimeRow, { type AnimeMatchStatus } from "./AnimeRow.svelte";
   import type { AnimeListTabId } from "./tabs";
 
   let {
     providerLabel,
     entries,
+    matchResult,
   }: {
     providerLabel: string;
     entries: ShindenEntry[];
+    matchResult: MatchListResult | null;
   } = $props();
 
   let activeAnimeListTab = $state<AnimeListTabId>("manual");
+  let matchStatuses = $derived.by(() => {
+    const statuses = new Map<number, AnimeMatchStatus>();
+
+    for (const matchEntry of matchResult?.entries ?? []) {
+      if (matchEntry.result.winner !== null) {
+        statuses.set(matchEntry.shindenId, "matched");
+      } else if (matchEntry.result.top.length > 0) {
+        statuses.set(matchEntry.shindenId, "review");
+      } else {
+        statuses.set(matchEntry.shindenId, "unmatched");
+      }
+    }
+
+    return statuses;
+  });
 </script>
 
 <section class="workspace-pane" aria-label={`Lista anime z ${providerLabel}`}>
@@ -24,7 +41,10 @@
     {#if entries.length > 0}
       <VList data={entries} class="size-full" getKey={(entry) => entry.id}>
         {#snippet children(entry)}
-          <AnimeRow {entry} />
+          <AnimeRow
+            {entry}
+            matchStatus={matchStatuses.get(entry.id) ?? "unmatched"}
+          />
         {/snippet}
       </VList>
     {:else}
