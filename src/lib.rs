@@ -37,8 +37,8 @@ pub use compact_str::CompactString;
 pub use quick_xml::se::SeError as XmlError;
 pub use rayon::iter;
 pub use reqwest::{
-    blocking::Client as BlockingHttpClient,
     Client as HttpClient,
     Error as HttpError,
+    blocking::Client as BlockingHttpClient,
 };
 pub use serde_json::Error as JsonError;
