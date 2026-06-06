@@ -389,12 +389,13 @@ pub fn with_driver_out_result<T>(
     };
 
     match catch_unwind(AssertUnwindSafe(|| f(driver))) {
-        Ok(Ok(value)) => {
+        Ok(Ok(value)) if !driver.is_aborted() => {
             unsafe {
                 *out = value;
             }
             ok()
         },
+        Ok(Ok(_)) => error_result(StaStatus::StaStatusError, "driver call aborted"),
         Ok(Err(error)) => error_result(StaStatus::StaStatusError, &error),
         Err(_) => error_result(StaStatus::StaStatusPanic, "driver call panicked"),
     }

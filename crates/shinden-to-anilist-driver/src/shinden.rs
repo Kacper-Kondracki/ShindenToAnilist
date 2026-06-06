@@ -21,8 +21,11 @@ use crate::{
 };
 
 pub fn load_list(driver: &StaDriver, user_id: u64) -> Result<StaShindenList, String> {
+    driver.check_aborted()?;
+
     let list = ShindenList::get_from_shinden_blocking(BlockingHttpClient::new(), user_id)
         .map_err(|error| error.to_string())?;
+    driver.check_aborted()?;
 
     let mut shinden_list = driver
         .shinden_list()

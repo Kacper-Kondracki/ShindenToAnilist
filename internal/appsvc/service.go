@@ -72,7 +72,11 @@ func (s *Service) Shutdown() error {
 		return nil
 	}
 
-	return driver.Close()
+	driver.Abort()
+	go func() {
+		_ = driver.Close()
+	}()
+	return nil
 }
 
 func (s *Service) AppName() string {

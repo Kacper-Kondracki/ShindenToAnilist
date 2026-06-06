@@ -1,4 +1,10 @@
-use std::sync::Mutex;
+use std::sync::{
+    Mutex,
+    atomic::{
+        AtomicBool,
+        Ordering,
+    },
+};
 
 use shinden_to_anilist_core::{
     database::AnimeDatabase,
@@ -22,6 +28,7 @@ pub(crate) struct StoredShindenMatchResult {
 }
 
 pub struct StaDriver {
+    aborted: AtomicBool,
     database: Mutex<Option<AnimeDatabase>>,
     searcher: Mutex<Option<DefaultSearcher>>,
     shinden_list: Mutex<Option<ShindenList>>,
@@ -31,10 +38,23 @@ pub struct StaDriver {
 impl StaDriver {
     pub fn new() -> Self {
         Self {
+            aborted: AtomicBool::new(false),
             database: Mutex::new(None),
             searcher: Mutex::new(None),
             shinden_list: Mutex::new(None),
             match_results: Mutex::new(None),
+        }
+    }
+
+    pub(crate) fn abort(&self) { self.aborted.store(true, Ordering::SeqCst); }
+
+    pub(crate) fn is_aborted(&self) -> bool { self.aborted.load(Ordering::SeqCst) }
+
+    pub(crate) fn check_aborted(&self) -> Result<(), String> {
+        if self.is_aborted() {
+            Err("driver call aborted".to_owned())
+        } else {
+            Ok(())
         }
     }
 
@@ -54,6 +74,12 @@ impl Default for StaDriver {
 }
 
 pub fn new() -> *mut StaDriver { Box::into_raw(Box::new(StaDriver::new())) }
+
+pub fn abort(driver: *mut StaDriver) {
+    if let Some(driver) = as_ref(driver) {
+        driver.abort();
+    }
+}
 
 /// # Safety
 /// The pointer must have been allocated by [`new`] and must not be used again.

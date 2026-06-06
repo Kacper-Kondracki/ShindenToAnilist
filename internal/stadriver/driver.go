@@ -46,6 +46,8 @@ func (d *Driver) Close() error {
 		return nil
 	}
 
+	d.Abort()
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -59,6 +61,21 @@ func (d *Driver) Close() error {
 	runtime.SetFinalizer(d, nil)
 
 	return nil
+}
+
+func (d *Driver) Abort() {
+	if d == nil {
+		return
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if d.closed || d.ptr == nil {
+		return
+	}
+
+	C.sta_driver_abort(d.ptr)
 }
 
 func (d *Driver) EnsureDatabase(path string) (anime.DatabaseInfo, error) {

@@ -1,5 +1,11 @@
 use std::{
+    ffi::OsString,
     fs::File,
+    io,
+    path::{
+        Path,
+        PathBuf,
+    },
     str,
 };
 
@@ -89,6 +95,8 @@ pub fn search_anime(
     query: &str,
     options: StaSearchOptions,
 ) -> Result<StaSearchResult, String> {
+    driver.check_aborted()?;
+
     let database = driver
         .database()
         .lock()
@@ -113,6 +121,7 @@ pub fn search_anime(
             score,
         })
         .collect::<Vec<_>>();
+    driver.check_aborted()?;
 
     items.shrink_to_fit();
     let len = items.len();
@@ -125,6 +134,8 @@ pub fn match_query(
     query: &str,
     options: StaMatchQueryOptions,
 ) -> Result<StaMatchResult, String> {
+    driver.check_aborted()?;
+
     let database = driver
         .database()
         .lock()
@@ -147,6 +158,7 @@ pub fn match_query(
         search_options(options.search)?,
     );
     let result = DefaultMatcher::strict_preset().score_candidates(&query, &candidates, 0.5);
+    driver.check_aborted()?;
     Ok(match_result_to_ffi(
         &result,
         result_limit(options.result_limit, options.has_result_limit),
@@ -157,6 +169,8 @@ pub fn match_loaded_shinden_list(
     driver: &StaDriver,
     options: StaMatchOptions,
 ) -> Result<StaMatchListResult, String> {
+    driver.check_aborted()?;
+
     let database = driver
         .database()
         .lock()
@@ -201,8 +215,10 @@ pub fn match_loaded_shinden_list(
         .map(|entry| entry.search_by_title_ref(database, searcher, search))
         .map(|(entry, candidates)| (entry.id(), matcher.score_candidates(entry, &candidates, 0.5)))
         .collect();
+    driver.check_aborted()?;
 
     results.iter_mut().map(|(_, result)| result).finalize_matches();
+    driver.check_aborted()?;
 
     let result_limit = result_limit(options.result_limit, options.has_result_limit);
     let stored = results
@@ -230,6 +246,8 @@ pub unsafe fn export_matches(
     selections: *const StaMatchSelection,
     len: usize,
 ) -> Result<StaExportResult, String> {
+    driver.check_aborted()?;
+
     if selections.is_null() && len > 0 {
         return Err("match selections pointer is null".to_owned());
     }
@@ -252,21 +270,56 @@ pub unsafe fn export_matches(
         .iter()
         .map(|selection| (selection.shinden_id, selection.database_id))
         .collect::<Vec<_>>();
-    let file = File::options()
+    let path = Path::new(path);
+    create_parent_dir(path).map_err(|error| error.to_string())?;
+    let tmp_path = tmp_path(path);
+    let mut file = File::options()
         .create(true)
         .truncate(true)
         .write(true)
-        .open(path)
+        .open(&tmp_path)
         .map_err(|error| error.to_string())?;
 
     shinden
-        .export(&XmlExporter {}, pairs.iter().copied(), file)
+        .export(&XmlExporter {}, pairs.iter().copied(), &mut file)
         .map_err(|error| error.to_string())?;
+    file.sync_all().map_err(|error| error.to_string())?;
+    drop(file);
+    driver.check_aborted()?;
+
+    replace_with_tmp(&tmp_path, path).map_err(|error| error.to_string())?;
 
     Ok(StaExportResult {
-        path: into_raw_string(path),
+        path: into_raw_string(path.display().to_string()),
         exported_count: pairs.len(),
     })
+}
+
+fn tmp_path(path: &Path) -> PathBuf {
+    let mut tmp: OsString = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    PathBuf::from(tmp)
+}
+
+fn replace_with_tmp(tmp_path: &Path, path: &Path) -> Result<(), io::Error> {
+    match std::fs::rename(tmp_path, path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+            std::fs::remove_file(path)?;
+            std::fs::rename(tmp_path, path)
+        },
+        Err(error) => Err(error),
+    }
+}
+
+fn create_parent_dir(path: &Path) -> Result<(), io::Error> {
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    Ok(())
 }
 
 fn search_options(options: StaSearchOptions) -> Result<Search, String> {

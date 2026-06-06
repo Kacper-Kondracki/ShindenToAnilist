@@ -39,12 +39,16 @@ use crate::{
 };
 
 pub fn ensure_database(driver: &StaDriver, path: &str) -> Result<StaDatabaseInfo, String> {
+    driver.check_aborted()?;
+
     let update_status = update_latest_jsonl_from_github_blocking(BlockingHttpClient::new(), path)
         .map_err(|error| error.to_string())?;
+    driver.check_aborted()?;
 
     let metadata = root_metadata_from_path(path).map_err(|error| error.to_string())?;
     let database = AnimeDatabase::get_from_mmap(path).map_err(|error| error.to_string())?;
     let searcher = DefaultSearcher::new(&database);
+    driver.check_aborted()?;
 
     {
         let mut state = driver
@@ -76,6 +80,8 @@ pub fn ensure_database(driver: &StaDriver, path: &str) -> Result<StaDatabaseInfo
 }
 
 pub fn get_database(driver: &StaDriver) -> Result<StaAnimeDatabase, String> {
+    driver.check_aborted()?;
+
     let database = driver
         .database()
         .lock()
@@ -85,6 +91,7 @@ pub fn get_database(driver: &StaDriver) -> Result<StaAnimeDatabase, String> {
         .ok_or_else(|| "anime database is not loaded".to_owned())?;
 
     let mut entries = database.values().map(entry_to_ffi).collect::<Vec<_>>();
+    driver.check_aborted()?;
     entries.shrink_to_fit();
     let len = entries.len();
     let entries = entries.leak().as_mut_ptr();

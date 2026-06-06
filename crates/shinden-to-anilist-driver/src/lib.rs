@@ -48,6 +48,9 @@ pub extern "C" fn sta_driver_new() -> *mut StaDriver {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn sta_driver_abort(driver: *mut StaDriver) { driver::abort(driver); }
+
 /// # Safety
 /// Safe if takes ownership and consumes the object.
 #[unsafe(no_mangle)]

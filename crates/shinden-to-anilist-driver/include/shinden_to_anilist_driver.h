@@ -218,6 +218,8 @@ void sta_driver_free(struct StaDriver *driver);
 
 struct StaDriver *sta_driver_new(void);
 
+void sta_driver_abort(struct StaDriver *driver);
+
 /**
  * # Safety
  * Safe if takes ownership and consumes the object.
