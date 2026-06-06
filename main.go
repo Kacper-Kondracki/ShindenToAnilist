@@ -58,6 +58,13 @@ func main() {
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},
+		Linux: application.LinuxWindow{
+			WindowIsTranslucent: true,
+		},
+		Width:            850,
+		Height:           850,
+		MinWidth:         750,
+		MinHeight:        700,
 		BackgroundColour: application.NewRGB(27, 38, 54),
 		URL:              "/",
 	})

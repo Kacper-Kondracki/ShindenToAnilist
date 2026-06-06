@@ -49,6 +49,8 @@
       box-shadow 100ms ease;
 
     position: relative;
+    overflow: hidden;
+    contain: paint;
     box-shadow: inset 0 0 2rem var(--animated-grid-glow);
   }
 
@@ -84,17 +86,22 @@
   }
 
   .animated-grid-panel__grid {
+    inset: -12rem -8rem;
     background-image:
       linear-gradient(var(--animated-grid-line) 2px, transparent 2px),
       linear-gradient(90deg, var(--animated-grid-line) 2px, transparent 2px);
     background-size: 4rem 4rem;
     animation: move-grid 6s linear infinite;
-    filter: blur(1px);
+    will-change: transform;
   }
 
   @keyframes move-grid {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+
     to {
-      background-position: 8rem 12rem;
+      transform: translate3d(8rem, 12rem, 0);
     }
   }
 
