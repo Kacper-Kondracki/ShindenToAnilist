@@ -6,3 +6,7 @@ import * as AppService from "./appservice.js";
 export {
     AppService
 };
+
+export {
+    DatabaseInfo
+} from "./models.js";

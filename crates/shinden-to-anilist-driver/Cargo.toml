@@ -9,3 +9,4 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 shinden-to-anilist-core = { path = "../shinden-to-anilist-core" }
+tokio = { version = "1.52", features = ["net", "rt", "time"] }

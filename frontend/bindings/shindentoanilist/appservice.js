@@ -6,6 +6,10 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 /**
  * @returns {$CancellablePromise<string>}
  */
@@ -18,6 +22,15 @@ export function AppName() {
  */
 export function CounterValue() {
     return $Call.ByID(1548171427);
+}
+
+/**
+ * @returns {$CancellablePromise<$models.DatabaseInfo>}
+ */
+export function EnsureDatabase() {
+    return $Call.ByID(2117668153).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
 }
 
 /**
@@ -34,3 +47,6 @@ export function IncrementCounter() {
 export function IncrementCounterBy(amount) {
     return $Call.ByID(2071564404, amount);
 }
+
+// Private type creation functions
+const $$createType0 = $models.DatabaseInfo.createFrom;

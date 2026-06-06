@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
+  import { AppService } from "../bindings/shindentoanilist";
   import AnimatedGridPanel from "./lib/components/AnimatedGridPanel.svelte";
   import WorkspaceView from "./lib/components/WorkspaceView.svelte";
 
@@ -39,12 +40,22 @@
   type Provider = (typeof providers)[number]["id"];
   type DatabaseLoadState = "loading" | "loaded" | "error";
   type AppView = "start" | "workspace";
+  type DatabaseInfo = {
+    lastUpdate: string;
+    release: string;
+    sha256: string;
+    path: string;
+    updated: boolean;
+  };
+
+  const databaseRetryDelays = [0, 500, 1500] as const;
 
   let selectedProvider = $state<Provider>("shinden");
   let userQuery = $state("");
   let appView = $state<AppView>("start");
   let databaseLoadState = $state<DatabaseLoadState>("loading");
   let databaseLastUpdate = $state<string | null>(null);
+  let databaseInfo = $state<DatabaseInfo | null>(null);
   let databaseError = $state<string | null>(null);
   let trimmedQuery = $derived(userQuery.trim());
   let selectedProviderDetails = $derived(
@@ -71,6 +82,48 @@
   async function initializeDatabase() {
     databaseLoadState = "loading";
     databaseError = null;
+    databaseInfo = null;
+    databaseLastUpdate = null;
+
+    let lastError: unknown = null;
+
+    for (const [attempt, delayMs] of databaseRetryDelays.entries()) {
+      if (delayMs > 0) {
+        await delay(delayMs);
+      }
+
+      try {
+        const info = (await AppService.EnsureDatabase()) as DatabaseInfo;
+        databaseInfo = info;
+        databaseLastUpdate = info.lastUpdate;
+        databaseLoadState = "loaded";
+        return;
+      } catch (error) {
+        lastError = error;
+        if (attempt === databaseRetryDelays.length - 1) {
+          break;
+        }
+      }
+    }
+
+    databaseLoadState = "error";
+    databaseError = errorMessage(lastError);
+  }
+
+  function delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function errorMessage(error: unknown) {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === "string") {
+      return error;
+    }
+
+    return "Nie udało się wczytać bazy danych";
   }
 
   function handleSubmit(event: SubmitEvent) {
@@ -102,7 +155,7 @@
             class:database-status--loaded={databaseLoadState === "loaded"}
             class:database-status--error={databaseLoadState === "error"}
             aria-live="polite"
-            title={databaseError ?? undefined}
+            title={databaseError ?? databaseInfo?.path ?? undefined}
           >
             {#if databaseLoadState === "loading"}
               <span

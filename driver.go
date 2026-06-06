@@ -1,14 +1,14 @@
 package main
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/crates/shinden-to-anilist-driver/include
 #cgo linux,production LDFLAGS: ${SRCDIR}/target/release/libshinden_to_anilist_driver.a -ldl -lm -lpthread
 #cgo linux,!production LDFLAGS: -L${SRCDIR}/target/debug -lshinden_to_anilist_driver -ldl -lm -lpthread -Wl,-rpath,${SRCDIR}/target/debug
 #cgo windows,amd64,production LDFLAGS: ${SRCDIR}/target/x86_64-pc-windows-gnu/release/libshinden_to_anilist_driver.a -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll
 #cgo windows,amd64,!production LDFLAGS: ${SRCDIR}/target/x86_64-pc-windows-gnu/debug/libshinden_to_anilist_driver.a -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll
 #cgo windows,arm64,production LDFLAGS: ${SRCDIR}/target/aarch64-pc-windows-gnu/release/libshinden_to_anilist_driver.a -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll
 #cgo windows,arm64,!production LDFLAGS: ${SRCDIR}/target/aarch64-pc-windows-gnu/debug/libshinden_to_anilist_driver.a -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll
-#include "shinden_to_anilist_driver.h"
+#include "crates/shinden-to-anilist-driver/include/shinden_to_anilist_driver.h"
+#include <stdlib.h>
 */
 import "C"
 
@@ -17,7 +17,16 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"unsafe"
 )
+
+type DatabaseInfo struct {
+	LastUpdate string `json:"lastUpdate"`
+	Release    string `json:"release"`
+	Sha256     string `json:"sha256"`
+	Path       string `json:"path"`
+	Updated    bool   `json:"updated"`
+}
 
 type Driver struct {
 	mu     sync.RWMutex
@@ -79,6 +88,27 @@ func (d *Driver) IncrementCounter(amount uint32) (int64, error) {
 	return int64(out), nil
 }
 
+func (d *Driver) EnsureDatabase(path string) (DatabaseInfo, error) {
+	cPath := C.CString(path)
+	defer C.free(unsafe.Pointer(cPath))
+
+	var out C.StaDatabaseInfo
+	if err := d.call(func(ptr *C.StaDriver) C.StaError {
+		return C.sta_driver_ensure_database(ptr, cPath, &out)
+	}); err != nil {
+		return DatabaseInfo{}, err
+	}
+	defer C.sta_database_info_free(out)
+
+	return DatabaseInfo{
+		LastUpdate: cString(out.last_update),
+		Release:    cString(out.release),
+		Sha256:     cString(out.sha256),
+		Path:       cString(out.path),
+		Updated:    bool(out.updated),
+	}, nil
+}
+
 func (d *Driver) call(f func(*C.StaDriver) C.StaError) error {
 	if d == nil {
 		return errors.New("driver is nil")
@@ -111,6 +141,14 @@ func intoGoError(errResult C.StaError) error {
 	}
 
 	return errors.New(message)
+}
+
+func cString(value *C.char) string {
+	if value == nil {
+		return ""
+	}
+
+	return C.GoString(value)
 }
 
 func (d *Driver) finalize() {

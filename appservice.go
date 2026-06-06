@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 
 	"sync"
 
@@ -11,12 +12,15 @@ import (
 )
 
 type AppService struct {
-	mu     sync.RWMutex
-	driver *Driver
+	mu       sync.RWMutex
+	ensureMu sync.Mutex
+	driver   *Driver
 }
 
 const (
 	maxCounterAmount = int64(1<<32 - 1)
+	appDataDirName   = "ShindenToAnilist"
+	databaseFileName = "anime-offline-database.jsonl"
 )
 
 func NewAppService() *AppService {
@@ -97,6 +101,18 @@ func (s *AppService) IncrementCounterBy(amount int) (int, error) {
 	return int(value), nil
 }
 
+func (s *AppService) EnsureDatabase() (DatabaseInfo, error) {
+	s.ensureMu.Lock()
+	defer s.ensureMu.Unlock()
+
+	driver, err := s.activeDriver()
+	if err != nil {
+		return DatabaseInfo{}, err
+	}
+
+	return driver.EnsureDatabase(databasePath())
+}
+
 func (s *AppService) activeDriver() (*Driver, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -106,4 +122,8 @@ func (s *AppService) activeDriver() (*Driver, error) {
 	}
 
 	return s.driver, nil
+}
+
+func databasePath() string {
+	return filepath.Join(application.Path(application.PathDataHome), appDataDirName, databaseFileName)
 }

@@ -74,6 +74,24 @@ pub trait AnimeDatabaseLoad {
     fn get_from_path(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError>;
 }
 
+/// Loads only the database root/header metadata from a JSONL reader.
+pub fn root_metadata_from_reader(reader: impl Read) -> Result<DatabaseRootMetadata, DatabaseError> {
+    let mut buf_reader = BufReader::new(reader);
+    let mut header = String::new();
+
+    if buf_reader.read_line(&mut header)? == 0 {
+        return Err(DatabaseError::Empty);
+    }
+
+    Ok(serde_json::from_str::<json::DatabaseRootMetadata>(&header)?.into_model())
+}
+
+/// Loads only the database root/header metadata from the file at `path`.
+pub fn root_metadata_from_path(path: impl AsRef<Path>) -> Result<DatabaseRootMetadata, DatabaseError> {
+    let file = File::open(path)?;
+    root_metadata_from_reader(file)
+}
+
 impl AnimeDatabaseLoad for AnimeDatabase {
     fn get_from_mmap(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError> {
         let file = File::open(path)?;
@@ -138,5 +156,41 @@ impl AnimeDatabaseLoad for AnimeDatabase {
     fn get_from_path(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError> {
         let file = File::open(path)?;
         Self::get_from_reader(file)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::{
+        DatabaseError,
+        root_metadata_from_reader,
+    };
+
+    #[test]
+    fn parses_root_metadata_from_header_only() {
+        let input = Cursor::new(
+            br#"{"lastUpdate":"2026-06-06"}
+{"title":"entry shape intentionally ignored"}"#,
+        );
+
+        let metadata = root_metadata_from_reader(input).unwrap();
+
+        assert_eq!(metadata.last_update().to_string(), "2026-06-06");
+    }
+
+    #[test]
+    fn returns_empty_for_empty_reader() {
+        let error = root_metadata_from_reader(Cursor::new([])).unwrap_err();
+
+        assert!(matches!(error, DatabaseError::Empty));
+    }
+
+    #[test]
+    fn returns_json_error_for_invalid_header() {
+        let error = root_metadata_from_reader(Cursor::new(b"not json\n")).unwrap_err();
+
+        assert!(matches!(error, DatabaseError::Json(_)));
     }
 }
