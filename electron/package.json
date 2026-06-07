@@ -1,0 +1,25 @@
+{
+  "name": "electron",
+  "private": true,
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "/usr/bin/electron ./dist/main.js",
+    "dev": "pnpm run build && pnpm run start",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.3.0",
+      "onFail": "download"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "electron": "^42.3.3",
+    "typescript": "^6.0.3"
+  }
+}
