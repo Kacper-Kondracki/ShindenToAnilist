@@ -1,0 +1,696 @@
+import {
+  getAnimeDatabaseEntries,
+  getLoadedShindenEntries,
+} from "../api/appService";
+import type { DatabaseEntry, ShindenEntry } from "../domain/anime";
+
+type CacheEntry = {
+  retainCount: number;
+  pinned: boolean;
+  lastAccess: number;
+};
+
+export type EntryLoadState<T> =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; entry: T }
+  | { status: "missing" }
+  | { status: "error"; message: string };
+
+type CacheKind = "shinden" | "database";
+
+const shindenReleasedCapacity = 200;
+const databaseReleasedCapacity = 50;
+
+const idleShindenEntryState: EntryLoadState<ShindenEntry> = { status: "idle" };
+const idleDatabaseEntryState: EntryLoadState<DatabaseEntry> = {
+  status: "idle",
+};
+
+export type EntryStore = ReturnType<typeof createEntryStore>;
+
+export function createEntryStore() {
+  let shindenEntryStates = $state<Record<number, EntryLoadState<ShindenEntry>>>(
+    {},
+  );
+  let databaseEntryStates = $state<
+    Record<number, EntryLoadState<DatabaseEntry>>
+  >({});
+
+  let tick = 0;
+  let generation = 0;
+
+  const shindenCache = new Map<number, CacheEntry>();
+  const databaseCache = new Map<number, CacheEntry>();
+
+  const pendingShindenIds = new Set<number>();
+  const pendingDatabaseIds = new Set<number>();
+
+  const inFlightShindenIds = new Set<number>();
+  const inFlightDatabaseIds = new Set<number>();
+
+  const directInFlightShindenIds = new Set<number>();
+  const directInFlightDatabaseIds = new Set<number>();
+
+  const shindenRetainCounts = new Map<number, number>();
+  const pinnedDatabaseIds = new Set<number>();
+
+  let shindenBatchScheduled = false;
+  let databaseBatchScheduled = false;
+
+  function reset() {
+    generation += 1;
+
+    shindenCache.clear();
+    databaseCache.clear();
+
+    pendingShindenIds.clear();
+    pendingDatabaseIds.clear();
+
+    inFlightShindenIds.clear();
+    inFlightDatabaseIds.clear();
+
+    directInFlightShindenIds.clear();
+    directInFlightDatabaseIds.clear();
+
+    shindenRetainCounts.clear();
+    pinnedDatabaseIds.clear();
+
+    shindenBatchScheduled = false;
+    databaseBatchScheduled = false;
+
+    shindenEntryStates = {};
+    databaseEntryStates = {};
+  }
+
+  function getShindenEntryState(entryId: number) {
+    touch(shindenCache, entryId);
+    return shindenEntryStates[entryId] ?? idleShindenEntryState;
+  }
+
+  function getReadyShindenEntry(entryId: number) {
+    const state = getShindenEntryState(entryId);
+    return state.status === "ready" ? state.entry : null;
+  }
+
+  function getDatabaseEntryState(entryId: number | null) {
+    if (entryId === null) {
+      return idleDatabaseEntryState;
+    }
+
+    touch(databaseCache, entryId);
+    return databaseEntryStates[entryId] ?? idleDatabaseEntryState;
+  }
+
+  function getReadyDatabaseEntry(entryId: number | null) {
+    const state = getDatabaseEntryState(entryId);
+    return state.status === "ready" ? state.entry : null;
+  }
+
+  function retainShindenEntry(entryId: number) {
+    retain(shindenCache, entryId);
+
+    const requestGeneration = generation;
+
+    queueMicrotask(() => {
+      if (requestGeneration !== generation) {
+        return;
+      }
+
+      if ((shindenRetainCounts.get(entryId) ?? 0) === 0) {
+        return;
+      }
+
+      requestShindenEntries([entryId]);
+    });
+
+    return () => {
+      release(shindenCache, entryId, "shinden");
+    };
+  }
+
+  function pinDatabaseEntry(entryId: number | null) {
+    if (entryId === null) {
+      return () => {};
+    }
+
+    const cacheEntry = databaseCache.get(entryId);
+    if (cacheEntry !== undefined) {
+      cacheEntry.pinned = true;
+      cacheEntry.lastAccess = nextTick();
+    }
+
+    pinnedDatabaseIds.add(entryId);
+
+    const requestGeneration = generation;
+
+    queueMicrotask(() => {
+      if (requestGeneration !== generation) {
+        return;
+      }
+
+      if (!pinnedDatabaseIds.has(entryId)) {
+        return;
+      }
+
+      requestDatabaseEntries([entryId]);
+    });
+
+    return () => {
+      const latest = databaseCache.get(entryId);
+      if (latest !== undefined) {
+        latest.pinned = false;
+      }
+
+      pinnedDatabaseIds.delete(entryId);
+      evictReleased("database");
+    };
+  }
+
+  function requestShindenEntries(entryIds: number[]) {
+    let hasNewPendingIds = false;
+
+    for (const entryId of entryIds) {
+      if (
+        shindenCache.has(entryId) ||
+        pendingShindenIds.has(entryId) ||
+        inFlightShindenIds.has(entryId) ||
+        directInFlightShindenIds.has(entryId)
+      ) {
+        continue;
+      }
+
+      pendingShindenIds.add(entryId);
+      hasNewPendingIds = true;
+    }
+
+    if (hasNewPendingIds) {
+      scheduleShindenBatch();
+    }
+  }
+
+  function requestDatabaseEntries(entryIds: number[]) {
+    let hasNewPendingIds = false;
+
+    for (const entryId of entryIds) {
+      if (
+        databaseCache.has(entryId) ||
+        pendingDatabaseIds.has(entryId) ||
+        inFlightDatabaseIds.has(entryId) ||
+        directInFlightDatabaseIds.has(entryId)
+      ) {
+        continue;
+      }
+
+      pendingDatabaseIds.add(entryId);
+      hasNewPendingIds = true;
+    }
+
+    if (hasNewPendingIds) {
+      scheduleDatabaseBatch();
+    }
+  }
+
+  async function ensureReadyShindenEntry(entryId: number) {
+    const readyEntry = getReadyShindenEntry(entryId);
+    if (readyEntry !== null) {
+      return readyEntry;
+    }
+
+    if (
+      pendingShindenIds.has(entryId) ||
+      inFlightShindenIds.has(entryId) ||
+      directInFlightShindenIds.has(entryId)
+    ) {
+      return null;
+    }
+
+    const requestGeneration = generation;
+    directInFlightShindenIds.add(entryId);
+    setShindenEntryState(entryId, { status: "loading" });
+
+    try {
+      const entries = await getLoadedShindenEntries([entryId]);
+
+      if (requestGeneration !== generation) {
+        return null;
+      }
+
+      const entry = entries.find((value) => value.id === entryId) ?? null;
+
+      if (entry === null) {
+        setShindenEntryState(entryId, { status: "missing" });
+        return null;
+      }
+
+      setShindenCacheEntry(entry);
+      evictReleased("shinden");
+
+      return entry;
+    } catch (error) {
+      if (requestGeneration === generation) {
+        setShindenEntryState(entryId, {
+          status: "error",
+          message: errorMessage(error),
+        });
+      }
+
+      return null;
+    } finally {
+      directInFlightShindenIds.delete(entryId);
+    }
+  }
+
+  async function ensureReadyDatabaseEntry(entryId: number) {
+    const readyEntry = getReadyDatabaseEntry(entryId);
+    if (readyEntry !== null) {
+      return readyEntry;
+    }
+
+    if (
+      pendingDatabaseIds.has(entryId) ||
+      inFlightDatabaseIds.has(entryId) ||
+      directInFlightDatabaseIds.has(entryId)
+    ) {
+      return null;
+    }
+
+    const requestGeneration = generation;
+    directInFlightDatabaseIds.add(entryId);
+    setDatabaseEntryState(entryId, { status: "loading" });
+
+    try {
+      const entries = await getAnimeDatabaseEntries([entryId]);
+
+      if (requestGeneration !== generation) {
+        return null;
+      }
+
+      const entry = entries.find((value) => value.id === entryId) ?? null;
+
+      if (entry === null) {
+        setDatabaseEntryState(entryId, { status: "missing" });
+        return null;
+      }
+
+      setDatabaseCacheEntry(entry);
+      evictReleased("database");
+
+      return entry;
+    } catch (error) {
+      if (requestGeneration === generation) {
+        setDatabaseEntryState(entryId, {
+          status: "error",
+          message: errorMessage(error),
+        });
+      }
+
+      return null;
+    } finally {
+      directInFlightDatabaseIds.delete(entryId);
+    }
+  }
+
+  function scheduleShindenBatch() {
+    if (shindenBatchScheduled || pendingShindenIds.size === 0) {
+      return;
+    }
+
+    shindenBatchScheduled = true;
+    queueMicrotask(loadPendingShindenEntries);
+  }
+
+  function scheduleDatabaseBatch() {
+    if (databaseBatchScheduled || pendingDatabaseIds.size === 0) {
+      return;
+    }
+
+    databaseBatchScheduled = true;
+    queueMicrotask(loadPendingDatabaseEntries);
+  }
+
+  async function loadPendingShindenEntries() {
+    shindenBatchScheduled = false;
+
+    const ids = drainPendingIds(
+      pendingShindenIds,
+      inFlightShindenIds,
+      shindenCache,
+      directInFlightShindenIds,
+    );
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const requestGeneration = generation;
+
+    for (const id of ids) {
+      setShindenEntryState(id, { status: "loading" });
+    }
+
+    try {
+      const entries = await getLoadedShindenEntries(ids);
+
+      if (requestGeneration !== generation) {
+        return;
+      }
+
+      const loadedIds = new Set<number>();
+
+      for (const entry of entries) {
+        loadedIds.add(entry.id);
+        setShindenCacheEntry(entry);
+      }
+
+      for (const id of ids) {
+        if (!loadedIds.has(id)) {
+          setShindenEntryState(id, { status: "missing" });
+        }
+      }
+
+      evictReleased("shinden");
+    } catch (error) {
+      if (requestGeneration === generation) {
+        for (const id of ids) {
+          setShindenEntryState(id, {
+            status: "error",
+            message: errorMessage(error),
+          });
+        }
+      }
+    } finally {
+      for (const id of ids) {
+        inFlightShindenIds.delete(id);
+      }
+
+      scheduleShindenBatch();
+    }
+  }
+
+  async function loadPendingDatabaseEntries() {
+    databaseBatchScheduled = false;
+
+    const ids = drainPendingIds(
+      pendingDatabaseIds,
+      inFlightDatabaseIds,
+      databaseCache,
+      directInFlightDatabaseIds,
+    );
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const requestGeneration = generation;
+
+    for (const id of ids) {
+      setDatabaseEntryState(id, { status: "loading" });
+    }
+
+    try {
+      const entries = await getAnimeDatabaseEntries(ids);
+
+      if (requestGeneration !== generation) {
+        return;
+      }
+
+      const loadedIds = new Set<number>();
+
+      for (const entry of entries) {
+        loadedIds.add(entry.id);
+        setDatabaseCacheEntry(entry);
+      }
+
+      for (const id of ids) {
+        if (!loadedIds.has(id)) {
+          setDatabaseEntryState(id, { status: "missing" });
+        }
+      }
+
+      evictReleased("database");
+    } catch (error) {
+      if (requestGeneration === generation) {
+        for (const id of ids) {
+          setDatabaseEntryState(id, {
+            status: "error",
+            message: errorMessage(error),
+          });
+        }
+      }
+    } finally {
+      for (const id of ids) {
+        inFlightDatabaseIds.delete(id);
+      }
+
+      scheduleDatabaseBatch();
+    }
+  }
+
+  function drainPendingIds(
+    pending: Set<number>,
+    inFlight: Set<number>,
+    cache: Map<number, CacheEntry>,
+    directInFlight: Set<number>,
+  ) {
+    const ids = [...pending].filter(
+      (id) => !cache.has(id) && !inFlight.has(id) && !directInFlight.has(id),
+    );
+
+    pending.clear();
+
+    for (const id of ids) {
+      inFlight.add(id);
+    }
+
+    return ids;
+  }
+
+  function retain(cache: Map<number, CacheEntry>, entryId: number) {
+    if (cache === shindenCache) {
+      shindenRetainCounts.set(
+        entryId,
+        (shindenRetainCounts.get(entryId) ?? 0) + 1,
+      );
+    }
+
+    const cacheEntry = cache.get(entryId);
+    if (cacheEntry !== undefined) {
+      cacheEntry.retainCount += 1;
+      cacheEntry.lastAccess = nextTick();
+    }
+  }
+
+  function release(
+    cache: Map<number, CacheEntry>,
+    entryId: number,
+    kind: CacheKind,
+  ) {
+    if (cache === shindenCache) {
+      const retainCount = Math.max(
+        0,
+        (shindenRetainCounts.get(entryId) ?? 0) - 1,
+      );
+
+      if (retainCount === 0) {
+        shindenRetainCounts.delete(entryId);
+      } else {
+        shindenRetainCounts.set(entryId, retainCount);
+      }
+    }
+
+    const cacheEntry = cache.get(entryId);
+    if (cacheEntry !== undefined) {
+      cacheEntry.retainCount = Math.max(0, cacheEntry.retainCount - 1);
+      cacheEntry.lastAccess = nextTick();
+    }
+
+    evictReleased(kind);
+  }
+
+  function setShindenCacheEntry(entry: ShindenEntry) {
+    setCacheMetadata(shindenCache, entry.id);
+    setShindenEntryState(entry.id, {
+      status: "ready",
+      entry,
+    });
+  }
+
+  function setDatabaseCacheEntry(entry: DatabaseEntry) {
+    setCacheMetadata(databaseCache, entry.id);
+    setDatabaseEntryState(entry.id, {
+      status: "ready",
+      entry,
+    });
+  }
+
+  function setCacheMetadata(cache: Map<number, CacheEntry>, entryId: number) {
+    const existing = cache.get(entryId);
+    cache.set(entryId, cacheMetadataFor(cache, entryId, existing));
+  }
+
+  function cacheMetadataFor(
+    cache: Map<number, CacheEntry>,
+    entryId: number,
+    existing: CacheEntry | undefined,
+  ): CacheEntry {
+    return {
+      retainCount:
+        existing?.retainCount ??
+        (cache === shindenCache ? (shindenRetainCounts.get(entryId) ?? 0) : 0),
+      pinned:
+        existing?.pinned ??
+        (cache === databaseCache ? pinnedDatabaseIds.has(entryId) : false),
+      lastAccess: nextTick(),
+    };
+  }
+
+  function touch(cache: Map<number, CacheEntry>, entryId: number) {
+    const cacheEntry = cache.get(entryId);
+
+    if (cacheEntry !== undefined) {
+      cacheEntry.lastAccess = nextTick();
+    }
+  }
+
+  function evictReleased(kind: CacheKind) {
+    const cache = kind === "shinden" ? shindenCache : databaseCache;
+    const capacity =
+      kind === "shinden" ? shindenReleasedCapacity : databaseReleasedCapacity;
+
+    const releasedEntries = [...cache.entries()]
+      .filter(([, entry]) => entry.retainCount === 0 && !entry.pinned)
+      .sort((left, right) => left[1].lastAccess - right[1].lastAccess);
+
+    const evictCount = releasedEntries.length - capacity;
+
+    if (evictCount <= 0) {
+      return;
+    }
+
+    for (const [entryId] of releasedEntries.slice(0, evictCount)) {
+      cache.delete(entryId);
+
+      if (kind === "shinden") {
+        removeShindenEntryState(entryId);
+      } else {
+        removeDatabaseEntryState(entryId);
+      }
+    }
+  }
+
+  function nextTick() {
+    tick += 1;
+    return tick;
+  }
+
+  function setShindenEntryState(
+    entryId: number,
+    state: EntryLoadState<ShindenEntry>,
+  ) {
+    const current = shindenEntryStates[entryId];
+
+    if (entryLoadStatesEqual(current, state)) {
+      return;
+    }
+
+    shindenEntryStates = {
+      ...shindenEntryStates,
+      [entryId]: state,
+    };
+  }
+
+  function setDatabaseEntryState(
+    entryId: number,
+    state: EntryLoadState<DatabaseEntry>,
+  ) {
+    const current = databaseEntryStates[entryId];
+
+    if (entryLoadStatesEqual(current, state)) {
+      return;
+    }
+
+    databaseEntryStates = {
+      ...databaseEntryStates,
+      [entryId]: state,
+    };
+  }
+
+  function removeShindenEntryState(entryId: number) {
+    if (shindenEntryStates[entryId] === undefined) {
+      return;
+    }
+
+    const { [entryId]: _removed, ...nextStates } = shindenEntryStates;
+    shindenEntryStates = nextStates;
+  }
+
+  function removeDatabaseEntryState(entryId: number) {
+    if (databaseEntryStates[entryId] === undefined) {
+      return;
+    }
+
+    const { [entryId]: _removed, ...nextStates } = databaseEntryStates;
+    databaseEntryStates = nextStates;
+  }
+
+  return {
+    get shindenEntryStates() {
+      return shindenEntryStates;
+    },
+    get databaseEntryStates() {
+      return databaseEntryStates;
+    },
+    reset,
+    getShindenEntryState,
+    getReadyShindenEntry,
+    getDatabaseEntryState,
+    getReadyDatabaseEntry,
+    ensureReadyShindenEntry,
+    ensureReadyDatabaseEntry,
+    retainShindenEntry,
+    pinDatabaseEntry,
+    requestShindenEntries,
+    requestDatabaseEntries,
+  };
+}
+
+function entryLoadStatesEqual<T>(
+  left: EntryLoadState<T> | undefined,
+  right: EntryLoadState<T>,
+) {
+  if (left === undefined) {
+    return right.status === "idle";
+  }
+
+  if (left.status !== right.status) {
+    return false;
+  }
+
+  switch (left.status) {
+    case "idle":
+    case "loading":
+    case "missing":
+      return true;
+
+    case "ready":
+      return left.entry === (right as { status: "ready"; entry: T }).entry;
+
+    case "error":
+      return (
+        left.message === (right as { status: "error"; message: string }).message
+      );
+  }
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return "Nie udało się wczytać danych wpisu";
+}

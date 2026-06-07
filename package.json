@@ -1,0 +1,13 @@
+{
+  "name": "shinden-to-anilist",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:electron": "pnpm --filter electron dev",
+    "dev": "concurrently -k \"pnpm dev:frontend\" \"pnpm dev:electron\"",
+    "fmt:crates": "cargo +nightly fmt"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}
