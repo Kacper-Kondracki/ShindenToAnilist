@@ -33,7 +33,8 @@ pub use ffi::{
 };
 
 /// # Safety
-/// Safe if takes ownership and consumes the object.
+/// `driver` must be null or a pointer returned by [`sta_driver_new`]. After this
+/// call, the pointer is consumed and must not be used again.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_driver_free(driver: *mut StaDriver) {
     unsafe {
@@ -49,11 +50,14 @@ pub extern "C" fn sta_driver_new() -> *mut StaDriver {
     }
 }
 
+/// # Safety
+/// `driver` must be null or a live pointer returned by [`sta_driver_new`].
 #[unsafe(no_mangle)]
-pub extern "C" fn sta_driver_abort(driver: *mut StaDriver) { driver::abort(driver); }
+pub unsafe extern "C" fn sta_driver_abort(driver: *mut StaDriver) { driver::abort(driver); }
 
 /// # Safety
-/// Safe if takes ownership and consumes the object.
+/// `value` must be null or a string allocated by this library. After this call,
+/// the pointer is consumed and must not be used again.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_string_free(value: *mut c_char) {
     unsafe {
@@ -62,7 +66,8 @@ pub unsafe extern "C" fn sta_string_free(value: *mut c_char) {
 }
 
 /// # Safety
-/// Safe if takes ownership and consumes all strings inside `value`.
+/// `value` must be a database-info result returned by this library. This call
+/// consumes all owned strings inside `value`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_database_info_free(value: StaDatabaseInfo) {
     unsafe {
@@ -71,7 +76,9 @@ pub unsafe extern "C" fn sta_database_info_free(value: StaDatabaseInfo) {
 }
 
 /// # Safety
-/// Safe if takes ownership and consumes the database entry arrays. String pointers are borrowed.
+/// `value` must be an anime-database result returned by this library. This call
+/// consumes the entry arrays; string views are borrowed from those entries and
+/// become invalid after the free call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_anime_database_free(value: StaAnimeDatabase) {
     unsafe {
@@ -80,7 +87,9 @@ pub unsafe extern "C" fn sta_anime_database_free(value: StaAnimeDatabase) {
 }
 
 /// # Safety
-/// Safe if takes ownership and consumes the list entry array. String pointers are borrowed.
+/// `value` must be a Shinden-list result returned by this library. This call
+/// consumes the entry array; string views are borrowed from those entries and
+/// become invalid after the free call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_shinden_list_free(value: StaShindenList) {
     unsafe {
@@ -89,7 +98,8 @@ pub unsafe extern "C" fn sta_shinden_list_free(value: StaShindenList) {
 }
 
 /// # Safety
-/// Safe if takes ownership and consumes the id array.
+/// `value` must be an id-list result returned by this library. This call
+/// consumes the id array.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_id_list_free(value: StaIdList) {
     unsafe {
@@ -98,7 +108,8 @@ pub unsafe extern "C" fn sta_id_list_free(value: StaIdList) {
 }
 
 /// # Safety
-/// Safe if takes ownership and consumes the search result array.
+/// `value` must be a search result returned by this library. This call consumes
+/// the result array.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_search_result_free(value: StaSearchResult) {
     unsafe {
@@ -107,7 +118,8 @@ pub unsafe extern "C" fn sta_search_result_free(value: StaSearchResult) {
 }
 
 /// # Safety
-/// Safe if takes ownership and consumes the match result arrays.
+/// `value` must be a match result returned by this library. This call consumes
+/// all result arrays.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_match_result_free(value: StaMatchResult) {
     unsafe {
@@ -116,7 +128,8 @@ pub unsafe extern "C" fn sta_match_result_free(value: StaMatchResult) {
 }
 
 /// # Safety
-/// Safe if takes ownership and consumes the match list result arrays.
+/// `value` must be a match-list result returned by this library. This call
+/// consumes all nested result arrays.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_match_list_result_free(value: StaMatchListResult) {
     unsafe {
@@ -125,7 +138,8 @@ pub unsafe extern "C" fn sta_match_list_result_free(value: StaMatchListResult) {
 }
 
 /// # Safety
-/// Safe if takes ownership and consumes all strings inside `value`.
+/// `value` must be an export result returned by this library. This call consumes
+/// all owned strings inside `value`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_export_result_free(value: StaExportResult) {
     unsafe {
@@ -134,7 +148,9 @@ pub unsafe extern "C" fn sta_export_result_free(value: StaExportResult) {
 }
 
 /// # Safety
-/// `path` must be valid C string.
+/// `driver` must be a live pointer returned by [`sta_driver_new`]. `path` must
+/// be a valid UTF-8 C string. `out` must be non-null and writable; on success it
+/// must be released with [`sta_database_info_free`].
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_driver_ensure_database(
     driver: *mut StaDriver,
@@ -160,8 +176,12 @@ pub unsafe extern "C" fn sta_driver_ensure_database(
     })
 }
 
+/// # Safety
+/// `driver` must be a live pointer returned by [`sta_driver_new`]. `out` must
+/// be non-null and writable; on success it must be released with
+/// [`sta_id_list_free`].
 #[unsafe(no_mangle)]
-pub extern "C" fn sta_driver_load_shinden_list(
+pub unsafe extern "C" fn sta_driver_load_shinden_list(
     driver: *mut StaDriver,
     user_id: u64,
     out: *mut StaIdList,
@@ -170,7 +190,9 @@ pub extern "C" fn sta_driver_load_shinden_list(
 }
 
 /// # Safety
-/// `view` must be valid C string.
+/// `driver` must be a live pointer returned by [`sta_driver_new`]. `view` must
+/// be a valid UTF-8 C string naming a loaded-list view. `out` must be non-null
+/// and writable; on success it must be released with [`sta_id_list_free`].
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_driver_get_loaded_shinden_entry_ids(
     driver: *mut StaDriver,
@@ -186,7 +208,9 @@ pub unsafe extern "C" fn sta_driver_get_loaded_shinden_entry_ids(
 }
 
 /// # Safety
-/// `ids` must point to `len` entries or be null when `len` is 0.
+/// `driver` must be a live pointer returned by [`sta_driver_new`]. `ids` must
+/// point to `len` entries or be null when `len` is 0. `out` must be non-null and
+/// writable; on success it must be released with [`sta_shinden_list_free`].
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_driver_get_loaded_shinden_entries(
     driver: *mut StaDriver,
@@ -203,7 +227,9 @@ pub unsafe extern "C" fn sta_driver_get_loaded_shinden_entries(
 }
 
 /// # Safety
-/// `ids` must point to `len` entries or be null when `len` is 0.
+/// `driver` must be a live pointer returned by [`sta_driver_new`]. `ids` must
+/// point to `len` entries or be null when `len` is 0. `out` must be non-null and
+/// writable; on success it must be released with [`sta_anime_database_free`].
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_driver_get_anime_database_entries(
     driver: *mut StaDriver,
@@ -222,7 +248,10 @@ pub unsafe extern "C" fn sta_driver_get_anime_database_entries(
 }
 
 /// # Safety
-/// `query` must be valid C string.
+/// `driver` must be a live pointer returned by [`sta_driver_new`]. `query` and
+/// `options.mode` must be valid UTF-8 C/string views for the duration of this
+/// call. `out` must be non-null and writable; on success it must be released
+/// with [`sta_search_result_free`].
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_driver_search_anime(
     driver: *mut StaDriver,
@@ -241,7 +270,10 @@ pub unsafe extern "C" fn sta_driver_search_anime(
 }
 
 /// # Safety
-/// `query` must be valid C string.
+/// `driver` must be a live pointer returned by [`sta_driver_new`]. `query` and
+/// `options.search.mode` must be valid UTF-8 C/string views for the duration of
+/// this call. `out` must be non-null and writable; on success it must be
+/// released with [`sta_match_result_free`].
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_driver_match_query(
     driver: *mut StaDriver,
@@ -259,8 +291,12 @@ pub unsafe extern "C" fn sta_driver_match_query(
     })
 }
 
+/// # Safety
+/// `driver` must be a live pointer returned by [`sta_driver_new`]. `out` must
+/// be non-null and writable; on success it must be released with
+/// [`sta_match_list_result_free`].
 #[unsafe(no_mangle)]
-pub extern "C" fn sta_driver_match_loaded_shinden_list(
+pub unsafe extern "C" fn sta_driver_match_loaded_shinden_list(
     driver: *mut StaDriver,
     options: StaMatchOptions,
     out: *mut StaMatchListResult,
@@ -271,7 +307,10 @@ pub extern "C" fn sta_driver_match_loaded_shinden_list(
 }
 
 /// # Safety
-/// `path` must be valid C string. `selections` must point to `len` entries or be null when `len` is 0.
+/// `driver` must be a live pointer returned by [`sta_driver_new`]. `path` must
+/// be a valid UTF-8 C string. `selections` must point to `len` entries or be
+/// null when `len` is 0. `out` must be non-null and writable; on success it must
+/// be released with [`sta_export_result_free`].
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sta_driver_export_matches(
     driver: *mut StaDriver,

@@ -13,7 +13,7 @@
     busy: boolean;
     canSubmit: boolean;
     hasError: boolean;
-    errorMessage?: string;
+    errorMessage: string | null;
     onValueInput: (value: string) => void;
     onClearError: () => void;
     onSubmit: (event: SubmitEvent) => void;

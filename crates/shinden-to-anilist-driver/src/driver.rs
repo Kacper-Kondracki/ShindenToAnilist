@@ -57,6 +57,8 @@ pub(crate) struct MatchState {
 
 pub struct StaDriver {
     aborted: AtomicBool,
+    // State locks are independent. Operations should take only the state they
+    // need and avoid holding write locks while doing provider/network work.
     database: RwLock<DatabaseState>,
     shinden: RwLock<ShindenState>,
     matches: RwLock<MatchState>,

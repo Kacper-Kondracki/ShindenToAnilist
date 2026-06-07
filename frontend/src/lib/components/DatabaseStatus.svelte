@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DatabaseState } from "../domain/anime";
+  import { databaseStatusTitle } from "../domain/animeView";
 
   let { state, text }: { state: DatabaseState; text: string } = $props();
 </script>
@@ -9,11 +10,7 @@
   class:database-status--loaded={state.status === "ready"}
   class:database-status--error={state.status === "error"}
   aria-live="polite"
-  title={state.status === "error"
-    ? state.message
-    : state.status === "ready"
-      ? state.info.path
-      : undefined}
+  title={databaseStatusTitle(state)}
 >
   {#if state.status === "loading"}
     <span class="loading loading-xs loading-spinner" aria-hidden="true"></span>

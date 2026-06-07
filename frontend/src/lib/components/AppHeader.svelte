@@ -27,7 +27,7 @@
     databaseStatusText: string;
     isLoadButtonBusy: boolean;
     hasUserListError: boolean;
-    userListErrorMessage?: string;
+    userListErrorMessage: string | null;
     canSubmit: boolean;
     onSelectProvider: (provider: Provider) => void;
     onUserQueryInput: (value: string) => void;

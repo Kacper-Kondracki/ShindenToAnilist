@@ -78,8 +78,10 @@ export type DatabaseEntry = {
   tags: string[];
 };
 
+export type SearchMode = "strict" | "fuzzy" | "";
+
 export type SearchOptions = {
-  mode?: "strict" | "fuzzy" | "";
+  mode?: SearchMode;
   limit?: number;
   threshold?: number;
 };

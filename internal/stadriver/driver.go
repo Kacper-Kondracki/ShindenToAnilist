@@ -23,6 +23,8 @@ import (
 )
 
 type Driver struct {
+	// Lock order is opMu then mu. opMu protects driver state transitions by
+	// operation class; mu protects the C pointer lifetime during each call.
 	mu     sync.RWMutex
 	opMu   sync.RWMutex
 	ptr    *C.StaDriver
@@ -41,6 +43,9 @@ func New() (*Driver, error) {
 	return driver, nil
 }
 
+// Close releases the C-owned driver. Public methods copy C results into Go
+// values before freeing driver allocations, so callers never observe borrowed C
+// memory after a method returns.
 func (d *Driver) Close() error {
 	if d == nil {
 		return nil
@@ -171,15 +176,10 @@ func (d *Driver) LoadShindenList(userID uint64) (anime.ShindenListIndex, error) 
 	d.opMu.Lock()
 	defer d.opMu.Unlock()
 
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	if d.closed || d.ptr == nil {
-		return anime.ShindenListIndex{}, errors.New("driver is closed")
-	}
-
 	var out C.StaIdList
-	if err := intoGoError(C.sta_driver_load_shinden_list(d.ptr, C.uint64_t(userID), &out)); err != nil {
+	if err := d.call(func(ptr *C.StaDriver) C.StaError {
+		return C.sta_driver_load_shinden_list(ptr, C.uint64_t(userID), &out)
+	}); err != nil {
 		return anime.ShindenListIndex{}, err
 	}
 	defer C.sta_id_list_free(out)

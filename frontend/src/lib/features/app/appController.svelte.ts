@@ -65,7 +65,7 @@ export function createAppController() {
   let userListErrorMessage = $derived(
     userListRequestState.status === "error"
       ? userListRequestState.message
-      : undefined,
+      : null,
   );
   let canSubmit = $derived(
     Boolean(trimmedQuery) && !isUserListLoading && isProviderSupported,

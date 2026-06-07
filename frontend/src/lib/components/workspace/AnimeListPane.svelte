@@ -1,23 +1,10 @@
 <script lang="ts">
-  import { tick } from "svelte";
   import { VList } from "virtua/svelte";
-  import type { VListHandle } from "virtua/svelte";
   import type { EntryStore } from "../../data/entryStore.svelte";
   import type { MatchListResult, ShindenListViews } from "../../domain/anime";
+  import { createAnimeListPaneController } from "../../features/workspace/animeListPaneController.svelte";
   import AnimeListTabs from "./AnimeListTabs.svelte";
-  import AnimeRow, { type AnimeMatchStatus } from "./AnimeRow.svelte";
-  import type { AnimeListTabId } from "./tabs";
-
-  type PendingScrollRestore = {
-    tabId: AnimeListTabId;
-    selectedEntryId: number | null;
-    selectedViewportOffset: number | null;
-  };
-
-  type SelectedScrollAnchor = {
-    entryId: number;
-    viewportOffset: number;
-  };
+  import AnimeRow from "./AnimeRow.svelte";
 
   let {
     providerLabel,
@@ -35,226 +22,34 @@
     onSelectEntry: (entryId: number) => void;
   } = $props();
 
-  let listRef = $state<VListHandle | null>(null);
-  let activeAnimeListTab = $state<AnimeListTabId>("manual");
-  let tabScrollOffsets = $state<Record<AnimeListTabId, number>>(
-    initialTabScrollOffsets(),
-  );
-  let selectedScrollAnchors = $state<
-    Record<AnimeListTabId, SelectedScrollAnchor | null>
-  >(initialSelectedScrollAnchors());
-  let pendingScrollRestore = $state<PendingScrollRestore | null>(null);
-
-  let matchStatuses = $derived.by(() => {
-    const statuses = new Map<number, AnimeMatchStatus>();
-
-    for (const matchEntry of matchResult?.entries ?? []) {
-      if (matchEntry.result.winner !== null) {
-        statuses.set(matchEntry.shindenId, "matched");
-      } else if (matchEntry.result.top.length > 0) {
-        statuses.set(matchEntry.shindenId, "review");
-      } else {
-        statuses.set(matchEntry.shindenId, "unmatched");
-      }
-    }
-
-    return statuses;
+  const listPane = createAnimeListPaneController({
+    getEntryIdsByView: () => entryIdsByView,
+    getMatchResult: () => matchResult,
+    getSelectedEntryId: () => selectedEntryId,
   });
-
-  let visibleEntryIds = $derived.by(() => entryIdsByView[activeAnimeListTab]);
-
-  $effect(() => {
-    const restore = pendingScrollRestore;
-
-    if (restore === null || restore.tabId !== activeAnimeListTab) {
-      return;
-    }
-
-    visibleEntryIds;
-    void restoreScrollPosition(restore);
-  });
-
-  function initialTabScrollOffsets(): Record<AnimeListTabId, number> {
-    return {
-      manual: 0,
-      automatic: 0,
-      all: 0,
-    };
-  }
-
-  function initialSelectedScrollAnchors(): Record<
-    AnimeListTabId,
-    SelectedScrollAnchor | null
-  > {
-    return {
-      manual: null,
-      automatic: null,
-      all: null,
-    };
-  }
-
-  let emptyListText = $derived.by(() => {
-    if (entryIdsByView.all.length === 0) {
-      return "Lista jest pusta";
-    }
-
-    if (activeAnimeListTab === "automatic") {
-      return "Brak automatycznie dopasowanych wpisów";
-    }
-
-    if (activeAnimeListTab === "manual") {
-      return "Brak wpisów wymagających ręcznej interwencji";
-    }
-
-    return "Brak wpisów do wyświetlenia";
-  });
-
-  function handleScroll() {
-    rememberActiveTabScrollState();
-  }
-
-  function handleSelectTab(nextTabId: AnimeListTabId) {
-    if (nextTabId === activeAnimeListTab) {
-      return;
-    }
-
-    const currentOffset = rememberActiveTabScrollState();
-    const currentSelectedIndex =
-      selectedEntryId === null
-        ? -1
-        : visibleEntryIds.findIndex((entryId) => entryId === selectedEntryId);
-    const selectedViewportOffset = getSelectedRestoreOffset(
-      nextTabId,
-      currentSelectedIndex,
-      currentOffset,
-    );
-
-    pendingScrollRestore = {
-      tabId: nextTabId,
-      selectedEntryId,
-      selectedViewportOffset,
-    };
-    activeAnimeListTab = nextTabId;
-  }
-
-  async function restoreScrollPosition(restore: PendingScrollRestore) {
-    pendingScrollRestore = null;
-    await tick();
-
-    if (listRef === null || restore.tabId !== activeAnimeListTab) {
-      return;
-    }
-
-    const selectedIndex =
-      restore.selectedEntryId === null
-        ? -1
-        : visibleEntryIds.findIndex(
-            (entryId) => entryId === restore.selectedEntryId,
-          );
-
-    if (selectedIndex >= 0 && restore.selectedViewportOffset !== null) {
-      listRef.scrollTo(
-        Math.max(
-          0,
-          listRef.getItemOffset(selectedIndex) - restore.selectedViewportOffset,
-        ),
-      );
-      return;
-    }
-
-    listRef.scrollTo(tabScrollOffsets[activeAnimeListTab] ?? 0);
-  }
-
-  function rememberActiveTabScrollState() {
-    if (listRef === null) {
-      return tabScrollOffsets[activeAnimeListTab] ?? 0;
-    }
-
-    const scrollOffset = listRef.getScrollOffset();
-    const selectedIndex =
-      selectedEntryId === null
-        ? -1
-        : visibleEntryIds.findIndex((entryId) => entryId === selectedEntryId);
-    const selectedAnchor =
-      selectedEntryId !== null && selectedIndex >= 0
-        ? {
-            entryId: selectedEntryId,
-            viewportOffset:
-              getSelectedViewportOffset(selectedIndex, scrollOffset) ?? 0,
-          }
-        : null;
-
-    tabScrollOffsets = {
-      ...tabScrollOffsets,
-      [activeAnimeListTab]: scrollOffset,
-    };
-    selectedScrollAnchors = {
-      ...selectedScrollAnchors,
-      [activeAnimeListTab]: selectedAnchor,
-    };
-
-    return scrollOffset;
-  }
-
-  function getSelectedRestoreOffset(
-    nextTabId: AnimeListTabId,
-    currentSelectedIndex: number,
-    currentOffset: number,
-  ) {
-    if (selectedEntryId === null) {
-      return null;
-    }
-
-    if (listRef !== null && currentSelectedIndex >= 0) {
-      return getSelectedViewportOffset(currentSelectedIndex, currentOffset);
-    }
-
-    const nextTabAnchor = selectedScrollAnchors[nextTabId];
-
-    return nextTabAnchor?.entryId === selectedEntryId
-      ? nextTabAnchor.viewportOffset
-      : null;
-  }
-
-  function getSelectedViewportOffset(
-    selectedIndex: number,
-    scrollOffset: number,
-  ) {
-    if (listRef === null) {
-      return null;
-    }
-
-    const itemOffset = listRef.getItemOffset(selectedIndex);
-    const itemEndOffset = itemOffset + listRef.getItemSize(selectedIndex);
-    const viewportEndOffset = scrollOffset + listRef.getViewportSize();
-    const isOutsideViewport =
-      itemEndOffset <= scrollOffset || itemOffset >= viewportEndOffset;
-
-    return isOutsideViewport ? 0 : itemOffset - scrollOffset;
-  }
 </script>
 
 <section class="workspace-pane" aria-label={`Lista anime z ${providerLabel}`}>
   <div class="workspace-pane__header">
     <AnimeListTabs
-      activeTab={activeAnimeListTab}
-      onSelectTab={handleSelectTab}
+      activeTab={listPane.activeTab}
+      onSelectTab={listPane.selectTab}
     />
   </div>
   <div id="anime-list-tab-panel" role="tabpanel" class="workspace-pane__body">
-    {#if visibleEntryIds.length > 0}
+    {#if listPane.visibleEntryIds.length > 0}
       <VList
-        bind:this={listRef}
-        data={visibleEntryIds}
+        bind:this={listPane.listRef}
+        data={listPane.visibleEntryIds}
         class="anime-list size-full"
         getKey={(entryId) => entryId}
-        onscroll={handleScroll}
+        onscroll={listPane.handleScroll}
       >
         {#snippet children(entryId)}
           <AnimeRow
             {entryId}
             entry={entryStore.getShindenEntry(entryId)}
-            matchStatus={matchStatuses.get(entryId) ?? "unmatched"}
+            matchStatus={listPane.matchStatuses.get(entryId) ?? "unmatched"}
             isSelected={entryId === selectedEntryId}
             onSelect={() => onSelectEntry(entryId)}
             {entryStore}
@@ -263,7 +58,7 @@
       </VList>
     {:else}
       <p class="workspace-empty text-sm font-medium text-muted">
-        {emptyListText}
+        {listPane.emptyListText}
       </p>
     {/if}
   </div>

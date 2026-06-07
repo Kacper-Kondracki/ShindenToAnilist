@@ -63,7 +63,7 @@
     {/if}
   </div>
 
-  {#if entry?.score !== null && entry?.score !== undefined}
+  {#if entry !== null && entry.score !== null}
     <span class="badge shrink-0 badge-soft badge-info">
       {entry.score}/10
     </span>

@@ -1,3 +1,5 @@
+import type { DatabaseState } from "./anime";
+
 const missingValueText = "Brak danych";
 
 const animeTypeLabels: Record<string, string> = {
@@ -66,4 +68,16 @@ export function translateSeason(season: string) {
   }
 
   return seasonLabels[season.toLowerCase()] ?? season;
+}
+
+export function databaseStatusTitle(state: DatabaseState) {
+  if (state.status === "error") {
+    return state.message;
+  }
+
+  if (state.status === "ready") {
+    return state.info.path;
+  }
+
+  return null;
 }
