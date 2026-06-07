@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { EntryStore } from "../data/entryStore.svelte";
-  import type { MatchListResult, ShindenListViews } from "../domain/anime";
+  import type { ShindenListViews } from "../domain/anime";
+  import type { WorkspaceController } from "../features/workspace/workspaceController.svelte";
   import AnimeListPane from "./workspace/AnimeListPane.svelte";
   import WorkspaceEditorPane from "./workspace/WorkspaceEditorPane.svelte";
   import WorkspaceStatusBar from "./workspace/WorkspaceStatusBar.svelte";
@@ -9,102 +10,46 @@
     providerLabel,
     entryIdsByView,
     entryStore,
-    matchResult,
-    matchErrorMessage,
-    isMatching,
-    fetchDurationMs,
-    matchDurationMs,
-    manualSelections = $bindable(),
+    workspace,
   }: {
     providerLabel: string;
     entryIdsByView: ShindenListViews;
     entryStore: EntryStore;
-    matchResult: MatchListResult | null;
-    matchErrorMessage: string | null;
-    isMatching: boolean;
-    fetchDurationMs: number | null;
-    matchDurationMs: number | null;
-    manualSelections: Record<number, number>;
+    workspace: WorkspaceController;
   } = $props();
-
-  let selectedEntryId = $state<number | null>(null);
-  let hasTrackedEntries = $state(false);
-  let previousEntryIdsByView = $state<ShindenListViews | null>(null);
-  let selectedMatchEntry = $derived(
-    selectedEntryId === null
-      ? null
-      : (matchResult?.entries.find(
-          (entry) => entry.shindenId === selectedEntryId,
-        ) ?? null),
-  );
-  let selectedWinnerId = $derived(
-    selectedMatchEntry?.result.winner?.id ?? null,
-  );
-  let selectedWinner = $derived(entryStore.getDatabaseEntry(selectedWinnerId));
-
-  $effect(() => {
-    if (hasTrackedEntries && previousEntryIdsByView === entryIdsByView) {
-      return;
-    }
-
-    const shouldClearSelection = hasTrackedEntries;
-    hasTrackedEntries = true;
-    previousEntryIdsByView = entryIdsByView;
-
-    if (shouldClearSelection) {
-      selectedEntryId = null;
-    }
-  });
-
-  $effect(() => {
-    if (
-      selectedEntryId !== null &&
-      !entryIdsByView.all.some((entryId) => entryId === selectedEntryId)
-    ) {
-      selectedEntryId = null;
-    }
-  });
-
-  $effect(() => {
-    const winnerId = selectedWinnerId;
-    return entryStore.pinDatabaseEntry(winnerId);
-  });
 </script>
 
-<section class="workspace-content">
+<section class="grid min-h-0 flex-1 items-stretch">
   <div class="workspace-layout">
     <AnimeListPane
       {providerLabel}
       {entryIdsByView}
       {entryStore}
-      {matchResult}
-      {selectedEntryId}
-      onSelectEntry={(entryId) => {
-        selectedEntryId = entryId;
-      }}
+      matchResult={workspace.matchResult}
+      selectedEntryId={workspace.selectedEntryId}
+      onSelectEntry={workspace.selectEntry}
     />
-    <WorkspaceEditorPane {selectedEntryId} {selectedWinner} />
+    <WorkspaceEditorPane
+      selectedEntryId={workspace.selectedEntryId}
+      selectedWinner={workspace.selectedWinner}
+    />
   </div>
 </section>
 
 <WorkspaceStatusBar
   entryIds={entryIdsByView.all}
-  {matchResult}
-  {matchErrorMessage}
-  {isMatching}
-  {fetchDurationMs}
-  {matchDurationMs}
-  bind:manualSelections
+  matchResult={workspace.matchResult}
+  matchErrorMessage={workspace.matchErrorMessage}
+  isMatching={false}
+  fetchDurationMs={workspace.fetchDurationMs}
+  matchDurationMs={workspace.matchDurationMs}
+  manualSelections={workspace.manualOverrides}
+  exportState={workspace.exportState}
+  canExport={workspace.canExport}
+  onExport={workspace.exportCurrentSelections}
 />
 
 <style>
-  .workspace-content {
-    display: grid;
-    flex: 1;
-    min-height: 0;
-    align-items: stretch;
-  }
-
   .workspace-layout {
     display: grid;
     min-height: 0;

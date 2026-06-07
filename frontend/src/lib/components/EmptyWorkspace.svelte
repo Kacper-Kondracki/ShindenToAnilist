@@ -1,10 +1,14 @@
 <script lang="ts">
+  import type { ProviderOption } from "../config/providers";
   import AnimatedGridPanel from "./AnimatedGridPanel.svelte";
 
-  let { providerLabel }: { providerLabel: string } = $props();
+  let {
+    provider,
+    canLoadProvider,
+  }: { provider: ProviderOption; canLoadProvider: boolean } = $props();
 </script>
 
-<section class="app-content">
+<section class="grid flex-1 p-4">
   <AnimatedGridPanel
     class="grid place-items-center overflow-hidden surface-panel"
   >
@@ -12,10 +16,18 @@
       class="isolate grid max-w-3xl justify-items-center gap-2 px-6 text-center"
     >
       <p class="text-2xl font-bold md:text-4xl">
-        Wczytaj listę, żeby rozpocząć dopasowywanie
+        {#if canLoadProvider}
+          Wczytaj listę, żeby rozpocząć dopasowywanie
+        {:else}
+          {provider.label} jest jeszcze w budowie
+        {/if}
       </p>
       <p class="text-base font-medium text-muted md:text-xl">
-        Aktywny import z {providerLabel}, pozostałe źródła w budowie
+        {#if canLoadProvider}
+          Aktywny import z {provider.label}, pozostałe źródła w budowie
+        {:else}
+          Możesz wybrać to źródło, ale import listy nie jest jeszcze dostępny
+        {/if}
       </p>
     </div>
   </AnimatedGridPanel>

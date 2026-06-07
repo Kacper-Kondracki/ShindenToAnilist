@@ -44,9 +44,6 @@
     Record<AnimeListTabId, SelectedScrollAnchor | null>
   >(initialSelectedScrollAnchors());
   let pendingScrollRestore = $state<PendingScrollRestore | null>(null);
-  let hasTrackedWorkspaceData = $state(false);
-  let previousEntryIdsByView = $state<ShindenListViews | null>(null);
-  let previousMatchResult = $state<MatchListResult | null>(null);
 
   let matchStatuses = $derived.by(() => {
     const statuses = new Map<number, AnimeMatchStatus>();
@@ -65,25 +62,6 @@
   });
 
   let visibleEntryIds = $derived.by(() => entryIdsByView[activeAnimeListTab]);
-
-  $effect(() => {
-    if (
-      hasTrackedWorkspaceData &&
-      previousEntryIdsByView === entryIdsByView &&
-      previousMatchResult === matchResult
-    ) {
-      return;
-    }
-
-    const shouldReset = hasTrackedWorkspaceData;
-    hasTrackedWorkspaceData = true;
-    previousEntryIdsByView = entryIdsByView;
-    previousMatchResult = matchResult;
-
-    if (shouldReset) {
-      resetListNavigationState();
-    }
-  });
 
   $effect(() => {
     const restore = pendingScrollRestore;
@@ -113,14 +91,6 @@
       automatic: null,
       all: null,
     };
-  }
-
-  function resetListNavigationState() {
-    activeAnimeListTab = "manual";
-    tabScrollOffsets = initialTabScrollOffsets();
-    selectedScrollAnchors = initialSelectedScrollAnchors();
-    pendingScrollRestore = null;
-    listRef?.scrollTo(0);
   }
 
   let emptyListText = $derived.by(() => {

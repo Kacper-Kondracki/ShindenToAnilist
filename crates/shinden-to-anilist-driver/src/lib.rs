@@ -6,16 +6,30 @@ mod matcher;
 mod shinden;
 
 use std::{
-    ffi::{CStr, c_char},
+    ffi::{
+        CStr,
+        c_char,
+    },
     panic::catch_unwind,
     ptr,
 };
 
 pub use driver::StaDriver;
 pub use ffi::{
-    StaAnimeDatabase, StaDatabaseInfo, StaError, StaExportResult, StaIdList, StaMatchListResult,
-    StaMatchOptions, StaMatchQueryOptions, StaMatchResult, StaMatchSelection, StaSearchOptions,
-    StaSearchResult, StaShindenList, StaStatus,
+    StaAnimeDatabase,
+    StaDatabaseInfo,
+    StaError,
+    StaExportResult,
+    StaIdList,
+    StaMatchListResult,
+    StaMatchOptions,
+    StaMatchQueryOptions,
+    StaMatchResult,
+    StaMatchSelection,
+    StaSearchOptions,
+    StaSearchResult,
+    StaShindenList,
+    StaStatus,
 };
 
 /// # Safety
@@ -36,9 +50,7 @@ pub extern "C" fn sta_driver_new() -> *mut StaDriver {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn sta_driver_abort(driver: *mut StaDriver) {
-    driver::abort(driver);
-}
+pub extern "C" fn sta_driver_abort(driver: *mut StaDriver) { driver::abort(driver); }
 
 /// # Safety
 /// Safe if takes ownership and consumes the object.
@@ -170,9 +182,7 @@ pub unsafe extern "C" fn sta_driver_get_loaded_shinden_entry_ids(
         Err(error) => return error,
     };
 
-    ffi::with_driver_out_result(driver, out, move |driver| {
-        shinden::get_entry_ids(driver, &view)
-    })
+    ffi::with_driver_out_result(driver, out, move |driver| shinden::get_entry_ids(driver, &view))
 }
 
 /// # Safety
@@ -189,9 +199,7 @@ pub unsafe extern "C" fn sta_driver_get_loaded_shinden_entries(
         Err(error) => return error,
     };
 
-    ffi::with_driver_out_result(driver, out, move |driver| {
-        shinden::get_entries(driver, &ids)
-    })
+    ffi::with_driver_out_result(driver, out, move |driver| shinden::get_entries(driver, &ids))
 }
 
 /// # Safety

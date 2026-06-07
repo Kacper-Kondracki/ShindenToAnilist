@@ -4,18 +4,36 @@ use shinden_to_anilist_core::{
     BlockingHttpClient,
     common::AnimeList,
     database::{
-        AnimeDatabase, AnimeDatabaseLoad, AnimeEntry, root_metadata_from_path,
-        updater::{DatabaseUpdateStatus, update_latest_jsonl_from_github_blocking},
+        AnimeDatabase,
+        AnimeDatabaseLoad,
+        AnimeEntry,
+        root_metadata_from_path,
+        updater::{
+            DatabaseUpdateStatus,
+            update_latest_jsonl_from_github_blocking,
+        },
     },
-    extractor::{ConsolidatedMetadata, TitleMetadata},
+    extractor::{
+        ConsolidatedMetadata,
+        TitleMetadata,
+    },
     searcher::DefaultSearcher,
 };
 
 use crate::{
     driver::StaDriver,
     ffi::{
-        StaAnimeDatabase, StaConsolidatedMetadata, StaDatabaseEntry, StaDatabaseInfo, StaTitleMetadata,
-        into_raw_string, optional_date, optional_f32, optional_i32, string_view, string_view_array,
+        StaAnimeDatabase,
+        StaConsolidatedMetadata,
+        StaDatabaseEntry,
+        StaDatabaseInfo,
+        StaTitleMetadata,
+        into_raw_string,
+        optional_date,
+        optional_f32,
+        optional_i32,
+        string_view,
+        string_view_array,
     },
     labels,
 };
@@ -32,20 +50,28 @@ pub fn ensure_database(driver: &StaDriver, path: &str) -> Result<StaDatabaseInfo
     let searcher = DefaultSearcher::new(&database);
     driver.check_aborted()?;
 
-    {
-        let mut state = driver
-            .database()
-            .lock()
-            .map_err(|_| "database lock is poisoned".to_owned())?;
-        *state = Some(database);
-    }
-    {
-        let mut state = driver
-            .searcher()
-            .lock()
-            .map_err(|_| "searcher lock is poisoned".to_owned())?;
-        *state = Some(searcher);
-    }
+    let mut state = driver
+        .database_state()
+        .write()
+        .map_err(|_| "database state lock is poisoned".to_owned())?;
+    state.generation = state.generation.wrapping_add(1);
+    state.database = Some(database);
+    state.searcher = Some(searcher);
+    drop(state);
+
+    let mut matches = driver
+        .match_state()
+        .write()
+        .map_err(|_| "match state lock is poisoned".to_owned())?;
+    matches.results = None;
+    drop(matches);
+
+    let mut shinden = driver
+        .shinden_state()
+        .write()
+        .map_err(|_| "shinden state lock is poisoned".to_owned())?;
+    shinden.entry_ids.automatic = Vec::new();
+    shinden.entry_ids.manual = shinden.entry_ids.all.clone();
 
     let (release, sha256, updated) = match update_status {
         DatabaseUpdateStatus::UpToDate { release, sha256 } => (release, sha256, false),
@@ -64,11 +90,12 @@ pub fn ensure_database(driver: &StaDriver, path: &str) -> Result<StaDatabaseInfo
 pub fn get_database_entries(driver: &StaDriver, ids: &[u64]) -> Result<StaAnimeDatabase, String> {
     driver.check_aborted()?;
 
-    let database = driver
-        .database()
-        .lock()
-        .map_err(|_| "database lock is poisoned".to_owned())?;
-    let database = database
+    let state = driver
+        .database_state()
+        .read()
+        .map_err(|_| "database state lock is poisoned".to_owned())?;
+    let database = state
+        .database
         .as_ref()
         .ok_or_else(|| "anime database is not loaded".to_owned())?;
 

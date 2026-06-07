@@ -1,5 +1,5 @@
 use std::sync::{
-    Mutex,
+    RwLock,
     atomic::{
         AtomicBool,
         Ordering,
@@ -34,24 +34,41 @@ pub(crate) struct StoredShindenEntryIds {
     pub all: Vec<u64>,
 }
 
+#[derive(Default)]
+pub(crate) struct DatabaseState {
+    pub generation: u64,
+    pub database: Option<AnimeDatabase>,
+    pub searcher: Option<DefaultSearcher>,
+}
+
+#[derive(Default)]
+pub(crate) struct ShindenState {
+    pub generation: u64,
+    pub list: Option<ShindenList>,
+    pub entry_ids: StoredShindenEntryIds,
+}
+
+#[derive(Default)]
+pub(crate) struct MatchState {
+    pub database_generation: u64,
+    pub shinden_generation: u64,
+    pub results: Option<Vec<StoredShindenMatchResult>>,
+}
+
 pub struct StaDriver {
     aborted: AtomicBool,
-    database: Mutex<Option<AnimeDatabase>>,
-    searcher: Mutex<Option<DefaultSearcher>>,
-    shinden_list: Mutex<Option<ShindenList>>,
-    match_results: Mutex<Option<Vec<StoredShindenMatchResult>>>,
-    shinden_entry_ids: Mutex<StoredShindenEntryIds>,
+    database: RwLock<DatabaseState>,
+    shinden: RwLock<ShindenState>,
+    matches: RwLock<MatchState>,
 }
 
 impl StaDriver {
     pub fn new() -> Self {
         Self {
             aborted: AtomicBool::new(false),
-            database: Mutex::new(None),
-            searcher: Mutex::new(None),
-            shinden_list: Mutex::new(None),
-            match_results: Mutex::new(None),
-            shinden_entry_ids: Mutex::new(StoredShindenEntryIds::default()),
+            database: RwLock::new(DatabaseState::default()),
+            shinden: RwLock::new(ShindenState::default()),
+            matches: RwLock::new(MatchState::default()),
         }
     }
 
@@ -67,19 +84,11 @@ impl StaDriver {
         }
     }
 
-    pub(crate) fn database(&self) -> &Mutex<Option<AnimeDatabase>> { &self.database }
+    pub(crate) fn database_state(&self) -> &RwLock<DatabaseState> { &self.database }
 
-    pub(crate) fn searcher(&self) -> &Mutex<Option<DefaultSearcher>> { &self.searcher }
+    pub(crate) fn shinden_state(&self) -> &RwLock<ShindenState> { &self.shinden }
 
-    pub(crate) fn shinden_list(&self) -> &Mutex<Option<ShindenList>> { &self.shinden_list }
-
-    pub(crate) fn match_results(&self) -> &Mutex<Option<Vec<StoredShindenMatchResult>>> {
-        &self.match_results
-    }
-
-    pub(crate) fn shinden_entry_ids(&self) -> &Mutex<StoredShindenEntryIds> {
-        &self.shinden_entry_ids
-    }
+    pub(crate) fn match_state(&self) -> &RwLock<MatchState> { &self.matches }
 }
 
 impl Default for StaDriver {

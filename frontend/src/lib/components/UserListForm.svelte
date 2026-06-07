@@ -1,10 +1,11 @@
 <script lang="ts">
   let {
-    value = $bindable(),
+    value,
     busy,
     canSubmit,
     hasError,
     errorMessage,
+    onValueInput,
     onClearError,
     onSubmit,
   }: {
@@ -13,9 +14,15 @@
     canSubmit: boolean;
     hasError: boolean;
     errorMessage?: string;
+    onValueInput: (value: string) => void;
     onClearError: () => void;
     onSubmit: (event: SubmitEvent) => void;
   } = $props();
+
+  function handleInput(event: Event) {
+    onValueInput((event.currentTarget as HTMLInputElement).value);
+    onClearError();
+  }
 </script>
 
 <form class="join flex-1" onsubmit={onSubmit}>
@@ -26,11 +33,11 @@
   >
     <span class="sr-only">ID lub nazwa użytkownika</span>
     <input
-      bind:value
+      {value}
       type="text"
       placeholder="ID, profil Shinden lub nazwa użytkownika"
       autocomplete="off"
-      oninput={onClearError}
+      oninput={handleInput}
       aria-invalid={hasError}
     />
   </label>

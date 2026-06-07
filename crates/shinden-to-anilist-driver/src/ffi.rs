@@ -347,10 +347,7 @@ pub fn empty_match_result() -> StaMatchResult {
         top: ptr::null_mut(),
         top_len: 0,
         winner: StaMatchWinner {
-            item: StaScoredCandidate {
-                id: 0,
-                score: 0.0,
-            },
+            item: StaScoredCandidate { id: 0, score: 0.0 },
             has_value: false,
         },
     }

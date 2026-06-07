@@ -3,10 +3,12 @@
 
   let {
     providers,
-    selectedProvider = $bindable(),
+    selectedProvider,
+    onSelectProvider,
   }: {
     providers: readonly ProviderOption[];
     selectedProvider: Provider;
+    onSelectProvider: (provider: Provider) => void;
   } = $props();
 </script>
 
@@ -21,7 +23,7 @@
       disabled={provider.disabled}
       aria-pressed={selectedProvider === provider.id}
       title={provider.site}
-      onclick={() => (selectedProvider = provider.id as Provider)}
+      onclick={() => onSelectProvider(provider.id as Provider)}
     >
       {provider.label}
     </button>

@@ -97,18 +97,16 @@ pub fn search_anime(
 ) -> Result<StaSearchResult, String> {
     driver.check_aborted()?;
 
-    let database = driver
-        .database()
-        .lock()
-        .map_err(|_| "database lock is poisoned".to_owned())?;
-    let database = database
+    let database_state = driver
+        .database_state()
+        .read()
+        .map_err(|_| "database state lock is poisoned".to_owned())?;
+    let database = database_state
+        .database
         .as_ref()
         .ok_or_else(|| "anime database is not loaded".to_owned())?;
-    let searcher = driver
-        .searcher()
-        .lock()
-        .map_err(|_| "searcher lock is poisoned".to_owned())?;
-    let searcher = searcher
+    let searcher = database_state
+        .searcher
         .as_ref()
         .ok_or_else(|| "anime searcher is not loaded".to_owned())?;
 
@@ -136,18 +134,16 @@ pub fn match_query(
 ) -> Result<StaMatchResult, String> {
     driver.check_aborted()?;
 
-    let database = driver
-        .database()
-        .lock()
-        .map_err(|_| "database lock is poisoned".to_owned())?;
-    let database = database
+    let database_state = driver
+        .database_state()
+        .read()
+        .map_err(|_| "database state lock is poisoned".to_owned())?;
+    let database = database_state
+        .database
         .as_ref()
         .ok_or_else(|| "anime database is not loaded".to_owned())?;
-    let searcher = driver
-        .searcher()
-        .lock()
-        .map_err(|_| "searcher lock is poisoned".to_owned())?;
-    let searcher = searcher
+    let searcher = database_state
+        .searcher
         .as_ref()
         .ok_or_else(|| "anime searcher is not loaded".to_owned())?;
 
@@ -171,25 +167,27 @@ pub fn match_loaded_shinden_list(
 ) -> Result<StaMatchListResult, String> {
     driver.check_aborted()?;
 
-    let database = driver
-        .database()
-        .lock()
-        .map_err(|_| "database lock is poisoned".to_owned())?;
-    let database = database
+    let database_state = driver
+        .database_state()
+        .read()
+        .map_err(|_| "database state lock is poisoned".to_owned())?;
+    let database_generation = database_state.generation;
+    let database = database_state
+        .database
         .as_ref()
         .ok_or_else(|| "anime database is not loaded".to_owned())?;
-    let searcher = driver
-        .searcher()
-        .lock()
-        .map_err(|_| "searcher lock is poisoned".to_owned())?;
-    let searcher = searcher
+    let searcher = database_state
+        .searcher
         .as_ref()
         .ok_or_else(|| "anime searcher is not loaded".to_owned())?;
-    let shinden = driver
-        .shinden_list()
-        .lock()
-        .map_err(|_| "shinden list lock is poisoned".to_owned())?;
-    let shinden = shinden
+    let shinden_state = driver
+        .shinden_state()
+        .read()
+        .map_err(|_| "shinden state lock is poisoned".to_owned())?;
+    let shinden_generation = shinden_state.generation;
+    let base_order = shinden_state.entry_ids.all.clone();
+    let shinden = shinden_state
+        .list
         .as_ref()
         .ok_or_else(|| "shinden list is not loaded".to_owned())?;
 
@@ -228,21 +226,26 @@ pub fn match_loaded_shinden_list(
             result: stored_match_result(result),
         })
         .collect::<Vec<_>>();
+    drop(shinden_state);
+    drop(database_state);
 
     {
         let mut state = driver
-            .match_results()
-            .lock()
-            .map_err(|_| "match results lock is poisoned".to_owned())?;
-        *state = Some(stored.clone());
+            .match_state()
+            .write()
+            .map_err(|_| "match state lock is poisoned".to_owned())?;
+        state.database_generation = database_generation;
+        state.shinden_generation = shinden_generation;
+        state.results = Some(stored.clone());
     }
     {
         let mut entry_ids = driver
-            .shinden_entry_ids()
-            .lock()
-            .map_err(|_| "shinden entry ids lock is poisoned".to_owned())?;
-        let base_order = entry_ids.all.clone();
-        *entry_ids = sorted_entry_ids_for_results(&base_order, &stored);
+            .shinden_state()
+            .write()
+            .map_err(|_| "shinden state lock is poisoned".to_owned())?;
+        if entry_ids.generation == shinden_generation {
+            entry_ids.entry_ids = sorted_entry_ids_for_results(&base_order, &stored);
+        }
     }
 
     Ok(stored_match_list_to_ffi(&stored, result_limit))
@@ -267,10 +270,11 @@ pub unsafe fn export_matches(
     };
 
     let shinden = driver
-        .shinden_list()
-        .lock()
-        .map_err(|_| "shinden list lock is poisoned".to_owned())?;
+        .shinden_state()
+        .read()
+        .map_err(|_| "shinden state lock is poisoned".to_owned())?;
     let shinden = shinden
+        .list
         .as_ref()
         .ok_or_else(|| "shinden list is not loaded".to_owned())?;
 

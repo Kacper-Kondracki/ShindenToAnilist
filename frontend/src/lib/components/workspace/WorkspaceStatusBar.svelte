@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
 
   import type { MatchListResult } from "../../domain/anime";
+  import type { ExportState } from "../../features/workspace/workspaceController.svelte";
 
   let {
     entryIds,
@@ -10,7 +11,10 @@
     isMatching,
     fetchDurationMs,
     matchDurationMs,
-    manualSelections = $bindable(),
+    manualSelections,
+    exportState,
+    canExport,
+    onExport,
   }: {
     entryIds: number[];
     matchResult: MatchListResult | null;
@@ -19,6 +23,9 @@
     fetchDurationMs: number | null;
     matchDurationMs: number | null;
     manualSelections: Record<number, number>;
+    exportState: ExportState;
+    canExport: boolean;
+    onExport: () => void;
   } = $props();
 
   let totalCount = $derived(entryIds.length);
@@ -59,6 +66,17 @@
   let matchTimeText = $derived(
     isMatching ? "..." : formatDuration(matchDurationMs),
   );
+  let exportButtonText = $derived.by(() => {
+    if (exportState.status === "exporting") {
+      return "Eksportowanie";
+    }
+
+    if (exportState.status === "exported") {
+      return `Wyeksportowano ${exportState.exportedCount}`;
+    }
+
+    return "Eksport";
+  });
   let summaryElement: HTMLDivElement;
   let apiBadgeElement: HTMLSpanElement;
   let matchBadgeElement: HTMLSpanElement;
@@ -214,7 +232,21 @@
         >
       </span>
     </div>
-    <button class="btn btn-error xl:btn-wide" type="button">Eksport</button>
+    <button
+      class="btn btn-error xl:btn-wide"
+      type="button"
+      disabled={!canExport}
+      onclick={onExport}
+      title={exportState.status === "error"
+        ? exportState.message
+        : "Eksportuj dopasowania do pliku XML"}
+    >
+      {#if exportState.status === "exporting"}
+        <span class="loading loading-xs loading-spinner" aria-hidden="true"
+        ></span>
+      {/if}
+      {exportButtonText}
+    </button>
   </div>
 </footer>
 

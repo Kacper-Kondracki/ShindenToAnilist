@@ -1,270 +1,67 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import {
-    getLoadedShindenEntryIds,
-    loadShindenList,
-    matchLoadedShindenList,
-  } from "./lib/api/appService";
   import AppHeader from "./lib/components/AppHeader.svelte";
   import EmptyWorkspace from "./lib/components/EmptyWorkspace.svelte";
   import WorkspaceView from "./lib/components/WorkspaceView.svelte";
-  import {
-    providerById,
-    providers,
-    type Provider,
-  } from "./lib/config/providers";
-  import type {
-    DatabaseState,
-    MatchListResult,
-    UserListRequestState,
-    WorkspaceState,
-  } from "./lib/domain/anime";
-  import {
-    errorMessage,
-    initializeDatabaseState,
-  } from "./lib/features/database/initializeDatabase";
-  import {
-    hasShindenProfileHost,
-    parseShindenUserId,
-  } from "./lib/features/shinden/userInput";
-  import { createEntryStore } from "./lib/data/entryStore.svelte";
+  import { createAppController } from "./lib/features/app/appController.svelte";
 
-  let selectedProvider = $state<Provider>("shinden");
-  let userQuery = $state("");
-  let databaseState = $state<DatabaseState>({ status: "loading" });
-  let userListRequestState = $state<UserListRequestState>({ status: "idle" });
-  let workspaceState = $state<WorkspaceState>({ status: "empty" });
-  let matchResult = $state<MatchListResult | null>(null);
-  let matchErrorMessage = $state<string | null>(null);
-  let activeRequestId = 0;
-  let databaseInitializationPromise: Promise<DatabaseState> | null = null;
-  let fetchDurationMs = $state<number | null>(null);
-  let matchDurationMs = $state<number | null>(null);
-  let manualSelections = $state<Record<number, number>>({});
-  const entryStore = createEntryStore();
-
-  let trimmedQuery = $derived(userQuery.trim());
-  let parsedShindenUserId = $derived(parseShindenUserId(userQuery));
-  let isShindenProfileInput = $derived(hasShindenProfileHost(userQuery));
-  let selectedProviderDetails = $derived(providerById(selectedProvider));
-  let databaseStatusText = $derived.by(() => {
-    if (databaseState.status === "ready") {
-      return databaseState.info.lastUpdate
-        ? `Baza danych: ${databaseState.info.lastUpdate}`
-        : "Baza danych załadowana";
-    }
-
-    if (databaseState.status === "error") {
-      return "Baza danych niedostępna";
-    }
-
-    return "Ładowanie bazy danych";
-  });
-  let activeProviderDetails = $derived.by(() => {
-    const state = workspaceState;
-
-    if (state.status === "active") {
-      return providerById(state.provider);
-    }
-
-    return selectedProviderDetails;
-  });
-  let isUserListLoading = $derived(userListRequestState.status === "loading");
-  let isWaitingForDatabase = $derived(
-    userListRequestState.status === "loading" &&
-      databaseState.status !== "ready",
-  );
-  let isLoadButtonBusy = $derived(isUserListLoading || isWaitingForDatabase);
-  let hasUserListError = $derived(userListRequestState.status === "error");
-  let userListErrorMessage = $derived(
-    userListRequestState.status === "error"
-      ? userListRequestState.message
-      : undefined,
-  );
-  let canSubmit = $derived(Boolean(trimmedQuery) && !isUserListLoading);
+  const app = createAppController();
 
   onMount(() => {
-    void initializeDatabase();
+    void app.initializeDatabase();
   });
-
-  $effect(() => {
-    if (isShindenProfileInput && selectedProvider !== "shinden") {
-      selectedProvider = "shinden";
-    }
-  });
-
-  async function initializeDatabase() {
-    databaseState = { status: "loading" };
-    databaseInitializationPromise = initializeDatabaseState();
-    databaseState = await databaseInitializationPromise;
-    return databaseState;
-  }
-
-  function clearUserListError() {
-    if (userListRequestState.status === "error") {
-      userListRequestState = { status: "idle" };
-    }
-  }
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
-    clearUserListError();
-
-    if (!trimmedQuery) return;
-
-    const provider = selectedProvider;
-    const query = trimmedQuery;
-
-    if (selectedProvider !== "shinden") {
-      console.log("Provider loading is not implemented yet", {
-        provider,
-        query,
-      });
-      return;
-    }
-
-    if (parsedShindenUserId === null) {
-      userListRequestState = {
-        status: "error",
-        provider,
-        query,
-        message: "Nie udało się rozpoznać użytkownika Shinden",
-      };
-      return;
-    }
-
-    const requestId = activeRequestId + 1;
-    activeRequestId = requestId;
-    userListRequestState = { status: "loading", provider, query };
-
-    try {
-      const fetchStartedAt = performance.now();
-      const list = await loadShindenList(parsedShindenUserId);
-      const nextFetchDurationMs = performance.now() - fetchStartedAt;
-      const readyDatabaseState = await waitForReadyDatabase();
-
-      if (readyDatabaseState.status !== "ready") {
-        throw new Error(
-          readyDatabaseState.status === "error"
-            ? readyDatabaseState.message
-            : "Baza danych nie jest gotowa",
-        );
-      }
-
-      const matchStartedAt = performance.now();
-      const nextMatchResult = await matchLoadedShindenList();
-      const [manualIds, automaticIds, allIds] = await Promise.all([
-        getLoadedShindenEntryIds("manual"),
-        getLoadedShindenEntryIds("automatic"),
-        getLoadedShindenEntryIds("all"),
-      ]);
-      const nextMatchDurationMs = performance.now() - matchStartedAt;
-
-      if (activeRequestId !== requestId) return;
-
-      entryStore.reset();
-      userListRequestState = {
-        status: "loaded",
-        provider,
-        query,
-        entryIdsByView: {
-          manual: manualIds.entryIds,
-          automatic: automaticIds.entryIds,
-          all: allIds.entryIds.length > 0 ? allIds.entryIds : list.entryIds,
-        },
-      };
-      workspaceState = {
-        status: "active",
-        provider,
-        query,
-        entryIdsByView: {
-          manual: manualIds.entryIds,
-          automatic: automaticIds.entryIds,
-          all: allIds.entryIds.length > 0 ? allIds.entryIds : list.entryIds,
-        },
-      };
-      matchResult = nextMatchResult;
-      matchErrorMessage = null;
-      fetchDurationMs = nextFetchDurationMs;
-      matchDurationMs = nextMatchDurationMs;
-      manualSelections = {};
-    } catch (error) {
-      if (activeRequestId !== requestId) return;
-
-      console.error("Unable to load Shinden user list", error);
-      userListRequestState = {
-        status: "error",
-        provider,
-        query,
-        message: errorMessage(error),
-      };
-    }
-  }
-
-  async function waitForReadyDatabase() {
-    if (databaseState.status === "ready" || databaseState.status === "error") {
-      return databaseState;
-    }
-
-    if (databaseInitializationPromise === null) {
-      return await initializeDatabase();
-    }
-
-    return await databaseInitializationPromise;
+    await app.submitUserList();
   }
 </script>
 
 <main
-  class="app-shell"
-  style:--provider-accent={selectedProviderDetails.accent}
+  class="flex min-h-dvh flex-col bg-base-300"
+  style:--provider-accent={app.selectedProviderDetails.accent}
 >
   <AppHeader
-    {providers}
-    bind:selectedProvider
-    bind:userQuery
-    {databaseState}
-    {databaseStatusText}
-    {isLoadButtonBusy}
-    {hasUserListError}
-    {userListErrorMessage}
-    {canSubmit}
-    onClearUserListError={clearUserListError}
+    providers={app.providers}
+    selectedProvider={app.selectedProvider}
+    userQuery={app.userQuery}
+    databaseState={app.databaseState}
+    databaseStatusText={app.databaseStatusText}
+    isLoadButtonBusy={app.isLoadButtonBusy}
+    hasUserListError={app.hasUserListError}
+    userListErrorMessage={app.userListErrorMessage}
+    canSubmit={app.canSubmit}
+    onSelectProvider={app.setSelectedProvider}
+    onUserQueryInput={app.setUserQuery}
+    onClearUserListError={app.clearUserListError}
     onSubmit={handleSubmit}
   />
 
-  <div class="view-stage">
-    {#if workspaceState.status === "empty"}
+  <div class="relative min-h-0 flex-1 overflow-hidden [contain:layout_paint]">
+    {#if app.workspace.state.status === "empty"}
       <div class="view-frame">
-        <EmptyWorkspace providerLabel={selectedProviderDetails.label} />
+        <EmptyWorkspace
+          provider={app.selectedProviderDetails}
+          canLoadProvider={app.isProviderSupported}
+        />
       </div>
     {:else}
       <div class="view-frame view-frame--workspace-enter">
-        <WorkspaceView
-          providerLabel={activeProviderDetails.label}
-          entryIdsByView={workspaceState.entryIdsByView}
-          {entryStore}
-          {matchResult}
-          {matchErrorMessage}
-          isMatching={false}
-          {fetchDurationMs}
-          {matchDurationMs}
-          bind:manualSelections
-        />
+        {#key app.workspace.state}
+          <WorkspaceView
+            providerLabel={app.activeProviderDetails.label}
+            entryIdsByView={app.workspace.state.entryIdsByView}
+            entryStore={app.entryStore}
+            workspace={app.workspace}
+          />
+        {/key}
       </div>
     {/if}
   </div>
 </main>
 
 <style>
-  .view-stage {
-    position: relative;
-    min-height: 0;
-    flex: 1;
-    overflow: hidden;
-    contain: layout paint;
-  }
-
   .view-frame {
     display: flex;
     position: absolute;

@@ -24,7 +24,7 @@ import (
 
 type Driver struct {
 	mu     sync.RWMutex
-	loadMu sync.Mutex
+	opMu   sync.RWMutex
 	ptr    *C.StaDriver
 	closed bool
 }
@@ -83,8 +83,8 @@ func (d *Driver) EnsureDatabase(path string) (anime.DatabaseInfo, error) {
 		return anime.DatabaseInfo{}, errors.New("driver is nil")
 	}
 
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
+	d.opMu.Lock()
+	defer d.opMu.Unlock()
 
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -111,8 +111,8 @@ func (d *Driver) GetAnimeDatabaseEntries(entryIDs []uint64) ([]anime.DatabaseEnt
 		return nil, errors.New("driver is nil")
 	}
 
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
+	d.opMu.RLock()
+	defer d.opMu.RUnlock()
 
 	var idPtr *C.uint64_t
 	if len(entryIDs) > 0 {
@@ -168,8 +168,8 @@ func (d *Driver) LoadShindenList(userID uint64) (anime.ShindenListIndex, error) 
 		return anime.ShindenListIndex{}, errors.New("driver is nil")
 	}
 
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
+	d.opMu.Lock()
+	defer d.opMu.Unlock()
 
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -192,8 +192,8 @@ func (d *Driver) GetLoadedShindenEntryIDs(view string) (anime.ShindenListIndex, 
 		return anime.ShindenListIndex{}, errors.New("driver is nil")
 	}
 
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
+	d.opMu.RLock()
+	defer d.opMu.RUnlock()
 
 	cView := C.CString(view)
 	defer C.free(unsafe.Pointer(cView))
@@ -214,8 +214,8 @@ func (d *Driver) GetLoadedShindenEntries(entryIDs []uint64) ([]anime.ShindenEntr
 		return nil, errors.New("driver is nil")
 	}
 
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
+	d.opMu.RLock()
+	defer d.opMu.RUnlock()
 
 	var idPtr *C.uint64_t
 	if len(entryIDs) > 0 {
@@ -264,8 +264,8 @@ func (d *Driver) SearchAnime(query string, options anime.SearchOptions) (anime.S
 		return anime.SearchResult{}, errors.New("driver is nil")
 	}
 
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
+	d.opMu.RLock()
+	defer d.opMu.RUnlock()
 
 	cQuery := C.CString(query)
 	defer C.free(unsafe.Pointer(cQuery))
@@ -304,8 +304,8 @@ func (d *Driver) MatchQuery(query string, options anime.MatchQueryOptions) (anim
 		return anime.MatchResult{}, errors.New("driver is nil")
 	}
 
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
+	d.opMu.RLock()
+	defer d.opMu.RUnlock()
 
 	cQuery := C.CString(query)
 	defer C.free(unsafe.Pointer(cQuery))
@@ -340,8 +340,8 @@ func (d *Driver) MatchLoadedShindenList(options anime.MatchOptions) (anime.Match
 		return anime.MatchListResult{}, errors.New("driver is nil")
 	}
 
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
+	d.opMu.Lock()
+	defer d.opMu.Unlock()
 
 	cOptions := C.StaMatchOptions{
 		candidate_limit:  C.uintptr_t(options.CandidateLimit),
@@ -383,8 +383,8 @@ func (d *Driver) ExportMatches(path string, selections []anime.MatchSelection) (
 		return anime.ExportResult{}, errors.New("driver is nil")
 	}
 
-	d.loadMu.Lock()
-	defer d.loadMu.Unlock()
+	d.opMu.RLock()
+	defer d.opMu.RUnlock()
 
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))

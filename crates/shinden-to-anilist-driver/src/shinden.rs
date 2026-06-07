@@ -34,29 +34,24 @@ pub fn load_list(driver: &StaDriver, user_id: u64) -> Result<StaIdList, String> 
     let sorted_ids = sorted_entry_ids(&list);
 
     {
-        let mut shinden_list = driver
-            .shinden_list()
-            .lock()
-            .map_err(|_| "shinden list lock is poisoned".to_owned())?;
-        *shinden_list = Some(list);
-    }
-    {
-        let mut match_results = driver
-            .match_results()
-            .lock()
-            .map_err(|_| "match results lock is poisoned".to_owned())?;
-        *match_results = None;
-    }
-    {
-        let mut entry_ids = driver
-            .shinden_entry_ids()
-            .lock()
-            .map_err(|_| "shinden entry ids lock is poisoned".to_owned())?;
-        *entry_ids = StoredShindenEntryIds {
+        let mut shinden = driver
+            .shinden_state()
+            .write()
+            .map_err(|_| "shinden state lock is poisoned".to_owned())?;
+        shinden.generation = shinden.generation.wrapping_add(1);
+        shinden.list = Some(list);
+        shinden.entry_ids = StoredShindenEntryIds {
             manual: sorted_ids.clone(),
             automatic: Vec::new(),
             all: sorted_ids.clone(),
         };
+    }
+    {
+        let mut matches = driver
+            .match_state()
+            .write()
+            .map_err(|_| "match state lock is poisoned".to_owned())?;
+        matches.results = None;
     }
 
     id_list_to_ffi(sorted_ids)
@@ -65,14 +60,14 @@ pub fn load_list(driver: &StaDriver, user_id: u64) -> Result<StaIdList, String> 
 pub fn get_entry_ids(driver: &StaDriver, view: &str) -> Result<StaIdList, String> {
     driver.check_aborted()?;
 
-    let entry_ids = driver
-        .shinden_entry_ids()
-        .lock()
-        .map_err(|_| "shinden entry ids lock is poisoned".to_owned())?;
+    let shinden = driver
+        .shinden_state()
+        .read()
+        .map_err(|_| "shinden state lock is poisoned".to_owned())?;
     let ids = match view {
-        "" | "manual" => &entry_ids.manual,
-        "automatic" => &entry_ids.automatic,
-        "all" => &entry_ids.all,
+        "" | "manual" => &shinden.entry_ids.manual,
+        "automatic" => &shinden.entry_ids.automatic,
+        "all" => &shinden.entry_ids.all,
         _ => return Err(format!("unknown shinden entry id view: {view}")),
     };
 
@@ -82,11 +77,12 @@ pub fn get_entry_ids(driver: &StaDriver, view: &str) -> Result<StaIdList, String
 pub fn get_entries(driver: &StaDriver, ids: &[u64]) -> Result<StaShindenList, String> {
     driver.check_aborted()?;
 
-    let shinden_list = driver
-        .shinden_list()
-        .lock()
-        .map_err(|_| "shinden list lock is poisoned".to_owned())?;
-    let list = shinden_list
+    let shinden = driver
+        .shinden_state()
+        .read()
+        .map_err(|_| "shinden state lock is poisoned".to_owned())?;
+    let list = shinden
+        .list
         .as_ref()
         .ok_or_else(|| "shinden list is not loaded".to_owned())?;
 

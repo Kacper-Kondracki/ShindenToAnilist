@@ -7,14 +7,16 @@
 
   let {
     providers,
-    selectedProvider = $bindable(),
-    userQuery = $bindable(),
+    selectedProvider,
+    userQuery,
     databaseState,
     databaseStatusText,
     isLoadButtonBusy,
     hasUserListError,
     userListErrorMessage,
     canSubmit,
+    onSelectProvider,
+    onUserQueryInput,
     onClearUserListError,
     onSubmit,
   }: {
@@ -27,28 +29,33 @@
     hasUserListError: boolean;
     userListErrorMessage?: string;
     canSubmit: boolean;
+    onSelectProvider: (provider: Provider) => void;
+    onUserQueryInput: (value: string) => void;
     onClearUserListError: () => void;
     onSubmit: (event: SubmitEvent) => void;
   } = $props();
 </script>
 
-<header class="app-header">
-  <div class="app-header-body">
-    <div class="app-header-primary">
+<header class="border-b border-base-content/10 bg-base-200">
+  <div class="flex flex-wrap items-center gap-4 px-4 py-3">
+    <div
+      class="flex flex-[0_0_max-content] flex-nowrap items-center justify-start max-[58rem]:flex-[1_0_100%] max-[58rem]:justify-between"
+    >
       <div class="min-w-52">
         <h1 class="text-xl font-bold">ShindenToAnilist</h1>
         <DatabaseStatus state={databaseState} text={databaseStatusText} />
       </div>
 
-      <ProviderSelector {providers} bind:selectedProvider />
+      <ProviderSelector {providers} {selectedProvider} {onSelectProvider} />
     </div>
 
     <UserListForm
-      bind:value={userQuery}
+      value={userQuery}
       busy={isLoadButtonBusy}
       {canSubmit}
       hasError={hasUserListError}
       errorMessage={userListErrorMessage}
+      onValueInput={onUserQueryInput}
       onClearError={onClearUserListError}
       {onSubmit}
     />

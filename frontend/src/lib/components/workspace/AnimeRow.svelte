@@ -1,6 +1,11 @@
 <script lang="ts">
   import type { EntryStore } from "../../data/entryStore.svelte";
   import type { ShindenEntry } from "../../domain/anime";
+  import {
+    formatPremiereYear,
+    translateAnimeStatus,
+    translateAnimeType,
+  } from "../../domain/animeView";
 
   export type AnimeMatchStatus = "matched" | "review" | "unmatched";
 
@@ -20,43 +25,11 @@
     entryStore: EntryStore;
   } = $props();
 
-  const animeTypeLabels: Record<string, string> = {
-    tv: "Serial TV",
-    movie: "Film",
-    ova: "OVA",
-    ona: "ONA",
-    special: "Odcinek specjalny",
-    unknown: "Nieznany typ",
-  };
-
-  const animeStatusLabels: Record<string, string> = {
-    finished: "Zakończone",
-    ongoing: "Emitowane",
-    upcoming: "Zapowiedziane",
-    unknown: "Nieznany status",
-  };
-
   const matchStatusLabels: Record<AnimeMatchStatus, string> = {
     matched: "Dobrano automatycznie",
     review: "Znaleziono kandydatów do sprawdzenia",
     unmatched: "Nie znaleziono kandydatów",
   };
-
-  function formatPremiereYear(premiereDate: string | null) {
-    if (!premiereDate) {
-      return "Nieznany rok";
-    }
-
-    return premiereDate.slice(0, 4);
-  }
-
-  function translateAnimeType(animeType: string) {
-    return animeTypeLabels[animeType] ?? animeType;
-  }
-
-  function translateAnimeStatus(animeStatus: string) {
-    return animeStatusLabels[animeStatus] ?? animeStatus;
-  }
 
   $effect(() => {
     return entryStore.retainShindenEntry(entryId);
