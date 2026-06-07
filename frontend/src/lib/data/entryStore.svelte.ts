@@ -4,8 +4,7 @@ import {
 } from "../api/appService";
 import type { DatabaseEntry, ShindenEntry } from "../domain/anime";
 
-type CacheEntry<T> = {
-  value: T;
+type CacheEntry = {
   retainCount: number;
   pinned: boolean;
   lastAccess: number;
@@ -26,8 +25,6 @@ const databaseReleasedCapacity = 50;
 export type EntryStore = ReturnType<typeof createEntryStore>;
 
 export function createEntryStore() {
-  let shindenEntries = $state<Record<number, ShindenEntry>>({});
-  let databaseEntries = $state<Record<number, DatabaseEntry>>({});
   let shindenEntryStates = $state<Record<number, EntryLoadState<ShindenEntry>>>(
     {},
   );
@@ -37,8 +34,8 @@ export function createEntryStore() {
   let tick = 0;
   let generation = 0;
 
-  const shindenCache = new Map<number, CacheEntry<ShindenEntry>>();
-  const databaseCache = new Map<number, CacheEntry<DatabaseEntry>>();
+  const shindenCache = new Map<number, CacheEntry>();
+  const databaseCache = new Map<number, CacheEntry>();
   const pendingShindenIds = new Set<number>();
   const pendingDatabaseIds = new Set<number>();
   const inFlightShindenIds = new Set<number>();
@@ -60,8 +57,6 @@ export function createEntryStore() {
     pinnedDatabaseIds.clear();
     shindenBatchScheduled = false;
     databaseBatchScheduled = false;
-    shindenEntries = {};
-    databaseEntries = {};
     shindenEntryStates = {};
     databaseEntryStates = {};
   }
@@ -174,8 +169,7 @@ export function createEntryStore() {
         return null;
       }
 
-      setCacheEntry(shindenCache, entry.id, entry);
-      publishShindenEntries();
+      setShindenCacheEntry(entry);
       evictReleased("shinden");
       return entry;
     } catch (error) {
@@ -212,8 +206,7 @@ export function createEntryStore() {
         return null;
       }
 
-      setCacheEntry(databaseCache, entry.id, entry);
-      publishDatabaseEntries();
+      setDatabaseCacheEntry(entry);
       evictReleased("database");
       return entry;
     } catch (error) {
@@ -262,14 +255,13 @@ export function createEntryStore() {
       const loadedIds = new Set<number>();
       for (const entry of entries) {
         loadedIds.add(entry.id);
-        setCacheEntry(shindenCache, entry.id, entry);
+        setShindenCacheEntry(entry);
       }
       for (const id of ids) {
         if (!loadedIds.has(id)) {
           setShindenEntryState(id, { status: "missing" });
         }
       }
-      publishShindenEntries();
       evictReleased("shinden");
     } catch (error) {
       if (requestGeneration === generation) {
@@ -305,14 +297,13 @@ export function createEntryStore() {
       const loadedIds = new Set<number>();
       for (const entry of entries) {
         loadedIds.add(entry.id);
-        setCacheEntry(databaseCache, entry.id, entry);
+        setDatabaseCacheEntry(entry);
       }
       for (const id of ids) {
         if (!loadedIds.has(id)) {
           setDatabaseEntryState(id, { status: "missing" });
         }
       }
-      publishDatabaseEntries();
       evictReleased("database");
     } catch (error) {
       if (requestGeneration === generation) {
@@ -342,7 +333,7 @@ export function createEntryStore() {
     return ids;
   }
 
-  function retain<T>(cache: Map<number, CacheEntry<T>>, entryId: number) {
+  function retain(cache: Map<number, CacheEntry>, entryId: number) {
     if (cache === shindenCache) {
       shindenRetainCounts.set(
         entryId,
@@ -357,8 +348,8 @@ export function createEntryStore() {
     }
   }
 
-  function release<T>(
-    cache: Map<number, CacheEntry<T>>,
+  function release(
+    cache: Map<number, CacheEntry>,
     entryId: number,
     kind: CacheKind,
   ) {
@@ -383,14 +374,33 @@ export function createEntryStore() {
     evictReleased(kind);
   }
 
-  function setCacheEntry<T>(
-    cache: Map<number, CacheEntry<T>>,
-    entryId: number,
-    value: T,
-  ) {
+  function setShindenCacheEntry(entry: ShindenEntry) {
+    setCacheMetadata(shindenCache, entry.id);
+    setShindenEntryState(entry.id, {
+      status: "ready",
+      entry,
+    });
+  }
+
+  function setDatabaseCacheEntry(entry: DatabaseEntry) {
+    setCacheMetadata(databaseCache, entry.id);
+    setDatabaseEntryState(entry.id, {
+      status: "ready",
+      entry,
+    });
+  }
+
+  function setCacheMetadata(cache: Map<number, CacheEntry>, entryId: number) {
     const existing = cache.get(entryId);
-    cache.set(entryId, {
-      value,
+    cache.set(entryId, cacheMetadataFor(cache, entryId, existing));
+  }
+
+  function cacheMetadataFor(
+    cache: Map<number, CacheEntry>,
+    entryId: number,
+    existing: CacheEntry | undefined,
+  ): CacheEntry {
+    return {
       retainCount:
         existing?.retainCount ??
         (cache === shindenCache ? (shindenRetainCounts.get(entryId) ?? 0) : 0),
@@ -398,22 +408,10 @@ export function createEntryStore() {
         existing?.pinned ??
         (cache === databaseCache ? pinnedDatabaseIds.has(entryId) : false),
       lastAccess: nextTick(),
-    });
-
-    if (cache === shindenCache) {
-      setShindenEntryState(entryId, {
-        status: "ready",
-        entry: value as ShindenEntry,
-      });
-    } else {
-      setDatabaseEntryState(entryId, {
-        status: "ready",
-        entry: value as DatabaseEntry,
-      });
-    }
+    };
   }
 
-  function touch<T>(cache: Map<number, CacheEntry<T>>, entryId: number) {
+  function touch(cache: Map<number, CacheEntry>, entryId: number) {
     const cacheEntry = cache.get(entryId);
     if (cacheEntry !== undefined) {
       cacheEntry.lastAccess = nextTick();
@@ -441,30 +439,6 @@ export function createEntryStore() {
         removeDatabaseEntryState(entryId);
       }
     }
-
-    if (kind === "shinden") {
-      publishShindenEntries();
-    } else {
-      publishDatabaseEntries();
-    }
-  }
-
-  function publishShindenEntries() {
-    shindenEntries = Object.fromEntries(
-      [...shindenCache.entries()].map(([entryId, entry]) => [
-        entryId,
-        entry.value,
-      ]),
-    );
-  }
-
-  function publishDatabaseEntries() {
-    databaseEntries = Object.fromEntries(
-      [...databaseCache.entries()].map(([entryId, entry]) => [
-        entryId,
-        entry.value,
-      ]),
-    );
   }
 
   function nextTick() {
@@ -503,12 +477,6 @@ export function createEntryStore() {
   }
 
   return {
-    get shindenEntries() {
-      return shindenEntries;
-    },
-    get databaseEntries() {
-      return databaseEntries;
-    },
     get shindenEntryStates() {
       return shindenEntryStates;
     },

@@ -1,84 +1,35 @@
 <script lang="ts">
   import type { DatabaseEntry } from "../../domain/anime";
-  import {
-    formatEpisodeCount,
-    formatEpisodeDuration,
-    formatYear,
-    translateAnimeStatus,
-    translateAnimeType,
-    translateSeason,
-  } from "../../domain/animeView";
+  import { createDatabaseEntryPreviewController } from "../../features/workspace/databaseEntryPreviewController.svelte";
 
   let { entry }: { entry: DatabaseEntry } = $props();
 
-  const fallbackCoverHeight = 172;
-  let isCoverLoaded = $state(false);
-  let hasCoverError = $state(false);
-  let detailsHeight = $state(fallbackCoverHeight);
-
-  let coverUrl = $derived(entry.picture || entry.thumbnail);
-  let coverHeight = $derived(`${detailsHeight}px`);
-  let coverWidth = $derived(`${detailsHeight * 0.75}px`);
-
-  $effect(() => {
-    coverUrl;
-    isCoverLoaded = false;
-    hasCoverError = false;
+  const preview = createDatabaseEntryPreviewController({
+    getEntry: () => entry,
   });
-
-  let metadataItems = $derived([
-    {
-      label: "Rok",
-      value: formatYear(entry.year),
-    },
-    {
-      label: "Typ",
-      value: translateAnimeType(entry.animeType),
-    },
-    {
-      label: "Status",
-      value: translateAnimeStatus(entry.status),
-    },
-    {
-      label: "Sezon",
-      value: translateSeason(entry.season),
-    },
-    {
-      label: "Liczba odcinków",
-      value: formatEpisodeCount(entry.episodes),
-    },
-    {
-      label: "Czas odcinka",
-      value: formatEpisodeDuration(entry.duration),
-    },
-  ]);
 </script>
 
 <div class="database-entry-preview">
   <div
     class="database-entry-cover"
-    style:--database-entry-cover-height={coverHeight}
-    style:--database-entry-cover-width={coverWidth}
+    style:--database-entry-cover-height={preview.coverHeight}
+    style:--database-entry-cover-width={preview.coverWidth}
     aria-label="Okładka dopasowanego anime"
   >
-    {#if coverUrl && !hasCoverError}
-      {#if !isCoverLoaded}
+    {#if preview.coverUrl && !preview.hasCoverError}
+      {#if !preview.isCoverLoaded}
         <span class="database-entry-cover__skeleton skeleton" aria-hidden="true"
         ></span>
       {/if}
       <img
-        class:database-entry-cover__image--loaded={isCoverLoaded}
+        class:database-entry-cover__image--loaded={preview.isCoverLoaded}
         class="database-entry-cover__image"
-        src={coverUrl}
+        src={preview.coverUrl}
         alt={`Okładka: ${entry.title}`}
         loading="lazy"
         decoding="async"
-        onload={() => {
-          isCoverLoaded = true;
-        }}
-        onerror={() => {
-          hasCoverError = true;
-        }}
+        onload={preview.handleCoverLoad}
+        onerror={preview.handleCoverError}
       />
     {:else}
       <span
@@ -89,14 +40,14 @@
     {/if}
   </div>
 
-  <div class="database-entry-details" bind:clientHeight={detailsHeight}>
+  <div class="database-entry-details" bind:clientHeight={preview.detailsHeight}>
     <div class="database-entry-title">
       <p class="text-xs font-medium text-muted">Tytuł</p>
       <h2 class="text-lg font-semibold">{entry.title}</h2>
     </div>
 
     <dl class="database-entry-metadata">
-      {#each metadataItems as item}
+      {#each preview.metadataItems as item}
         <div class="database-entry-metadata__item">
           <dt class="text-xs font-medium text-muted">{item.label}</dt>
           <dd class="text-sm font-semibold">{item.value}</dd>

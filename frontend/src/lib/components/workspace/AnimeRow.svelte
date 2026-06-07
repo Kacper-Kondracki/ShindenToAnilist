@@ -9,6 +9,7 @@
     translateAnimeStatus,
     translateAnimeType,
   } from "../../domain/animeView";
+  import { createAnimeRowController } from "../../features/workspace/animeRowController.svelte";
 
   export type AnimeMatchStatus = "matched" | "review" | "unmatched";
 
@@ -34,8 +35,9 @@
     unmatched: "Nie znaleziono kandydatów",
   };
 
-  $effect(() => {
-    return entryStore.retainShindenEntry(entryId);
+  createAnimeRowController({
+    getEntryStore: () => entryStore,
+    getEntryId: () => entryId,
   });
 
   function rowTitle() {
