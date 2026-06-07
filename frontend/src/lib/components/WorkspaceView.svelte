@@ -29,10 +29,7 @@
       selectedEntryId={workspace.selectedEntryId}
       onSelectEntry={workspace.selectEntry}
     />
-    <WorkspaceEditorPane
-      selectedEntryId={workspace.selectedEntryId}
-      selectedWinner={workspace.selectedWinner}
-    />
+    <WorkspaceEditorPane selectedWinnerState={workspace.selectedWinnerState} />
   </div>
 </section>
 

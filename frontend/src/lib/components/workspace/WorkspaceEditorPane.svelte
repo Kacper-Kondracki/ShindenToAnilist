@@ -1,28 +1,41 @@
 <script lang="ts">
-  import type { DatabaseEntry } from "../../domain/anime";
+  import type { SelectedWinnerState } from "../../features/workspace/workspaceController.svelte";
   import DatabaseEntryPreview from "./DatabaseEntryPreview.svelte";
 
   let {
-    selectedEntryId,
-    selectedWinner,
+    selectedWinnerState,
   }: {
-    selectedEntryId: number | null;
-    selectedWinner: DatabaseEntry | null;
+    selectedWinnerState: SelectedWinnerState;
   } = $props();
 </script>
 
 <section class="workspace-pane" aria-label="Editor">
   <div class="workspace-pane__body">
-    {#if selectedEntryId === null}
+    {#if selectedWinnerState.status === "no-selection"}
       <p class="workspace-empty text-sm font-medium text-muted">
         Wybierz wpis z listy
       </p>
-    {:else if selectedWinner === null}
+    {:else if selectedWinnerState.status === "no-winner"}
       <p class="workspace-empty text-sm font-medium text-muted">
         Brak automatycznego dopasowania
       </p>
+    {:else if selectedWinnerState.status === "loading"}
+      <p class="workspace-empty text-sm font-medium text-muted">
+        Wczytywanie dopasowania
+      </p>
+    {:else if selectedWinnerState.status === "missing"}
+      <p class="workspace-empty text-sm font-medium text-muted">
+        Nie znaleziono wpisu w bazie
+      </p>
+    {:else if selectedWinnerState.status === "error"}
+      <p
+        class="workspace-empty text-sm font-medium text-error"
+        title={selectedWinnerState.message}
+      >
+        Nie udało się wczytać dopasowania
+      </p>
     {:else}
-      <DatabaseEntryPreview entry={selectedWinner} />
+      <DatabaseEntryPreview entry={selectedWinnerState.entry} />
     {/if}
   </div>
 </section>

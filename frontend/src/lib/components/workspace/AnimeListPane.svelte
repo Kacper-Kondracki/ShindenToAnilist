@@ -48,7 +48,7 @@
         {#snippet children(entryId)}
           <AnimeRow
             {entryId}
-            entry={entryStore.getShindenEntry(entryId)}
+            entryState={entryStore.getShindenEntryState(entryId)}
             matchStatus={listPane.matchStatuses.get(entryId) ?? "unmatched"}
             isSelected={entryId === selectedEntryId}
             onSelect={() => onSelectEntry(entryId)}

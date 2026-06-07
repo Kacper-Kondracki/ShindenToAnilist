@@ -1,5 +1,8 @@
 <script lang="ts">
-  import type { EntryStore } from "../../data/entryStore.svelte";
+  import type {
+    EntryLoadState,
+    EntryStore,
+  } from "../../data/entryStore.svelte";
   import type { ShindenEntry } from "../../domain/anime";
   import {
     formatPremiereYear,
@@ -11,14 +14,14 @@
 
   let {
     entryId,
-    entry,
+    entryState,
     matchStatus,
     isSelected,
     onSelect,
     entryStore,
   }: {
     entryId: number;
-    entry: ShindenEntry | null;
+    entryState: EntryLoadState<ShindenEntry>;
     matchStatus: AnimeMatchStatus;
     isSelected: boolean;
     onSelect: () => void;
@@ -34,6 +37,12 @@
   $effect(() => {
     return entryStore.retainShindenEntry(entryId);
   });
+
+  function rowTitle() {
+    return entryState.status === "ready"
+      ? entryState.entry.title
+      : `Wpis #${entryId}`;
+  }
 </script>
 
 <button
@@ -43,29 +52,35 @@
   class:anime-row--unmatched={matchStatus === "unmatched"}
   class:anime-row--selected={isSelected}
   class="anime-row"
-  aria-label={`${entry?.title ?? `Wpis #${entryId}`}: ${matchStatusLabels[matchStatus]}`}
+  aria-label={`${rowTitle()}: ${matchStatusLabels[matchStatus]}`}
   aria-pressed={isSelected}
   title={matchStatusLabels[matchStatus]}
   onclick={onSelect}
 >
   <div class="min-w-0">
-    {#if entry === null}
+    {#if entryState.status !== "ready"}
       <h2 class="truncate text-sm font-semibold">Wpis #{entryId}</h2>
-      <p class="truncate text-xs text-muted">Ładowanie danych wpisu</p>
-    {:else}
-      <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
       <p class="truncate text-xs text-muted">
-        {formatPremiereYear(entry.premiereDate)} · {translateAnimeType(
-          entry.animeType,
+        {entryState.status === "error"
+          ? "Nie udało się wczytać danych"
+          : entryState.status === "missing"
+            ? "Nie znaleziono danych wpisu"
+            : "Ładowanie danych wpisu"}
+      </p>
+    {:else}
+      <h2 class="truncate text-sm font-semibold">{entryState.entry.title}</h2>
+      <p class="truncate text-xs text-muted">
+        {formatPremiereYear(entryState.entry.premiereDate)} · {translateAnimeType(
+          entryState.entry.animeType,
         )}
-        · {translateAnimeStatus(entry.animeStatus)}
+        · {translateAnimeStatus(entryState.entry.animeStatus)}
       </p>
     {/if}
   </div>
 
-  {#if entry !== null && entry.score !== null}
+  {#if entryState.status === "ready" && entryState.entry.score !== null}
     <span class="badge shrink-0 badge-soft badge-info">
-      {entry.score}/10
+      {entryState.entry.score}/10
     </span>
   {/if}
 </button>

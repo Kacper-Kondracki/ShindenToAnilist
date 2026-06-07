@@ -21,6 +21,19 @@ export type WorkspaceActivation = LoadedUserList & {
   matchDurationMs: number;
 };
 
+export type SelectedWinnerState =
+  | { status: "no-selection" }
+  | { status: "no-winner"; selectedEntryId: number }
+  | { status: "loading"; selectedEntryId: number; databaseEntryId: number }
+  | { status: "ready"; selectedEntryId: number; entry: DatabaseEntry }
+  | { status: "missing"; selectedEntryId: number; databaseEntryId: number }
+  | {
+      status: "error";
+      selectedEntryId: number;
+      databaseEntryId: number;
+      message: string;
+    };
+
 export type WorkspaceController = ReturnType<typeof createWorkspaceController>;
 
 export function createWorkspaceController(entryStore: EntryStore) {
@@ -32,6 +45,7 @@ export function createWorkspaceController(entryStore: EntryStore) {
   let selectedEntryId = $state<number | null>(null);
   let manualOverrides = $state<Record<number, number>>({});
   let exportState = $state<ExportState>({ status: "idle" });
+  let selectionRequestId = 0;
 
   let selectedMatchEntry = $derived(
     selectedEntryId === null
@@ -45,15 +59,49 @@ export function createWorkspaceController(entryStore: EntryStore) {
       return null;
     }
 
-    return (
-      manualOverrides[selectedEntryId] ??
-      selectedMatchEntry?.result.winner?.id ??
-      null
-    );
+    return winnerIdForEntry(selectedEntryId, matchResult, manualOverrides);
   });
-  let selectedWinner = $derived<DatabaseEntry | null>(
-    entryStore.getDatabaseEntry(selectedWinnerId),
-  );
+  let selectedWinnerState = $derived.by((): SelectedWinnerState => {
+    if (selectedEntryId === null) {
+      return { status: "no-selection" };
+    }
+
+    if (selectedWinnerId === null) {
+      return { status: "no-winner", selectedEntryId };
+    }
+
+    const entryState = entryStore.getDatabaseEntryState(selectedWinnerId);
+    if (entryState.status === "ready") {
+      return {
+        status: "ready",
+        selectedEntryId,
+        entry: entryState.entry,
+      };
+    }
+
+    if (entryState.status === "error") {
+      return {
+        status: "error",
+        selectedEntryId,
+        databaseEntryId: selectedWinnerId,
+        message: entryState.message,
+      };
+    }
+
+    if (entryState.status === "missing") {
+      return {
+        status: "missing",
+        selectedEntryId,
+        databaseEntryId: selectedWinnerId,
+      };
+    }
+
+    return {
+      status: "loading",
+      selectedEntryId,
+      databaseEntryId: selectedWinnerId,
+    };
+  });
   let effectiveSelections = $derived.by(() =>
     buildEffectiveSelections(matchResult, manualOverrides),
   );
@@ -68,6 +116,7 @@ export function createWorkspaceController(entryStore: EntryStore) {
   });
 
   function activate(next: WorkspaceActivation) {
+    selectionRequestId += 1;
     entryStore.reset();
     state = {
       status: "active",
@@ -84,14 +133,38 @@ export function createWorkspaceController(entryStore: EntryStore) {
     exportState = { status: "idle" };
   }
 
-  function selectEntry(entryId: number) {
+  async function selectEntry(entryId: number) {
     if (state.status !== "active") {
       return;
     }
 
-    selectedEntryId = state.entryIdsByView.all.some((id) => id === entryId)
-      ? entryId
-      : null;
+    if (!state.entryIdsByView.all.some((id) => id === entryId)) {
+      selectionRequestId += 1;
+      selectedEntryId = null;
+      return;
+    }
+
+    const requestId = selectionRequestId + 1;
+    selectionRequestId = requestId;
+
+    const nextWinnerId = winnerIdForEntry(
+      entryId,
+      matchResult,
+      manualOverrides,
+    );
+    if (nextWinnerId !== null) {
+      await entryStore.ensureReadyDatabaseEntry(nextWinnerId);
+    }
+
+    if (
+      selectionRequestId !== requestId ||
+      state.status !== "active" ||
+      !state.entryIdsByView.all.some((id) => id === entryId)
+    ) {
+      return;
+    }
+
+    selectedEntryId = entryId;
   }
 
   function clearSelectionIfMissing() {
@@ -159,8 +232,8 @@ export function createWorkspaceController(entryStore: EntryStore) {
     get selectedEntryId() {
       return selectedEntryId;
     },
-    get selectedWinner() {
-      return selectedWinner;
+    get selectedWinnerState() {
+      return selectedWinnerState;
     },
     get manualOverrides() {
       return manualOverrides;
@@ -181,6 +254,17 @@ export function createWorkspaceController(entryStore: EntryStore) {
     clearManualOverride,
     exportCurrentSelections,
   };
+}
+
+function winnerIdForEntry(
+  entryId: number,
+  matchResult: MatchListResult | null,
+  manualOverrides: Record<number, number>,
+) {
+  const matchEntry =
+    matchResult?.entries.find((entry) => entry.shindenId === entryId) ?? null;
+
+  return manualOverrides[entryId] ?? matchEntry?.result.winner?.id ?? null;
 }
 
 function buildEffectiveSelections(
