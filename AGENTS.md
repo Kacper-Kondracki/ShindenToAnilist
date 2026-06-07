@@ -70,12 +70,60 @@ The driver is stateful and must be both performant and memory-safe across the C 
 
 ## Frontend
 
-- Use Svelte 5 runes and the existing component/state patterns.
+Use Svelte 5, TypeScript, Tailwind, and DaisyUI in a way that keeps UI, state, and domain logic clearly separated.
+
+### Frontend File Roles
+
+- `.ts` files are for pure logic that works without Svelte: types, state-machine definitions, transition functions, validators, parsers, formatters, API mappers, and pure utilities.
+- `.svelte.ts` files are for reusable reactive logic that needs runes: controllers, view models, reactive state machines, feature-local stores, context values, shared singleton-like module state, and reusable interaction logic.
+- `.svelte` files are for UI and composition: markup, props, bindings, event wiring, snippets/rendering, context provider/consumer wiring, small local UI state, and DOM effects.
+- Keep TypeScript domain types in `frontend/src/lib/domain/` and backend calls in `frontend/src/lib/api/`. Components should not call generated Wails bindings directly.
+- Move non-Svelte domain logic out of `.svelte` files. If logic can be tested or understood without the component tree, it usually belongs in `.ts`.
+
+### State Ownership
+
+- UI/UX logic should be separate from UI markup. Components should mostly render state and wire user events to named handlers.
+- Use module state in `.svelte.ts` when data is global, singleton-like, or shared by the whole app/session.
+- Use context state when data belongs to a component subtree or a specific component instance, such as trees, forms, editors, menus, and workspace-local controllers.
+- Use component-local state only for small, local UI concerns that do not define feature behavior.
+- Source-of-truth state belongs in `$state`. Computed views of current state belong in `$derived`. External synchronization belongs in `$effect`.
+- Do not duplicate source-of-truth state across components. Bubble state up only to the smallest owner that can make the relevant decision.
+
+### State Machines And Transitions
+
+- Model meaningful UI and workflow state as an explicit finite state machine.
+- Prefer discriminated unions over scattered booleans such as `loading`, `error`, `data`, and `ready`.
+- Never enter a state whose required data is missing. Before changing state, ensure all data required by the next state exists.
+- Do not overload `null` or `undefined` with several business meanings. Use discriminated unions or explicit fields to distinguish omitted, unknown, empty, invalid, and present values.
+- Reserve `undefined` for omitted fields. Use `null` only for explicitly empty values. Do not use either as a vague state marker.
+- In API-facing types, distinguish omitted, unknown, empty, and present values explicitly in the type system.
+- All state transitions must happen inside named transition functions or named event handlers. Avoid inline state mutation scattered through markup or effects.
+- Async transitions should commit only when the next state is ready to be fully presented. Avoid reactive flicker caused by partially loaded or pending async state.
+- Avoid one-tick pending flicker for fast async operations. Keep the previous presentable state until a meaningful loading state is actually needed, or transition atomically into the completed state.
+- Use draft state when partially valid input is expected, then commit through a validation/transition function.
+
+### Runes And Reactivity
+
+- Prefer `$props()` over `export let`.
+- Prefer callback props over `createEventDispatcher`.
+- Prefer snippets/rendering over slot-heavy patterns.
+- Use `$bindable` sparingly. Bindable props assume every change is valid, which can make data flow harder to understand.
+- Use two-way binding when any value is valid and immediate propagation is intended.
+- Prefer function handlers when input must be validated, normalized, debounced, or interpreted before it becomes source-of-truth state.
+- Use a hybrid approach when draft values are acceptable locally but must be validated before commit.
+- Use `$derived` only for computed views of current reactive state. Do not fetch, mutate, log as behavior, call DOM APIs, or trigger transitions from `$derived`.
+- Use `$effect` only for side effects outside the reactive state graph: DOM APIs, important debug logging, animations, timers, subscriptions, persistence, and external synchronization.
+- Do not use `$effect` as a substitute for derived/computed state.
+- Do not use `$effect` to drive state-machine transitions. Transitions belong in named transition functions or event handlers.
+
+### UI Composition And Layout
+
 - Prefer DaisyUI and Tailwind utilities first. Use scoped component CSS when it gives better layout control, protects dense tool ergonomics, or matches existing component style.
 - Keep the UI a focused desktop workflow tool. Avoid marketing-page composition, decorative hero layouts, and visual noise.
-- Keep TypeScript domain types in `frontend/src/lib/domain/` and backend calls in `frontend/src/lib/api/`. Components should not call generated Wails bindings directly.
 - Extract shared components, stores, styles, and helpers when a pattern repeats or when it clarifies ownership.
 - Preserve stable dimensions for dense workspace controls and panes. Avoid layout shifts from dynamic labels, loading states, hover states, or long text.
+- Design text containers so unexpected wrapping, long labels, or translated/user-provided content do not break the layout.
+- Prefer explicit min/max sizes, grid tracks, flex constraints, overflow behavior, and truncation/wrapping rules for toolbars, panes, list rows, cards, tabs, and status bars.
 - Do not add visible instructional copy to explain ordinary UI mechanics unless the product behavior genuinely requires it.
 
 ## Dependencies And Libraries
@@ -132,8 +180,8 @@ Do not run production builds unless the task is explicitly packaging, release, o
 
 ### Wails And App Builds
 
-- Use `wails3 dev` or `wails3 task dev` for development runs when needed.
-- Use debug/dev build paths by default.
+- Do not call `wails3 dev`, they are reserved for manual app launching.
+- Use debug/dev build paths by default, such as `wails3 build DEV=true`.
 - Use package/production tasks only when explicitly requested or when validating packaging/release work.
 
 ## Testing
