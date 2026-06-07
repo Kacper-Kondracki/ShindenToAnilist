@@ -38,7 +38,7 @@
     onSubmit={handleSubmit}
   />
 
-  <div class="relative min-h-0 flex-1 overflow-hidden [contain:layout_paint]">
+  <div class="relative min-h-0 flex-1 overflow-hidden contain-[layout_paint]">
     {#if app.workspace.state.status === "empty"}
       <div class="view-frame">
         <EmptyWorkspace

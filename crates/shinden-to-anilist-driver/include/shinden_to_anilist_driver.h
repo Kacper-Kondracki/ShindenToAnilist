@@ -206,83 +206,109 @@ extern "C" {
 
 /**
  * # Safety
- * Safe if takes ownership and consumes the object.
+ * `driver` must be null or a pointer returned by [`sta_driver_new`]. After this
+ * call, the pointer is consumed and must not be used again.
  */
 void sta_driver_free(struct StaDriver *driver);
 
 struct StaDriver *sta_driver_new(void);
 
+/**
+ * # Safety
+ * `driver` must be null or a live pointer returned by [`sta_driver_new`].
+ */
 void sta_driver_abort(struct StaDriver *driver);
 
 /**
  * # Safety
- * Safe if takes ownership and consumes the object.
+ * `value` must be null or a string allocated by this library. After this call,
+ * the pointer is consumed and must not be used again.
  */
 void sta_string_free(char *value);
 
 /**
  * # Safety
- * Safe if takes ownership and consumes all strings inside `value`.
+ * `value` must be a database-info result returned by this library. This call
+ * consumes all owned strings inside `value`.
  */
 void sta_database_info_free(struct StaDatabaseInfo value);
 
 /**
  * # Safety
- * Safe if takes ownership and consumes the database entry arrays. String pointers are borrowed.
+ * `value` must be an anime-database result returned by this library. This call
+ * consumes the entry arrays; string views are borrowed from those entries and
+ * become invalid after the free call.
  */
 void sta_anime_database_free(struct StaAnimeDatabase value);
 
 /**
  * # Safety
- * Safe if takes ownership and consumes the list entry array. String pointers are borrowed.
+ * `value` must be a Shinden-list result returned by this library. This call
+ * consumes the entry array; string views are borrowed from those entries and
+ * become invalid after the free call.
  */
 void sta_shinden_list_free(struct StaShindenList value);
 
 /**
  * # Safety
- * Safe if takes ownership and consumes the id array.
+ * `value` must be an id-list result returned by this library. This call
+ * consumes the id array.
  */
 void sta_id_list_free(struct StaIdList value);
 
 /**
  * # Safety
- * Safe if takes ownership and consumes the search result array.
+ * `value` must be a search result returned by this library. This call consumes
+ * the result array.
  */
 void sta_search_result_free(struct StaSearchResult value);
 
 /**
  * # Safety
- * Safe if takes ownership and consumes the match result arrays.
+ * `value` must be a match result returned by this library. This call consumes
+ * all result arrays.
  */
 void sta_match_result_free(struct StaMatchResult value);
 
 /**
  * # Safety
- * Safe if takes ownership and consumes the match list result arrays.
+ * `value` must be a match-list result returned by this library. This call
+ * consumes all nested result arrays.
  */
 void sta_match_list_result_free(struct StaMatchListResult value);
 
 /**
  * # Safety
- * Safe if takes ownership and consumes all strings inside `value`.
+ * `value` must be an export result returned by this library. This call consumes
+ * all owned strings inside `value`.
  */
 void sta_export_result_free(struct StaExportResult value);
 
 /**
  * # Safety
- * `path` must be valid C string.
+ * `driver` must be a live pointer returned by [`sta_driver_new`]. `path` must
+ * be a valid UTF-8 C string. `out` must be non-null and writable; on success it
+ * must be released with [`sta_database_info_free`].
  */
 struct StaError sta_driver_ensure_database(struct StaDriver *driver,
                                            const char *path,
                                            struct StaDatabaseInfo *out);
 
+/**
+ * # Safety
+ * `driver` must be a live pointer returned by [`sta_driver_new`]. `out` must
+ * be non-null and writable; on success it must be released with
+ * [`sta_id_list_free`].
+ */
 struct StaError sta_driver_load_shinden_list(struct StaDriver *driver,
                                              uint64_t user_id,
                                              struct StaIdList *out);
 
 /**
  * # Safety
- * `view` must be valid C string.
+ * `driver` must be a live pointer returned by [`sta_driver_new`]. `view` must
+ * be a valid UTF-8 C string naming a loaded-list view. `out` must be non-null
+ * and writable; on success it must be released with [`sta_id_list_free`].
  */
 struct StaError sta_driver_get_loaded_shinden_entry_ids(struct StaDriver *driver,
                                                         const char *view,
@@ -290,7 +316,9 @@ struct StaError sta_driver_get_loaded_shinden_entry_ids(struct StaDriver *driver
 
 /**
  * # Safety
- * `ids` must point to `len` entries or be null when `len` is 0.
+ * `driver` must be a live pointer returned by [`sta_driver_new`]. `ids` must
+ * point to `len` entries or be null when `len` is 0. `out` must be non-null and
+ * writable; on success it must be released with [`sta_shinden_list_free`].
  */
 struct StaError sta_driver_get_loaded_shinden_entries(struct StaDriver *driver,
                                                       const uint64_t *ids,
@@ -299,7 +327,9 @@ struct StaError sta_driver_get_loaded_shinden_entries(struct StaDriver *driver,
 
 /**
  * # Safety
- * `ids` must point to `len` entries or be null when `len` is 0.
+ * `driver` must be a live pointer returned by [`sta_driver_new`]. `ids` must
+ * point to `len` entries or be null when `len` is 0. `out` must be non-null and
+ * writable; on success it must be released with [`sta_anime_database_free`].
  */
 struct StaError sta_driver_get_anime_database_entries(struct StaDriver *driver,
                                                       const uint64_t *ids,
@@ -308,7 +338,10 @@ struct StaError sta_driver_get_anime_database_entries(struct StaDriver *driver,
 
 /**
  * # Safety
- * `query` must be valid C string.
+ * `driver` must be a live pointer returned by [`sta_driver_new`]. `query` and
+ * `options.mode` must be valid UTF-8 C/string views for the duration of this
+ * call. `out` must be non-null and writable; on success it must be released
+ * with [`sta_search_result_free`].
  */
 struct StaError sta_driver_search_anime(struct StaDriver *driver,
                                         const char *query,
@@ -317,20 +350,32 @@ struct StaError sta_driver_search_anime(struct StaDriver *driver,
 
 /**
  * # Safety
- * `query` must be valid C string.
+ * `driver` must be a live pointer returned by [`sta_driver_new`]. `query` and
+ * `options.search.mode` must be valid UTF-8 C/string views for the duration of
+ * this call. `out` must be non-null and writable; on success it must be
+ * released with [`sta_match_result_free`].
  */
 struct StaError sta_driver_match_query(struct StaDriver *driver,
                                        const char *query,
                                        struct StaMatchQueryOptions options,
                                        struct StaMatchResult *out);
 
+/**
+ * # Safety
+ * `driver` must be a live pointer returned by [`sta_driver_new`]. `out` must
+ * be non-null and writable; on success it must be released with
+ * [`sta_match_list_result_free`].
+ */
 struct StaError sta_driver_match_loaded_shinden_list(struct StaDriver *driver,
                                                      struct StaMatchOptions options,
                                                      struct StaMatchListResult *out);
 
 /**
  * # Safety
- * `path` must be valid C string. `selections` must point to `len` entries or be null when `len` is 0.
+ * `driver` must be a live pointer returned by [`sta_driver_new`]. `path` must
+ * be a valid UTF-8 C string. `selections` must point to `len` entries or be
+ * null when `len` is 0. `out` must be non-null and writable; on success it must
+ * be released with [`sta_export_result_free`].
  */
 struct StaError sta_driver_export_matches(struct StaDriver *driver,
                                           const char *path,
