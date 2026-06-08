@@ -1,13 +1,14 @@
-use shinden_to_anilist_grpc::{
-    grpc::shinden_to_anilist_service_server::ShindenToAnilistServiceServer,
-    server::ShindenToAnilist,
+use reqwest::Client;
+use shinden_to_anilist_grpc::server::{
+    ShindenToAnilist,
+    pb::shinden_to_anilist_service_server::ShindenToAnilistServiceServer,
 };
 use tonic::transport::Server;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "127.0.0.1:50051".parse()?;
-    let service = ShindenToAnilist::default();
+    let service = ShindenToAnilist::new(Client::new());
 
     println!("ShindenToAnilist gRPC listening on {addr}");
 

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { ProviderOption } from "../config/providers";
-  import AnimatedGridPanel from "./AnimatedGridPanel.svelte";
+  import type { ProviderOption } from '../config/providers';
+  import AnimatedGridPanel from './AnimatedGridPanel.svelte';
 
   let {
     provider,
-    canLoadProvider,
+    canLoadProvider
   }: { provider: ProviderOption; canLoadProvider: boolean } = $props();
 </script>
 

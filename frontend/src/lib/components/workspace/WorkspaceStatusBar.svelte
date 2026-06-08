@@ -1,12 +1,12 @@
 <script lang="ts">
-  import type { MatchListResult } from "../../domain/anime";
-  import { createStatusBarBadgeMeasurement } from "../../features/workspace/statusBarBadgeMeasurement.svelte";
+  import type { MatchListResult } from '../../domain/anime';
+  import { createStatusBarBadgeMeasurement } from '../../features/workspace/statusBarBadgeMeasurement.svelte';
   import {
     buildWorkspaceStatusSummary,
     exportButtonText,
-    formatDuration,
-  } from "../../features/workspace/statusBarSummary";
-  import type { ExportState } from "../../features/workspace/workspaceController.svelte";
+    formatDuration
+  } from '../../features/workspace/statusBarSummary';
+  import type { ExportState } from '../../features/workspace/workspaceController.svelte';
 
   let {
     entryIds,
@@ -18,7 +18,7 @@
     manualSelections,
     exportState,
     canExport,
-    onExport,
+    onExport
   }: {
     entryIds: number[];
     matchResult: MatchListResult | null;
@@ -33,10 +33,10 @@
   } = $props();
 
   let summary = $derived(
-    buildWorkspaceStatusSummary(entryIds, matchResult, manualSelections),
+    buildWorkspaceStatusSummary(entryIds, matchResult, manualSelections)
   );
   let matchTimeText = $derived(
-    isMatching ? "..." : formatDuration(matchDurationMs),
+    isMatching ? '...' : formatDuration(matchDurationMs)
   );
   let exportText = $derived(exportButtonText(exportState));
   const badges = createStatusBarBadgeMeasurement(() => {
@@ -106,11 +106,11 @@
       type="button"
       disabled={!canExport}
       onclick={onExport}
-      title={exportState.status === "error"
+      title={exportState.status === 'error'
         ? exportState.message
-        : "Eksportuj dopasowania do pliku XML"}
+        : 'Eksportuj dopasowania do pliku XML'}
     >
-      {#if exportState.status === "exporting"}
+      {#if exportState.status === 'exporting'}
         <span class="loading loading-xs loading-spinner" aria-hidden="true"
         ></span>
       {/if}

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Provider, ProviderOption } from "../config/providers";
+  import type { Provider, ProviderOption } from '../config/providers';
 
   let {
     providers,
     selectedProvider,
-    onSelectProvider,
+    onSelectProvider
   }: {
     providers: readonly ProviderOption[];
     selectedProvider: Provider;

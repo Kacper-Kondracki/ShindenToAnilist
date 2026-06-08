@@ -1,5 +1,5 @@
-import type { MatchListResult } from "../../domain/anime";
-import type { ExportState } from "./workspaceController.svelte";
+import type { MatchListResult } from '../../domain/anime';
+import type { ExportState } from './workspaceController.svelte';
 
 export type WorkspaceStatusSummary = {
   totalCount: number;
@@ -12,7 +12,7 @@ export type WorkspaceStatusSummary = {
 export function buildWorkspaceStatusSummary(
   entryIds: number[],
   matchResult: MatchListResult | null,
-  manualSelections: Record<number, number>,
+  manualSelections: Record<number, number>
 ): WorkspaceStatusSummary {
   const automaticWinnerIds = new Set<number>();
 
@@ -37,7 +37,7 @@ export function buildWorkspaceStatusSummary(
   const automaticallyMatchedCount = automaticWinnerIds.size;
   const reviewCount = Math.max(
     0,
-    totalCount - automaticallyMatchedCount - manuallySelectedCount,
+    totalCount - automaticallyMatchedCount - manuallySelectedCount
   );
 
   return {
@@ -48,26 +48,26 @@ export function buildWorkspaceStatusSummary(
     matchedPercentage:
       totalCount > 0
         ? Math.round((automaticallyMatchedCount / totalCount) * 100)
-        : 0,
+        : 0
   };
 }
 
 export function formatDuration(durationMs: number | null) {
   if (durationMs === null) {
-    return "--.--s";
+    return '--.--s';
   }
 
   return `${(durationMs / 1000).toFixed(2)}s`;
 }
 
 export function exportButtonText(exportState: ExportState) {
-  if (exportState.status === "exporting") {
-    return "Eksportowanie";
+  if (exportState.status === 'exporting') {
+    return 'Eksportowanie';
   }
 
-  if (exportState.status === "exported") {
+  if (exportState.status === 'exported') {
     return `Wyeksportowano ${exportState.exportedCount}`;
   }
 
-  return "Eksport";
+  return 'Eksport';
 }

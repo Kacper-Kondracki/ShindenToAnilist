@@ -1,4 +1,4 @@
-import type { EntryStore } from "../../data/entryStore.svelte";
+import type { EntryStore } from '../../data/entryStore.svelte';
 
 type AnimeRowControllerInput = {
   getEntryStore: () => EntryStore;

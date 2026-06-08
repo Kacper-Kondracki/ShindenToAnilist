@@ -2,4 +2,26 @@ syntax = "proto3";
 
 package shinden_to_anilist.v1;
 
-service ShindenToAnilistService {}
+service ShindenToAnilistService {
+  rpc FetchShindenList(FetchShindenListRequest) returns (FetchShindenListResponse);
+  rpc GetLoadedShindenList(GetLoadedShindenListRequest) returns (GetLoadedShindenListResponse);
+}
+
+message Error {
+  optional string message = 1;
+}
+
+message FetchShindenListRequest {
+  uint64 id = 1;
+}
+
+message FetchShindenListResponse {
+  uint64 version = 1;
+}
+
+message GetLoadedShindenListRequest {}
+
+message GetLoadedShindenListResponse {
+  uint64 version = 1;
+  uint64 count = 2;
+}

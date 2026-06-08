@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @plugin "daisyui" {
   themes: false;
 }
@@ -13,7 +13,7 @@
   --ctp-mocha-sky: #89dceb;
   --ctp-mocha-red: #f38ba8;
 
-  font-family: "Inter", "Roboto", system-ui, sans-serif;
+  font-family: 'Inter', 'Roboto', system-ui, sans-serif;
 
   color: var(--color-base-content);
   background-color: var(--color-base-100);

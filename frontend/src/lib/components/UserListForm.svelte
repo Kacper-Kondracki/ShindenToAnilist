@@ -7,7 +7,7 @@
     errorMessage,
     onValueInput,
     onClearError,
-    onSubmit,
+    onSubmit
   }: {
     value: string;
     busy: boolean;
@@ -73,7 +73,7 @@
   .load-button::after {
     position: absolute;
     border-radius: inherit;
-    content: "";
+    content: '';
     pointer-events: none;
   }
 

@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+arc-swap = "1.9"
 prost = "0.14"
+reqwest = "0.13"
+shinden-to-anilist-core = { path = "../shinden-to-anilist-core" }
 tokio = { version = "1.52", features = ["macros", "rt-multi-thread"] }
 tonic = { version = "0.14", features = ["transport"] }
 tonic-prost = "0.14"

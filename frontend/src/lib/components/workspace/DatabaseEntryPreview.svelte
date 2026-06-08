@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { DatabaseEntry } from "../../domain/anime";
-  import { createDatabaseEntryPreviewController } from "../../features/workspace/databaseEntryPreviewController.svelte";
+  import type { DatabaseEntry } from '../../domain/anime';
+  import { createDatabaseEntryPreviewController } from '../../features/workspace/databaseEntryPreviewController.svelte';
 
   let { entry }: { entry: DatabaseEntry } = $props();
 
   const preview = createDatabaseEntryPreviewController({
-    getEntry: () => entry,
+    getEntry: () => entry
   });
 </script>
 
@@ -82,7 +82,7 @@
   }
 
   .database-entry-cover::after {
-    content: "";
+    content: '';
     position: absolute;
     z-index: 3;
     inset: -2px;

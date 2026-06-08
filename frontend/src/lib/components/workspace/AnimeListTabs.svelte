@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { animeListTabs, type AnimeListTabId } from "./tabs";
+  import { animeListTabs, type AnimeListTabId } from './tabs';
 
   let {
     activeTab,
-    onSelectTab,
+    onSelectTab
   }: {
     activeTab: AnimeListTabId;
     onSelectTab: (tabId: AnimeListTabId) => void;

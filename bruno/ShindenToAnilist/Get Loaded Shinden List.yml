@@ -1,0 +1,12 @@
+info:
+  name: Get Loaded Shinden List
+  type: grpc
+  seq: 2
+
+grpc:
+  url: 127.0.0.1:50051
+  method: /shinden_to_anilist.v1.ShindenToAnilistService/GetLoadedShindenList
+  methodType: unary
+  protoFilePath: ../../proto/shinden_to_anilist/v1/service.proto
+  message: "{}"
+  auth: inherit

@@ -1,0 +1,32 @@
+# Node
+node_modules
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Build outputs
+dist
+build
+out
+.tmp
+temp
+
+# Vite
+vite.config.ts.timestamp-*
+
+# Rust
+target
+Cargo.lock
+
+# Generated files
+*.generated.*
+generated/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db

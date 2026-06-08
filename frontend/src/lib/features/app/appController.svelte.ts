@@ -1,20 +1,20 @@
 import {
   getLoadedShindenEntryIds,
   loadShindenList,
-  matchLoadedShindenList,
-} from "../../api/appService";
-import { providerById, providers, type Provider } from "../../config/providers";
-import { createEntryStore } from "../../data/entryStore.svelte";
-import type { DatabaseState, UserListRequestState } from "../../domain/anime";
+  matchLoadedShindenList
+} from '../../api/appService';
+import { providerById, providers, type Provider } from '../../config/providers';
+import { createEntryStore } from '../../data/entryStore.svelte';
+import type { DatabaseState, UserListRequestState } from '../../domain/anime';
 import {
   errorMessage,
-  initializeDatabaseState,
-} from "../database/initializeDatabase";
+  initializeDatabaseState
+} from '../database/initializeDatabase';
 import {
   hasShindenProfileHost,
-  parseShindenUserId,
-} from "../shinden/userInput";
-import { createWorkspaceController } from "../workspace/workspaceController.svelte";
+  parseShindenUserId
+} from '../shinden/userInput';
+import { createWorkspaceController } from '../workspace/workspaceController.svelte';
 
 export type AppController = ReturnType<typeof createAppController>;
 
@@ -22,10 +22,10 @@ export function createAppController() {
   const entryStore = createEntryStore();
   const workspace = createWorkspaceController(entryStore);
 
-  let selectedProvider = $state<Provider>("shinden");
-  let userQuery = $state("");
-  let databaseState = $state<DatabaseState>({ status: "loading" });
-  let userListRequestState = $state<UserListRequestState>({ status: "idle" });
+  let selectedProvider = $state<Provider>('shinden');
+  let userQuery = $state('');
+  let databaseState = $state<DatabaseState>({ status: 'loading' });
+  let userListRequestState = $state<UserListRequestState>({ status: 'idle' });
   let activeRequestId = 0;
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
 
@@ -35,44 +35,44 @@ export function createAppController() {
   let activeProviderDetails = $derived.by(() => {
     const workspaceState = workspace.state;
 
-    if (workspaceState.status === "active") {
+    if (workspaceState.status === 'active') {
       return providerById(workspaceState.provider);
     }
 
     return selectedProviderDetails;
   });
   let databaseStatusText = $derived.by(() => {
-    if (databaseState.status === "ready") {
+    if (databaseState.status === 'ready') {
       return databaseState.info.lastUpdate
         ? `Baza danych: ${databaseState.info.lastUpdate}`
-        : "Baza danych załadowana";
+        : 'Baza danych załadowana';
     }
 
-    if (databaseState.status === "error") {
-      return "Baza danych niedostępna";
+    if (databaseState.status === 'error') {
+      return 'Baza danych niedostępna';
     }
 
-    return "Ładowanie bazy danych";
+    return 'Ładowanie bazy danych';
   });
-  let isUserListLoading = $derived(userListRequestState.status === "loading");
+  let isUserListLoading = $derived(userListRequestState.status === 'loading');
   let isProviderSupported = $derived(selectedProviderDetails.supportsUserList);
   let isWaitingForDatabase = $derived(
-    userListRequestState.status === "loading" &&
-      databaseState.status !== "ready",
+    userListRequestState.status === 'loading' &&
+      databaseState.status !== 'ready'
   );
   let isLoadButtonBusy = $derived(isUserListLoading || isWaitingForDatabase);
-  let hasUserListError = $derived(userListRequestState.status === "error");
+  let hasUserListError = $derived(userListRequestState.status === 'error');
   let userListErrorMessage = $derived(
-    userListRequestState.status === "error"
+    userListRequestState.status === 'error'
       ? userListRequestState.message
-      : null,
+      : null
   );
   let canSubmit = $derived(
-    Boolean(trimmedQuery) && !isUserListLoading && isProviderSupported,
+    Boolean(trimmedQuery) && !isUserListLoading && isProviderSupported
   );
 
   async function initializeDatabase() {
-    databaseState = { status: "loading" };
+    databaseState = { status: 'loading' };
     databaseInitializationPromise = initializeDatabaseState();
     databaseState = await databaseInitializationPromise;
     return databaseState;
@@ -88,13 +88,13 @@ export function createAppController() {
     clearUserListError();
 
     if (hasShindenProfileHost(value)) {
-      selectedProvider = "shinden";
+      selectedProvider = 'shinden';
     }
   }
 
   function clearUserListError() {
-    if (userListRequestState.status === "error") {
-      userListRequestState = { status: "idle" };
+    if (userListRequestState.status === 'error') {
+      userListRequestState = { status: 'idle' };
     }
   }
 
@@ -108,19 +108,19 @@ export function createAppController() {
     const provider = selectedProvider;
     const query = trimmedQuery;
 
-    if (provider !== "shinden" || parsedShindenUserId === null) {
+    if (provider !== 'shinden' || parsedShindenUserId === null) {
       userListRequestState = {
-        status: "error",
+        status: 'error',
         provider,
         query,
-        message: "Nie udało się rozpoznać użytkownika Shinden",
+        message: 'Nie udało się rozpoznać użytkownika Shinden'
       };
       return;
     }
 
     const requestId = activeRequestId + 1;
     activeRequestId = requestId;
-    userListRequestState = { status: "loading", provider, query };
+    userListRequestState = { status: 'loading', provider, query };
 
     try {
       const fetchStartedAt = performance.now();
@@ -128,20 +128,20 @@ export function createAppController() {
       const nextFetchDurationMs = performance.now() - fetchStartedAt;
       const readyDatabaseState = await waitForReadyDatabase();
 
-      if (readyDatabaseState.status !== "ready") {
+      if (readyDatabaseState.status !== 'ready') {
         throw new Error(
-          readyDatabaseState.status === "error"
+          readyDatabaseState.status === 'error'
             ? readyDatabaseState.message
-            : "Baza danych nie jest gotowa",
+            : 'Baza danych nie jest gotowa'
         );
       }
 
       const matchStartedAt = performance.now();
       const nextMatchResult = await matchLoadedShindenList();
       const [manualIds, automaticIds, allIds] = await Promise.all([
-        getLoadedShindenEntryIds("manual"),
-        getLoadedShindenEntryIds("automatic"),
-        getLoadedShindenEntryIds("all"),
+        getLoadedShindenEntryIds('manual'),
+        getLoadedShindenEntryIds('automatic'),
+        getLoadedShindenEntryIds('all')
       ]);
       const nextMatchDurationMs = performance.now() - matchStartedAt;
 
@@ -152,14 +152,14 @@ export function createAppController() {
       const entryIdsByView = {
         manual: manualIds.entryIds,
         automatic: automaticIds.entryIds,
-        all: allIds.entryIds.length > 0 ? allIds.entryIds : list.entryIds,
+        all: allIds.entryIds.length > 0 ? allIds.entryIds : list.entryIds
       };
 
       userListRequestState = {
-        status: "loaded",
+        status: 'loaded',
         provider,
         query,
-        entryIdsByView,
+        entryIdsByView
       };
       workspace.activate({
         provider,
@@ -167,25 +167,25 @@ export function createAppController() {
         entryIdsByView,
         matchResult: nextMatchResult,
         fetchDurationMs: nextFetchDurationMs,
-        matchDurationMs: nextMatchDurationMs,
+        matchDurationMs: nextMatchDurationMs
       });
     } catch (error) {
       if (activeRequestId !== requestId) {
         return;
       }
 
-      console.error("Unable to load Shinden user list", error);
+      console.error('Unable to load Shinden user list', error);
       userListRequestState = {
-        status: "error",
+        status: 'error',
         provider,
         query,
-        message: errorMessage(error),
+        message: errorMessage(error)
       };
     }
   }
 
   async function waitForReadyDatabase() {
-    if (databaseState.status === "ready" || databaseState.status === "error") {
+    if (databaseState.status === 'ready' || databaseState.status === 'error') {
       return databaseState;
     }
 
@@ -240,6 +240,6 @@ export function createAppController() {
     setSelectedProvider,
     setUserQuery,
     clearUserListError,
-    submitUserList,
+    submitUserList
   };
 }

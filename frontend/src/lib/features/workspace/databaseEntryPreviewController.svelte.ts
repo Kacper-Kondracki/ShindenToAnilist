@@ -1,12 +1,12 @@
-import type { DatabaseEntry } from "../../domain/anime";
+import type { DatabaseEntry } from '../../domain/anime';
 import {
   formatEpisodeCount,
   formatEpisodeDuration,
   formatYear,
   translateAnimeStatus,
   translateAnimeType,
-  translateSeason,
-} from "../../domain/animeView";
+  translateSeason
+} from '../../domain/animeView';
 
 const fallbackCoverHeight = 172;
 
@@ -19,14 +19,14 @@ export type DatabaseEntryPreviewController = ReturnType<
 >;
 
 export function createDatabaseEntryPreviewController(
-  input: DatabaseEntryPreviewControllerInput,
+  input: DatabaseEntryPreviewControllerInput
 ) {
   let isCoverLoaded = $state(false);
   let hasCoverError = $state(false);
   let detailsHeight = $state(fallbackCoverHeight);
 
   let coverUrl = $derived(
-    input.getEntry().picture || input.getEntry().thumbnail,
+    input.getEntry().picture || input.getEntry().thumbnail
   );
   let coverHeight = $derived(`${detailsHeight}px`);
   let coverWidth = $derived(`${detailsHeight * 0.75}px`);
@@ -35,29 +35,29 @@ export function createDatabaseEntryPreviewController(
 
     return [
       {
-        label: "Rok",
-        value: formatYear(entry.year),
+        label: 'Rok',
+        value: formatYear(entry.year)
       },
       {
-        label: "Typ",
-        value: translateAnimeType(entry.animeType),
+        label: 'Typ',
+        value: translateAnimeType(entry.animeType)
       },
       {
-        label: "Status",
-        value: translateAnimeStatus(entry.status),
+        label: 'Status',
+        value: translateAnimeStatus(entry.status)
       },
       {
-        label: "Sezon",
-        value: translateSeason(entry.season),
+        label: 'Sezon',
+        value: translateSeason(entry.season)
       },
       {
-        label: "Liczba odcinków",
-        value: formatEpisodeCount(entry.episodes),
+        label: 'Liczba odcinków',
+        value: formatEpisodeCount(entry.episodes)
       },
       {
-        label: "Czas odcinka",
-        value: formatEpisodeDuration(entry.duration),
-      },
+        label: 'Czas odcinka',
+        value: formatEpisodeDuration(entry.duration)
+      }
     ];
   });
 
@@ -105,6 +105,6 @@ export function createDatabaseEntryPreviewController(
       return metadataItems;
     },
     handleCoverLoad,
-    handleCoverError,
+    handleCoverError
   };
 }

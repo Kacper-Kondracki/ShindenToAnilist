@@ -1,16 +1,16 @@
 <script lang="ts">
-  import type { EntryStore } from "../data/entryStore.svelte";
-  import type { ShindenListViews } from "../domain/anime";
-  import type { WorkspaceController } from "../features/workspace/workspaceController.svelte";
-  import AnimeListPane from "./workspace/AnimeListPane.svelte";
-  import WorkspaceEditorPane from "./workspace/WorkspaceEditorPane.svelte";
-  import WorkspaceStatusBar from "./workspace/WorkspaceStatusBar.svelte";
+  import type { EntryStore } from '../data/entryStore.svelte';
+  import type { ShindenListViews } from '../domain/anime';
+  import type { WorkspaceController } from '../features/workspace/workspaceController.svelte';
+  import AnimeListPane from './workspace/AnimeListPane.svelte';
+  import WorkspaceEditorPane from './workspace/WorkspaceEditorPane.svelte';
+  import WorkspaceStatusBar from './workspace/WorkspaceStatusBar.svelte';
 
   let {
     providerLabel,
     entryIdsByView,
     entryStore,
-    workspace,
+    workspace
   }: {
     providerLabel: string;
     entryIdsByView: ShindenListViews;

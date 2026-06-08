@@ -1,12 +1,12 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow } from 'electron';
 
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1200,
-    height: 800,
+    height: 800
   });
 
-  const url = "http://127.0.0.1:4173";
+  const url = 'http://127.0.0.1:4173';
 
   win.loadURL(url);
 }

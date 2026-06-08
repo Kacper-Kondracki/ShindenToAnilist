@@ -1,5 +1,5 @@
-import { ensureDatabase } from "../../api/appService";
-import type { DatabaseState } from "../../domain/anime";
+import { ensureDatabase } from '../../api/appService';
+import type { DatabaseState } from '../../domain/anime';
 
 const databaseRetryDelays = [0, 500, 1500] as const;
 
@@ -13,7 +13,7 @@ export async function initializeDatabaseState(): Promise<DatabaseState> {
 
     try {
       const info = await ensureDatabase();
-      return { status: "ready", info };
+      return { status: 'ready', info };
     } catch (error) {
       lastError = error;
       if (attempt === databaseRetryDelays.length - 1) {
@@ -22,7 +22,7 @@ export async function initializeDatabaseState(): Promise<DatabaseState> {
     }
   }
 
-  return { status: "error", message: errorMessage(lastError) };
+  return { status: 'error', message: errorMessage(lastError) };
 }
 
 export function errorMessage(error: unknown) {
@@ -30,11 +30,11 @@ export function errorMessage(error: unknown) {
     return error.message;
   }
 
-  if (typeof error === "string") {
+  if (typeof error === 'string') {
     return error;
   }
 
-  return "Nie udało się wczytać bazy danych";
+  return 'Nie udało się wczytać bazy danych';
 }
 
 function delay(ms: number) {

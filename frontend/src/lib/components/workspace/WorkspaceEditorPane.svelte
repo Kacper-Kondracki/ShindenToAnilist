@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { SelectedWinnerState } from "../../features/workspace/workspaceController.svelte";
-  import DatabaseEntryPreview from "./DatabaseEntryPreview.svelte";
+  import type { SelectedWinnerState } from '../../features/workspace/workspaceController.svelte';
+  import DatabaseEntryPreview from './DatabaseEntryPreview.svelte';
 
   let {
-    selectedWinnerState,
+    selectedWinnerState
   }: {
     selectedWinnerState: SelectedWinnerState;
   } = $props();
@@ -11,23 +11,23 @@
 
 <section class="workspace-pane" aria-label="Editor">
   <div class="workspace-pane__body">
-    {#if selectedWinnerState.status === "no-selection"}
+    {#if selectedWinnerState.status === 'no-selection'}
       <p class="workspace-empty text-sm font-medium text-muted">
         Wybierz wpis z listy
       </p>
-    {:else if selectedWinnerState.status === "no-winner"}
+    {:else if selectedWinnerState.status === 'no-winner'}
       <p class="workspace-empty text-sm font-medium text-muted">
         Brak automatycznego dopasowania
       </p>
-    {:else if selectedWinnerState.status === "loading"}
+    {:else if selectedWinnerState.status === 'loading'}
       <p class="workspace-empty text-sm font-medium text-muted">
         Wczytywanie dopasowania
       </p>
-    {:else if selectedWinnerState.status === "missing"}
+    {:else if selectedWinnerState.status === 'missing'}
       <p class="workspace-empty text-sm font-medium text-muted">
         Nie znaleziono wpisu w bazie
       </p>
-    {:else if selectedWinnerState.status === "error"}
+    {:else if selectedWinnerState.status === 'error'}
       <p
         class="workspace-empty text-sm font-medium text-error"
         title={selectedWinnerState.message}

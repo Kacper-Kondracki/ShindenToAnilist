@@ -1,34 +1,34 @@
-import type { DatabaseState } from "./anime";
+import type { DatabaseState } from './anime';
 
-const missingValueText = "Brak danych";
+const missingValueText = 'Brak danych';
 
 const animeTypeLabels: Record<string, string> = {
-  tv: "Serial TV",
-  movie: "Film",
-  ova: "OVA",
-  ona: "ONA",
-  special: "Odcinek specjalny",
-  unknown: "Nieznany typ",
+  tv: 'Serial TV',
+  movie: 'Film',
+  ova: 'OVA',
+  ona: 'ONA',
+  special: 'Odcinek specjalny',
+  unknown: 'Nieznany typ'
 };
 
 const animeStatusLabels: Record<string, string> = {
-  finished: "Zakończone",
-  ongoing: "Emitowane",
-  upcoming: "Zapowiedziane",
-  unknown: "Nieznany status",
+  finished: 'Zakończone',
+  ongoing: 'Emitowane',
+  upcoming: 'Zapowiedziane',
+  unknown: 'Nieznany status'
 };
 
 const seasonLabels: Record<string, string> = {
-  winter: "Zima",
-  spring: "Wiosna",
-  summer: "Lato",
-  fall: "Jesień",
-  unknown: "Nieznany sezon",
+  winter: 'Zima',
+  spring: 'Wiosna',
+  summer: 'Lato',
+  fall: 'Jesień',
+  unknown: 'Nieznany sezon'
 };
 
 export function formatPremiereYear(premiereDate: string | null) {
   if (!premiereDate) {
-    return "Nieznany rok";
+    return 'Nieznany rok';
   }
 
   return premiereDate.slice(0, 4);
@@ -71,11 +71,11 @@ export function translateSeason(season: string) {
 }
 
 export function databaseStatusTitle(state: DatabaseState) {
-  if (state.status === "error") {
+  if (state.status === 'error') {
     return state.message;
   }
 
-  if (state.status === "ready") {
+  if (state.status === 'ready') {
     return state.info.path;
   }
 

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import type { Snippet } from 'svelte';
 
   let {
     children,
-    class: className = "",
+    class: className = ''
   }: { children?: Snippet; class?: string } = $props();
 </script>
 
@@ -14,17 +14,17 @@
 
 <style>
   @property --animated-grid-accent {
-    syntax: "<color>";
+    syntax: '<color>';
     inherits: true;
     initial-value: transparent;
   }
   @property --animated-grid-line {
-    syntax: "<color>";
+    syntax: '<color>';
     inherits: true;
     initial-value: transparent;
   }
   @property --animated-grid-glow {
-    syntax: "<color>";
+    syntax: '<color>';
     inherits: true;
     initial-value: transparent;
   }
@@ -65,7 +65,7 @@
   .animated-grid-panel::before,
   .animated-grid-panel::after {
     z-index: 1;
-    content: "";
+    content: '';
   }
 
   .animated-grid-panel::before {
