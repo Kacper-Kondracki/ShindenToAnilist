@@ -1,0 +1,15 @@
+info:
+  name: Load Database
+  type: grpc
+  seq: 10
+
+grpc:
+  url: 127.0.0.1:50051
+  method: /shinden_to_anilist.v1.ShindenToAnilistService/LoadDatabase
+  methodType: unary
+  protoFilePath: ../../proto/shinden_to_anilist/v1/service.proto
+  message: |-
+    {
+      "path": "./tmp/animedb.jsonl"
+    }
+  auth: inherit

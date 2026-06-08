@@ -1,0 +1,15 @@
+info:
+  name: Get Shinden Ids (Sort by urgency)
+  type: grpc
+  seq: 3
+
+grpc:
+  url: 127.0.0.1:50051
+  method: /shinden_to_anilist.v1.ShindenToAnilistService/GetShindenIds
+  methodType: unary
+  protoFilePath: ../../proto/shinden_to_anilist/v1/service.proto
+  message: |-
+    {
+      "sorted_by": "ANIME_LIST_SORTED_BY_URGENCY"
+    }
+  auth: inherit

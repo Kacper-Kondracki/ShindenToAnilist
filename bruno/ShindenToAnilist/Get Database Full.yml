@@ -1,11 +1,11 @@
 info:
-  name: Get Loaded Shinden List
+  name: Get Database Full
   type: grpc
-  seq: 2
+  seq: 13
 
 grpc:
   url: 127.0.0.1:50051
-  method: /shinden_to_anilist.v1.ShindenToAnilistService/GetLoadedShindenList
+  method: /shinden_to_anilist.v1.ShindenToAnilistService/GetDatabaseFull
   methodType: unary
   protoFilePath: ../../proto/shinden_to_anilist/v1/service.proto
   message: "{}"

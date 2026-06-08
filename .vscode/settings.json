@@ -31,5 +31,8 @@
   },
   "[svelte]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[snippets]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   }
 }

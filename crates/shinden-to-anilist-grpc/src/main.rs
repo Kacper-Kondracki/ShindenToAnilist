@@ -1,7 +1,7 @@
 use reqwest::Client;
-use shinden_to_anilist_grpc::server::{
-    ShindenToAnilist,
+use shinden_to_anilist_grpc::{
     pb::shinden_to_anilist_service_server::ShindenToAnilistServiceServer,
+    server::ShindenToAnilist,
 };
 use tonic::transport::Server;
 

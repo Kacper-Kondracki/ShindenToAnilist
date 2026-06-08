@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package shinden_to_anilist.v1;
+
+import "shinden_to_anilist/v1/common.proto";
+
+message ShindenEntry {
+  uint64 id = 1;
+  optional int32 cover_id = 2;
+
+  string title = 3;
+  AnimeStatus anime_status = 4;
+  AnimeType anime_type = 5;
+
+  optional Date premiere_date = 6;
+  optional Date finish_date = 7;
+  optional int32 episodes = 8;
+
+  bool is_favourite = 9;
+  WatchStatus watch_status = 10;
+  int32 watched_episodes = 11;
+  optional int32 score = 12;
+}

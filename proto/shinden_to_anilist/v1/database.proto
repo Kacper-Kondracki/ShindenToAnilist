@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package shinden_to_anilist.v1;
+
+import "shinden_to_anilist/v1/common.proto";
+
+message DatabaseMetadata {
+  Date last_update = 1;
+}
+
+message DatabaseReleaseInfo {
+  string release = 1;
+  string sha256 = 2;
+  uint64 compressed_size = 3;
+}
+
+message DatabaseUpdateCheck {
+  optional DatabaseReleaseInfo local = 1;
+  DatabaseReleaseInfo remote = 2;
+  bool needs_update = 3;
+}
+
+message DatabaseEntry {
+  uint64 id = 1;
+  repeated string sources = 2;
+  string title = 3;
+  AnimeType anime_type = 4;
+  int32 episodes = 5;
+  AnimeStatus status = 6;
+  Season season = 7;
+  optional int32 year = 8;
+  string picture = 9;
+  string thumbnail = 10;
+  optional int32 duration = 11;
+  repeated string synonyms = 12;
+}

@@ -7,6 +7,8 @@ config:
     protoFiles:
       - type: file
         path: ../../proto/shinden_to_anilist/v1/service.proto
+    importPaths:
+      - path: ../../proto
   proxy:
     inherit: true
     config:

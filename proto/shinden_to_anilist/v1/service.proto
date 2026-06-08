@@ -2,26 +2,95 @@ syntax = "proto3";
 
 package shinden_to_anilist.v1;
 
+import "shinden_to_anilist/v1/common.proto";
+import "shinden_to_anilist/v1/database.proto";
+import "shinden_to_anilist/v1/shinden.proto";
+
 service ShindenToAnilistService {
   rpc FetchShindenList(FetchShindenListRequest) returns (FetchShindenListResponse);
-  rpc GetLoadedShindenList(GetLoadedShindenListRequest) returns (GetLoadedShindenListResponse);
+  rpc GetShindenIds(GetShindenIdsRequest) returns (GetShindenIdsResponse);
+  rpc GetShindenEntries(GetShindenEntriesRequest) returns (GetShindenEntriesResponse);
+  rpc GetShindenFull(GetShindenFullRequest) returns (GetShindenFullResponse);
+
+  rpc CheckDatabaseUpdate(CheckDatabaseUpdateRequest) returns (CheckDatabaseUpdateResponse);
+  rpc DownloadDatabase(DownloadDatabaseRequest) returns (DownloadDatabaseResponse);
+  rpc LoadDatabase(LoadDatabaseRequest) returns (LoadDatabaseResponse);
+  rpc GetDatabaseMetadata(GetDatabaseMetadataRequest) returns (GetDatabaseMetadataResponse);
+  rpc GetDatabaseEntries(GetDatabaseEntriesRequest) returns (GetDatabaseEntriesResponse);
+  rpc GetDatabaseFull(GetDatabaseFullRequest) returns (GetDatabaseFullResponse);
 }
 
-message Error {
-  optional string message = 1;
-}
+// Shinden
 
 message FetchShindenListRequest {
   uint64 id = 1;
 }
-
 message FetchShindenListResponse {
   uint64 version = 1;
 }
 
-message GetLoadedShindenListRequest {}
-
-message GetLoadedShindenListResponse {
+message GetShindenIdsRequest {
+  AnimeListSortedBy sorted_by = 1;
+}
+message GetShindenIdsResponse {
   uint64 version = 1;
-  uint64 count = 2;
+  repeated uint64 ids = 2;
+}
+
+message GetShindenEntriesRequest {
+  repeated uint64 ids = 1;
+}
+message GetShindenEntriesResponse {
+  uint64 version = 1;
+  repeated ShindenEntry entries = 2;
+}
+
+message GetShindenFullRequest {}
+message GetShindenFullResponse {
+  uint64 version = 1;
+  repeated ShindenEntry entries = 2;
+}
+
+// Database
+
+message CheckDatabaseUpdateRequest {
+  string path = 1;
+}
+message CheckDatabaseUpdateResponse {
+  DatabaseUpdateCheck status = 1;
+}
+
+message DownloadDatabaseRequest {
+  string path = 1;
+}
+message DownloadDatabaseResponse {
+  DatabaseReleaseInfo status = 1;
+}
+
+message LoadDatabaseRequest {
+  string path = 1;
+}
+message LoadDatabaseResponse {
+  uint64 version = 1;
+}
+
+message GetDatabaseMetadataRequest {
+  string path = 1;
+}
+message GetDatabaseMetadataResponse {
+  DatabaseMetadata metadata = 1;
+}
+
+message GetDatabaseEntriesRequest {
+  repeated uint64 ids = 1;
+}
+message GetDatabaseEntriesResponse {
+  uint64 version = 1;
+  repeated DatabaseEntry entries = 2;
+}
+
+message GetDatabaseFullRequest {}
+message GetDatabaseFullResponse {
+  uint64 version = 1;
+  repeated DatabaseEntry entries = 2;
 }
