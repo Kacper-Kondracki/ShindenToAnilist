@@ -103,6 +103,7 @@
     </div>
     <button
       class="btn btn-error xl:btn-wide"
+      class:is-export-ready={summary.reviewCount === 0}
       type="button"
       onclick={onExport}
       title={exportState.status === 'error'
@@ -155,6 +156,93 @@
 
   .app-status-bar__summary > .is-measuring {
     visibility: hidden;
+  }
+
+  .is-export-ready {
+    position: relative;
+    isolation: isolate;
+    border: none;
+    background:
+      linear-gradient(
+        110deg,
+        color-mix(in oklab, #ff6b8a 72%, white 28%) 0%,
+        color-mix(in oklab, #ffd166 76%, white 24%) 10%,
+        color-mix(in oklab, #7bd88f 72%, white 28%) 20%,
+        color-mix(in oklab, #5cc8ff 72%, white 28%) 30%,
+        color-mix(in oklab, #c084fc 72%, white 28%) 40%,
+        color-mix(in oklab, #ff6b8a 72%, white 28%) 50%,
+        color-mix(in oklab, #ffd166 76%, white 24%) 60%,
+        color-mix(in oklab, #7bd88f 72%, white 28%) 70%,
+        color-mix(in oklab, #5cc8ff 72%, white 28%) 80%,
+        color-mix(in oklab, #c084fc 72%, white 28%) 90%,
+        color-mix(in oklab, #ff6b8a 72%, white 28%) 100%
+      );
+    background-size: 200% 100%;
+    box-shadow:
+      0 0 0.5rem color-mix(in oklab, #ffd166 34%, transparent),
+      0 0 1.2rem color-mix(in oklab, #5cc8ff 26%, transparent),
+      0 0 2rem color-mix(in oklab, #c084fc 20%, transparent);
+    color: color-mix(in oklab, var(--color-base-100) 88%, white 12%);
+    text-shadow: 0 1px 0 color-mix(in oklab, black 22%, transparent);
+    animation: export-rainbow-shine 3.2s linear infinite;
+  }
+
+  .is-export-ready::after {
+    position: absolute;
+    inset: -0.25rem;
+    z-index: -1;
+    border-radius: inherit;
+    background:
+      radial-gradient(
+        circle at 20% 30%,
+        color-mix(in oklab, #ffd166 36%, transparent),
+        transparent 34%
+      ),
+      radial-gradient(
+        circle at 78% 70%,
+        color-mix(in oklab, #5cc8ff 32%, transparent),
+        transparent 36%
+      ),
+      linear-gradient(
+        120deg,
+        color-mix(in oklab, #ff6b8a 22%, transparent),
+        color-mix(in oklab, #7bd88f 20%, transparent),
+        color-mix(in oklab, #c084fc 24%, transparent)
+      );
+    content: '';
+    filter: blur(0.65rem);
+    opacity: 0.72;
+    animation: export-rainbow-glow 2.8s ease-in-out infinite;
+  }
+
+  @keyframes export-rainbow-shine {
+    0% {
+      background-position: 0% 50%;
+    }
+
+    100% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes export-rainbow-glow {
+    0%,
+    100% {
+      opacity: 0.62;
+      transform: scale(0.98);
+    }
+
+    50% {
+      opacity: 0.86;
+      transform: scale(1.03);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .is-export-ready,
+    .is-export-ready::after {
+      animation: none;
+    }
   }
 
   .status-badge {
