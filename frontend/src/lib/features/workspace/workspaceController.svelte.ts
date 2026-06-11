@@ -61,6 +61,13 @@ export function createWorkspaceController(entryStore: EntryStore) {
 
     return winnerIdForEntry(selectedEntryId, matchResult, manualOverrides);
   });
+  let selectedCandidateIds = $derived.by(() => {
+    if (selectedEntryId === null) {
+      return [];
+    }
+
+    return candidateIdsForEntry(selectedEntryId, matchResult, manualOverrides);
+  });
   let selectedWinnerState = $derived.by((): SelectedWinnerState => {
     if (selectedEntryId === null) {
       return { status: 'no-selection' };
@@ -112,7 +119,18 @@ export function createWorkspaceController(entryStore: EntryStore) {
   );
 
   $effect(() => {
-    return entryStore.pinDatabaseEntry(selectedWinnerId);
+    if (selectedEntryId === null) {
+      return;
+    }
+
+    const releaseShindenEntry = entryStore.retainShindenEntry(selectedEntryId);
+    const releaseDatabaseEntries =
+      entryStore.pinDatabaseEntries(selectedCandidateIds);
+
+    return () => {
+      releaseShindenEntry();
+      releaseDatabaseEntries();
+    };
   });
 
   function activate(next: WorkspaceActivation) {
@@ -265,6 +283,31 @@ function winnerIdForEntry(
     matchResult?.entries.find((entry) => entry.shindenId === entryId) ?? null;
 
   return manualOverrides[entryId] ?? matchEntry?.result.winner?.id ?? null;
+}
+
+function candidateIdsForEntry(
+  entryId: number,
+  matchResult: MatchListResult | null,
+  manualOverrides: Record<number, number>
+) {
+  const matchEntry =
+    matchResult?.entries.find((entry) => entry.shindenId === entryId) ?? null;
+
+  if (matchEntry === null) {
+    return [];
+  }
+
+  const candidateIds = new Set<number>();
+  for (const candidate of matchEntry.result.top) {
+    candidateIds.add(candidate.id);
+  }
+
+  const winnerId = manualOverrides[entryId] ?? matchEntry.result.winner?.id;
+  if (winnerId !== undefined) {
+    candidateIds.add(winnerId);
+  }
+
+  return [...candidateIds];
 }
 
 function buildEffectiveSelections(

@@ -104,6 +104,18 @@ export function createEntryStore() {
     return retainEntry(databaseEntryQuery(entryId));
   }
 
+  function pinDatabaseEntries(entryIds: number[]) {
+    const releaseEntries = entryIds.map((entryId) =>
+      retainEntry(databaseEntryQuery(entryId))
+    );
+
+    return () => {
+      for (const releaseEntry of releaseEntries) {
+        releaseEntry();
+      }
+    };
+  }
+
   function requestShindenEntries(entryIds: number[]) {
     for (const entryId of entryIds) {
       prefetchShindenEntry(entryId);
@@ -156,6 +168,7 @@ export function createEntryStore() {
     ensureReadyDatabaseEntry: ensureDatabaseEntry,
     retainShindenEntry,
     pinDatabaseEntry,
+    pinDatabaseEntries,
     requestShindenEntries,
     requestDatabaseEntries
   };
