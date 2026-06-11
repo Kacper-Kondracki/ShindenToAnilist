@@ -1,9 +1,9 @@
-import { tick } from "svelte";
-import type { VListHandle } from "virtua/svelte";
+import { tick } from 'svelte';
+import type { VListHandle } from 'virtua/svelte';
 
-import type { MatchListResult, ShindenListViews } from "../../domain/anime";
-import type { AnimeMatchStatus } from "../../components/workspace/AnimeRow.svelte";
-import type { AnimeListTabId } from "../../components/workspace/tabs";
+import type { MatchListResult, ShindenListViews } from '../../domain/anime';
+import type { AnimeMatchStatus } from '../../components/workspace/AnimeRow.svelte';
+import type { AnimeListTabId } from '../../components/workspace/tabs';
 
 type PendingScrollRestore = {
   tabId: AnimeListTabId;
@@ -27,12 +27,12 @@ export type AnimeListPaneController = ReturnType<
 >;
 
 export function createAnimeListPaneController(
-  input: AnimeListPaneControllerInput,
+  input: AnimeListPaneControllerInput
 ) {
   let listRef = $state<VListHandle | null>(null);
-  let activeTab = $state<AnimeListTabId>("manual");
+  let activeTab = $state<AnimeListTabId>('manual');
   let tabScrollOffsets = $state<Record<AnimeListTabId, number>>(
-    initialTabScrollOffsets(),
+    initialTabScrollOffsets()
   );
   let selectedScrollAnchors = $state<
     Record<AnimeListTabId, SelectedScrollAnchor | null>
@@ -44,11 +44,11 @@ export function createAnimeListPaneController(
 
     for (const matchEntry of input.getMatchResult()?.entries ?? []) {
       if (matchEntry.result.winner !== null) {
-        statuses.set(matchEntry.shindenId, "matched");
+        statuses.set(matchEntry.shindenId, 'matched');
       } else if (matchEntry.result.top.length > 0) {
-        statuses.set(matchEntry.shindenId, "review");
+        statuses.set(matchEntry.shindenId, 'review');
       } else {
-        statuses.set(matchEntry.shindenId, "unmatched");
+        statuses.set(matchEntry.shindenId, 'unmatched');
       }
     }
 
@@ -57,18 +57,18 @@ export function createAnimeListPaneController(
   let visibleEntryIds = $derived.by(() => input.getEntryIdsByView()[activeTab]);
   let emptyListText = $derived.by(() => {
     if (input.getEntryIdsByView().all.length === 0) {
-      return "Lista jest pusta";
+      return 'Lista jest pusta';
     }
 
-    if (activeTab === "automatic") {
-      return "Brak automatycznie dopasowanych wpisów";
+    if (activeTab === 'automatic') {
+      return 'Brak automatycznie dopasowanych wpisów';
     }
 
-    if (activeTab === "manual") {
-      return "Brak wpisów wymagających ręcznej interwencji";
+    if (activeTab === 'manual') {
+      return 'Brak wpisów wymagających ręcznej interwencji';
     }
 
-    return "Brak wpisów do wyświetlenia";
+    return 'Brak wpisów do wyświetlenia';
   });
 
   $effect(() => {
@@ -104,13 +104,13 @@ export function createAnimeListPaneController(
     const selectedViewportOffset = getSelectedRestoreOffset(
       nextTabId,
       currentSelectedIndex,
-      currentOffset,
+      currentOffset
     );
 
     pendingScrollRestore = {
       tabId: nextTabId,
       selectedEntryId,
-      selectedViewportOffset,
+      selectedViewportOffset
     };
     activeTab = nextTabId;
   }
@@ -127,15 +127,15 @@ export function createAnimeListPaneController(
       restore.selectedEntryId === null
         ? -1
         : visibleEntryIds.findIndex(
-            (entryId) => entryId === restore.selectedEntryId,
+            (entryId) => entryId === restore.selectedEntryId
           );
 
     if (selectedIndex >= 0 && restore.selectedViewportOffset !== null) {
       listRef.scrollTo(
         Math.max(
           0,
-          listRef.getItemOffset(selectedIndex) - restore.selectedViewportOffset,
-        ),
+          listRef.getItemOffset(selectedIndex) - restore.selectedViewportOffset
+        )
       );
       return;
     }
@@ -159,17 +159,17 @@ export function createAnimeListPaneController(
         ? {
             entryId: selectedEntryId,
             viewportOffset:
-              getSelectedViewportOffset(selectedIndex, scrollOffset) ?? 0,
+              getSelectedViewportOffset(selectedIndex, scrollOffset) ?? 0
           }
         : null;
 
     tabScrollOffsets = {
       ...tabScrollOffsets,
-      [activeTab]: scrollOffset,
+      [activeTab]: scrollOffset
     };
     selectedScrollAnchors = {
       ...selectedScrollAnchors,
-      [activeTab]: selectedAnchor,
+      [activeTab]: selectedAnchor
     };
 
     return scrollOffset;
@@ -178,7 +178,7 @@ export function createAnimeListPaneController(
   function getSelectedRestoreOffset(
     nextTabId: AnimeListTabId,
     currentSelectedIndex: number,
-    currentOffset: number,
+    currentOffset: number
   ) {
     const selectedEntryId = input.getSelectedEntryId();
 
@@ -199,7 +199,7 @@ export function createAnimeListPaneController(
 
   function getSelectedViewportOffset(
     selectedIndex: number,
-    scrollOffset: number,
+    scrollOffset: number
   ) {
     if (listRef === null) {
       return null;
@@ -234,7 +234,7 @@ export function createAnimeListPaneController(
       return emptyListText;
     },
     handleScroll,
-    selectTab,
+    selectTab
   };
 }
 
@@ -242,7 +242,7 @@ function initialTabScrollOffsets(): Record<AnimeListTabId, number> {
   return {
     manual: 0,
     automatic: 0,
-    all: 0,
+    all: 0
   };
 }
 
@@ -253,6 +253,6 @@ function initialSelectedScrollAnchors(): Record<
   return {
     manual: null,
     automatic: null,
-    all: null,
+    all: null
   };
 }

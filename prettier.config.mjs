@@ -1,16 +1,3 @@
-export default {
-  plugins: ["prettier-plugin-svelte"],
+import base from './prettier.base.mjs';
 
-  semi: true,
-  singleQuote: true,
-  trailingComma: "none",
-
-  overrides: [
-    {
-      files: "*.svelte",
-      options: {
-        parser: "svelte",
-      },
-    },
-  ],
-};
+export default base;

@@ -1,8 +1,8 @@
 import {
   getAnimeDatabaseEntries,
-  getLoadedShindenEntries,
-} from "../api/appService";
-import type { DatabaseEntry, ShindenEntry } from "../domain/anime";
+  getLoadedShindenEntries
+} from '../api/appService';
+import type { DatabaseEntry, ShindenEntry } from '../domain/anime';
 
 type CacheEntry = {
   retainCount: number;
@@ -11,27 +11,27 @@ type CacheEntry = {
 };
 
 export type EntryLoadState<T> =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ready"; entry: T }
-  | { status: "missing" }
-  | { status: "error"; message: string };
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready'; entry: T }
+  | { status: 'missing' }
+  | { status: 'error'; message: string };
 
-type CacheKind = "shinden" | "database";
+type CacheKind = 'shinden' | 'database';
 
 const shindenReleasedCapacity = 200;
 const databaseReleasedCapacity = 50;
 
-const idleShindenEntryState: EntryLoadState<ShindenEntry> = { status: "idle" };
+const idleShindenEntryState: EntryLoadState<ShindenEntry> = { status: 'idle' };
 const idleDatabaseEntryState: EntryLoadState<DatabaseEntry> = {
-  status: "idle",
+  status: 'idle'
 };
 
 export type EntryStore = ReturnType<typeof createEntryStore>;
 
 export function createEntryStore() {
   let shindenEntryStates = $state<Record<number, EntryLoadState<ShindenEntry>>>(
-    {},
+    {}
   );
   let databaseEntryStates = $state<
     Record<number, EntryLoadState<DatabaseEntry>>
@@ -90,7 +90,7 @@ export function createEntryStore() {
 
   function getReadyShindenEntry(entryId: number) {
     const state = getShindenEntryState(entryId);
-    return state.status === "ready" ? state.entry : null;
+    return state.status === 'ready' ? state.entry : null;
   }
 
   function getDatabaseEntryState(entryId: number | null) {
@@ -104,7 +104,7 @@ export function createEntryStore() {
 
   function getReadyDatabaseEntry(entryId: number | null) {
     const state = getDatabaseEntryState(entryId);
-    return state.status === "ready" ? state.entry : null;
+    return state.status === 'ready' ? state.entry : null;
   }
 
   function retainShindenEntry(entryId: number) {
@@ -125,7 +125,7 @@ export function createEntryStore() {
     });
 
     return () => {
-      release(shindenCache, entryId, "shinden");
+      release(shindenCache, entryId, 'shinden');
     };
   }
 
@@ -163,7 +163,7 @@ export function createEntryStore() {
       }
 
       pinnedDatabaseIds.delete(entryId);
-      evictReleased("database");
+      evictReleased('database');
     };
   }
 
@@ -227,7 +227,7 @@ export function createEntryStore() {
 
     const requestGeneration = generation;
     directInFlightShindenIds.add(entryId);
-    setShindenEntryState(entryId, { status: "loading" });
+    setShindenEntryState(entryId, { status: 'loading' });
 
     try {
       const entries = await getLoadedShindenEntries([entryId]);
@@ -239,19 +239,19 @@ export function createEntryStore() {
       const entry = entries.find((value) => value.id === entryId) ?? null;
 
       if (entry === null) {
-        setShindenEntryState(entryId, { status: "missing" });
+        setShindenEntryState(entryId, { status: 'missing' });
         return null;
       }
 
       setShindenCacheEntry(entry);
-      evictReleased("shinden");
+      evictReleased('shinden');
 
       return entry;
     } catch (error) {
       if (requestGeneration === generation) {
         setShindenEntryState(entryId, {
-          status: "error",
-          message: errorMessage(error),
+          status: 'error',
+          message: errorMessage(error)
         });
       }
 
@@ -277,7 +277,7 @@ export function createEntryStore() {
 
     const requestGeneration = generation;
     directInFlightDatabaseIds.add(entryId);
-    setDatabaseEntryState(entryId, { status: "loading" });
+    setDatabaseEntryState(entryId, { status: 'loading' });
 
     try {
       const entries = await getAnimeDatabaseEntries([entryId]);
@@ -289,19 +289,19 @@ export function createEntryStore() {
       const entry = entries.find((value) => value.id === entryId) ?? null;
 
       if (entry === null) {
-        setDatabaseEntryState(entryId, { status: "missing" });
+        setDatabaseEntryState(entryId, { status: 'missing' });
         return null;
       }
 
       setDatabaseCacheEntry(entry);
-      evictReleased("database");
+      evictReleased('database');
 
       return entry;
     } catch (error) {
       if (requestGeneration === generation) {
         setDatabaseEntryState(entryId, {
-          status: "error",
-          message: errorMessage(error),
+          status: 'error',
+          message: errorMessage(error)
         });
       }
 
@@ -336,7 +336,7 @@ export function createEntryStore() {
       pendingShindenIds,
       inFlightShindenIds,
       shindenCache,
-      directInFlightShindenIds,
+      directInFlightShindenIds
     );
 
     if (ids.length === 0) {
@@ -346,7 +346,7 @@ export function createEntryStore() {
     const requestGeneration = generation;
 
     for (const id of ids) {
-      setShindenEntryState(id, { status: "loading" });
+      setShindenEntryState(id, { status: 'loading' });
     }
 
     try {
@@ -365,17 +365,17 @@ export function createEntryStore() {
 
       for (const id of ids) {
         if (!loadedIds.has(id)) {
-          setShindenEntryState(id, { status: "missing" });
+          setShindenEntryState(id, { status: 'missing' });
         }
       }
 
-      evictReleased("shinden");
+      evictReleased('shinden');
     } catch (error) {
       if (requestGeneration === generation) {
         for (const id of ids) {
           setShindenEntryState(id, {
-            status: "error",
-            message: errorMessage(error),
+            status: 'error',
+            message: errorMessage(error)
           });
         }
       }
@@ -395,7 +395,7 @@ export function createEntryStore() {
       pendingDatabaseIds,
       inFlightDatabaseIds,
       databaseCache,
-      directInFlightDatabaseIds,
+      directInFlightDatabaseIds
     );
 
     if (ids.length === 0) {
@@ -405,7 +405,7 @@ export function createEntryStore() {
     const requestGeneration = generation;
 
     for (const id of ids) {
-      setDatabaseEntryState(id, { status: "loading" });
+      setDatabaseEntryState(id, { status: 'loading' });
     }
 
     try {
@@ -424,17 +424,17 @@ export function createEntryStore() {
 
       for (const id of ids) {
         if (!loadedIds.has(id)) {
-          setDatabaseEntryState(id, { status: "missing" });
+          setDatabaseEntryState(id, { status: 'missing' });
         }
       }
 
-      evictReleased("database");
+      evictReleased('database');
     } catch (error) {
       if (requestGeneration === generation) {
         for (const id of ids) {
           setDatabaseEntryState(id, {
-            status: "error",
-            message: errorMessage(error),
+            status: 'error',
+            message: errorMessage(error)
           });
         }
       }
@@ -451,10 +451,10 @@ export function createEntryStore() {
     pending: Set<number>,
     inFlight: Set<number>,
     cache: Map<number, CacheEntry>,
-    directInFlight: Set<number>,
+    directInFlight: Set<number>
   ) {
     const ids = [...pending].filter(
-      (id) => !cache.has(id) && !inFlight.has(id) && !directInFlight.has(id),
+      (id) => !cache.has(id) && !inFlight.has(id) && !directInFlight.has(id)
     );
 
     pending.clear();
@@ -470,7 +470,7 @@ export function createEntryStore() {
     if (cache === shindenCache) {
       shindenRetainCounts.set(
         entryId,
-        (shindenRetainCounts.get(entryId) ?? 0) + 1,
+        (shindenRetainCounts.get(entryId) ?? 0) + 1
       );
     }
 
@@ -484,12 +484,12 @@ export function createEntryStore() {
   function release(
     cache: Map<number, CacheEntry>,
     entryId: number,
-    kind: CacheKind,
+    kind: CacheKind
   ) {
     if (cache === shindenCache) {
       const retainCount = Math.max(
         0,
-        (shindenRetainCounts.get(entryId) ?? 0) - 1,
+        (shindenRetainCounts.get(entryId) ?? 0) - 1
       );
 
       if (retainCount === 0) {
@@ -511,16 +511,16 @@ export function createEntryStore() {
   function setShindenCacheEntry(entry: ShindenEntry) {
     setCacheMetadata(shindenCache, entry.id);
     setShindenEntryState(entry.id, {
-      status: "ready",
-      entry,
+      status: 'ready',
+      entry
     });
   }
 
   function setDatabaseCacheEntry(entry: DatabaseEntry) {
     setCacheMetadata(databaseCache, entry.id);
     setDatabaseEntryState(entry.id, {
-      status: "ready",
-      entry,
+      status: 'ready',
+      entry
     });
   }
 
@@ -532,7 +532,7 @@ export function createEntryStore() {
   function cacheMetadataFor(
     cache: Map<number, CacheEntry>,
     entryId: number,
-    existing: CacheEntry | undefined,
+    existing: CacheEntry | undefined
   ): CacheEntry {
     return {
       retainCount:
@@ -541,7 +541,7 @@ export function createEntryStore() {
       pinned:
         existing?.pinned ??
         (cache === databaseCache ? pinnedDatabaseIds.has(entryId) : false),
-      lastAccess: nextTick(),
+      lastAccess: nextTick()
     };
   }
 
@@ -554,9 +554,9 @@ export function createEntryStore() {
   }
 
   function evictReleased(kind: CacheKind) {
-    const cache = kind === "shinden" ? shindenCache : databaseCache;
+    const cache = kind === 'shinden' ? shindenCache : databaseCache;
     const capacity =
-      kind === "shinden" ? shindenReleasedCapacity : databaseReleasedCapacity;
+      kind === 'shinden' ? shindenReleasedCapacity : databaseReleasedCapacity;
 
     const releasedEntries = [...cache.entries()]
       .filter(([, entry]) => entry.retainCount === 0 && !entry.pinned)
@@ -571,7 +571,7 @@ export function createEntryStore() {
     for (const [entryId] of releasedEntries.slice(0, evictCount)) {
       cache.delete(entryId);
 
-      if (kind === "shinden") {
+      if (kind === 'shinden') {
         removeShindenEntryState(entryId);
       } else {
         removeDatabaseEntryState(entryId);
@@ -586,7 +586,7 @@ export function createEntryStore() {
 
   function setShindenEntryState(
     entryId: number,
-    state: EntryLoadState<ShindenEntry>,
+    state: EntryLoadState<ShindenEntry>
   ) {
     const current = shindenEntryStates[entryId];
 
@@ -596,13 +596,13 @@ export function createEntryStore() {
 
     shindenEntryStates = {
       ...shindenEntryStates,
-      [entryId]: state,
+      [entryId]: state
     };
   }
 
   function setDatabaseEntryState(
     entryId: number,
-    state: EntryLoadState<DatabaseEntry>,
+    state: EntryLoadState<DatabaseEntry>
   ) {
     const current = databaseEntryStates[entryId];
 
@@ -612,7 +612,7 @@ export function createEntryStore() {
 
     databaseEntryStates = {
       ...databaseEntryStates,
-      [entryId]: state,
+      [entryId]: state
     };
   }
 
@@ -651,16 +651,16 @@ export function createEntryStore() {
     retainShindenEntry,
     pinDatabaseEntry,
     requestShindenEntries,
-    requestDatabaseEntries,
+    requestDatabaseEntries
   };
 }
 
 function entryLoadStatesEqual<T>(
   left: EntryLoadState<T> | undefined,
-  right: EntryLoadState<T>,
+  right: EntryLoadState<T>
 ) {
   if (left === undefined) {
-    return right.status === "idle";
+    return right.status === 'idle';
   }
 
   if (left.status !== right.status) {
@@ -668,17 +668,17 @@ function entryLoadStatesEqual<T>(
   }
 
   switch (left.status) {
-    case "idle":
-    case "loading":
-    case "missing":
+    case 'idle':
+    case 'loading':
+    case 'missing':
       return true;
 
-    case "ready":
-      return left.entry === (right as { status: "ready"; entry: T }).entry;
+    case 'ready':
+      return left.entry === (right as { status: 'ready'; entry: T }).entry;
 
-    case "error":
+    case 'error':
       return (
-        left.message === (right as { status: "error"; message: string }).message
+        left.message === (right as { status: 'error'; message: string }).message
       );
   }
 }
@@ -688,9 +688,9 @@ function errorMessage(error: unknown) {
     return error.message;
   }
 
-  if (typeof error === "string") {
+  if (typeof error === 'string') {
     return error;
   }
 
-  return "Nie udało się wczytać danych wpisu";
+  return 'Nie udało się wczytać danych wpisu';
 }

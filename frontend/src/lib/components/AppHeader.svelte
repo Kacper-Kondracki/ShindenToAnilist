@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { Provider, ProviderOption } from "../config/providers";
-  import type { DatabaseState } from "../domain/anime";
-  import DatabaseStatus from "./DatabaseStatus.svelte";
-  import ProviderSelector from "./ProviderSelector.svelte";
-  import UserListForm from "./UserListForm.svelte";
+  import type { Provider, ProviderOption } from '../config/providers';
+  import type { DatabaseState } from '../domain/anime';
+  import DatabaseStatus from './DatabaseStatus.svelte';
+  import ProviderSelector from './ProviderSelector.svelte';
+  import UserListForm from './UserListForm.svelte';
 
   let {
     providers,
@@ -18,7 +18,7 @@
     onSelectProvider,
     onUserQueryInput,
     onClearUserListError,
-    onSubmit,
+    onSubmit
   }: {
     providers: readonly ProviderOption[];
     selectedProvider: Provider;

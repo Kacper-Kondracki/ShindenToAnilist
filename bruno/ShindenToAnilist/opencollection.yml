@@ -1,0 +1,31 @@
+opencollection: 1.0.0
+
+info:
+  name: ShindenToAnilist
+config:
+  protobuf:
+    protoFiles:
+      - type: file
+        path: ../../proto/shinden_to_anilist/v1/service.proto
+    importPaths:
+      - path: ../../proto
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git
+    presets:
+      request:
+        type: grpc
+        url: 127.0.0.1:50051

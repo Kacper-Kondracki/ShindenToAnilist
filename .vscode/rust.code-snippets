@@ -1,0 +1,27 @@
+{
+  "tonic fn": {
+    "scope": "rust",
+    "prefix": "tonicfn",
+    "body": [
+      "async fn ${1:name}(",
+      "    &self,",
+      "    request: Request<${2:RequestType}>,",
+      ") -> Result<Response<${3:ResponseType}>, Status> {",
+      "    todo!()",
+      "}"
+    ],
+    "description": "tonic rpc method"
+  },
+  "tonic rpc": {
+    "scope": "rust",
+    "prefix": "tonicrpc",
+    "body": [
+      "async fn ${1:name}(",
+      "    &self,",
+      "    request: Request<${1/(.*)/${1:/pascalcase}Request/}>,",
+      ") -> Result<Response<${1/(.*)/${1:/pascalcase}Response/}>, Status> {",
+      "    ${0:todo!()}",
+      "}"
+    ]
+  }
+}

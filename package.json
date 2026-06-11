@@ -1,11 +1,15 @@
 {
   "name": "shinden-to-anilist",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:electron": "pnpm --filter electron dev",
     "dev": "concurrently -k \"pnpm dev:frontend\" \"pnpm dev:electron\"",
-    "fmt:crates": "cargo +nightly fmt"
+    "format:frontend": "pnpm --filter frontend format",
+    "format:electron": "pnpm --filter electron format",
+    "format:crates": "cargo +nightly fmt",
+    "format": "pnpm format:crates && pnpm format:frontend && pnpm format:electron"
   },
   "devDependencies": {
     "concurrently": "^10.0.3"

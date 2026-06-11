@@ -1,17 +1,17 @@
 <script lang="ts">
   import type {
     EntryLoadState,
-    EntryStore,
-  } from "../../data/entryStore.svelte";
-  import type { ShindenEntry } from "../../domain/anime";
+    EntryStore
+  } from '../../data/entryStore.svelte';
+  import type { ShindenEntry } from '../../domain/anime';
   import {
     formatPremiereYear,
     translateAnimeStatus,
-    translateAnimeType,
-  } from "../../domain/animeView";
-  import { createAnimeRowController } from "../../features/workspace/animeRowController.svelte";
+    translateAnimeType
+  } from '../../domain/animeView';
+  import { createAnimeRowController } from '../../features/workspace/animeRowController.svelte';
 
-  export type AnimeMatchStatus = "matched" | "review" | "unmatched";
+  export type AnimeMatchStatus = 'matched' | 'review' | 'unmatched';
 
   let {
     entryId,
@@ -19,7 +19,7 @@
     matchStatus,
     isSelected,
     onSelect,
-    entryStore,
+    entryStore
   }: {
     entryId: number;
     entryState: EntryLoadState<ShindenEntry>;
@@ -30,18 +30,18 @@
   } = $props();
 
   const matchStatusLabels: Record<AnimeMatchStatus, string> = {
-    matched: "Dobrano automatycznie",
-    review: "Znaleziono kandydatów do sprawdzenia",
-    unmatched: "Nie znaleziono kandydatów",
+    matched: 'Dobrano automatycznie',
+    review: 'Znaleziono kandydatów do sprawdzenia',
+    unmatched: 'Nie znaleziono kandydatów'
   };
 
   createAnimeRowController({
     getEntryStore: () => entryStore,
-    getEntryId: () => entryId,
+    getEntryId: () => entryId
   });
 
   function rowTitle() {
-    return entryState.status === "ready"
+    return entryState.status === 'ready'
       ? entryState.entry.title
       : `Wpis #${entryId}`;
   }
@@ -49,9 +49,9 @@
 
 <button
   type="button"
-  class:anime-row--matched={matchStatus === "matched"}
-  class:anime-row--review={matchStatus === "review"}
-  class:anime-row--unmatched={matchStatus === "unmatched"}
+  class:anime-row--matched={matchStatus === 'matched'}
+  class:anime-row--review={matchStatus === 'review'}
+  class:anime-row--unmatched={matchStatus === 'unmatched'}
   class:anime-row--selected={isSelected}
   class="anime-row"
   aria-label={`${rowTitle()}: ${matchStatusLabels[matchStatus]}`}
@@ -60,27 +60,27 @@
   onclick={onSelect}
 >
   <div class="min-w-0">
-    {#if entryState.status !== "ready"}
+    {#if entryState.status !== 'ready'}
       <h2 class="truncate text-sm font-semibold">Wpis #{entryId}</h2>
       <p class="truncate text-xs text-muted">
-        {entryState.status === "error"
-          ? "Nie udało się wczytać danych"
-          : entryState.status === "missing"
-            ? "Nie znaleziono danych wpisu"
-            : "Ładowanie danych wpisu"}
+        {entryState.status === 'error'
+          ? 'Nie udało się wczytać danych'
+          : entryState.status === 'missing'
+            ? 'Nie znaleziono danych wpisu'
+            : 'Ładowanie danych wpisu'}
       </p>
     {:else}
       <h2 class="truncate text-sm font-semibold">{entryState.entry.title}</h2>
       <p class="truncate text-xs text-muted">
         {formatPremiereYear(entryState.entry.premiereDate)} · {translateAnimeType(
-          entryState.entry.animeType,
+          entryState.entry.animeType
         )}
         · {translateAnimeStatus(entryState.entry.animeStatus)}
       </p>
     {/if}
   </div>
 
-  {#if entryState.status === "ready" && entryState.entry.score !== null}
+  {#if entryState.status === 'ready' && entryState.entry.score !== null}
     <span class="badge shrink-0 badge-soft badge-info">
       {entryState.entry.score}/10
     </span>
@@ -138,7 +138,7 @@
     background-color: var(--match-indicator-color);
     box-shadow: 0 0 0 1px
       color-mix(in oklab, var(--match-indicator-color) 38%, transparent);
-    content: "";
+    content: '';
   }
 
   .anime-row--matched {

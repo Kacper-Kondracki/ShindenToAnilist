@@ -1,11 +1,11 @@
-import { onMount } from "svelte";
+import { onMount } from 'svelte';
 
 export type StatusBarBadgeMeasurement = ReturnType<
   typeof createStatusBarBadgeMeasurement
 >;
 
 export function createStatusBarBadgeMeasurement(
-  onMeasurementInput: () => void,
+  onMeasurementInput: () => void
 ) {
   let summaryElement = $state<HTMLDivElement | null>(null);
   let apiBadgeElement = $state<HTMLSpanElement | null>(null);
@@ -60,16 +60,16 @@ export function createStatusBarBadgeMeasurement(
     }
 
     const requiredBadges = Array.from(
-      summaryElement.querySelectorAll<HTMLElement>("[data-status-required]"),
+      summaryElement.querySelectorAll<HTMLElement>('[data-status-required]')
     );
     const visibleRequiredBadges = requiredBadges.filter(
-      (badge) => badge.offsetWidth > 0,
+      (badge) => badge.offsetWidth > 0
     );
     const gap = Number.parseFloat(getComputedStyle(summaryElement).columnGap);
     const badgeGap = Number.isFinite(gap) ? gap : 0;
     const requiredWidth = visibleRequiredBadges.reduce(
       (width, badge) => width + badge.getBoundingClientRect().width,
-      0,
+      0
     );
     const availableWidth = summaryElement.getBoundingClientRect().width;
 
@@ -81,7 +81,7 @@ export function createStatusBarBadgeMeasurement(
       visibleBadgeCount,
       apiBadgeWidth,
       badgeGap,
-      availableWidth,
+      availableWidth
     );
 
     if (apiFits) {
@@ -97,7 +97,7 @@ export function createStatusBarBadgeMeasurement(
         visibleBadgeCount,
         matchBadgeWidth,
         badgeGap,
-        availableWidth,
+        availableWidth
       );
 
     showApiBadge = apiFits;
@@ -132,7 +132,7 @@ export function createStatusBarBadgeMeasurement(
     },
     get isMeasuringOptionalBadges() {
       return isMeasuringOptionalBadges;
-    },
+    }
   };
 }
 
@@ -141,7 +141,7 @@ function fitsBadge(
   currentBadgeCount: number,
   badgeWidth: number,
   badgeGap: number,
-  availableWidth: number,
+  availableWidth: number
 ) {
   if (badgeWidth <= 0) {
     return false;

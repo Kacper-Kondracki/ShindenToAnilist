@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { VList } from "virtua/svelte";
-  import type { EntryStore } from "../../data/entryStore.svelte";
-  import type { MatchListResult, ShindenListViews } from "../../domain/anime";
-  import { createAnimeListPaneController } from "../../features/workspace/animeListPaneController.svelte";
-  import AnimeListTabs from "./AnimeListTabs.svelte";
-  import AnimeRow from "./AnimeRow.svelte";
+  import { VList } from 'virtua/svelte';
+  import type { EntryStore } from '../../data/entryStore.svelte';
+  import type { MatchListResult, ShindenListViews } from '../../domain/anime';
+  import { createAnimeListPaneController } from '../../features/workspace/animeListPaneController.svelte';
+  import AnimeListTabs from './AnimeListTabs.svelte';
+  import AnimeRow from './AnimeRow.svelte';
 
   let {
     providerLabel,
@@ -12,7 +12,7 @@
     entryStore,
     matchResult,
     selectedEntryId,
-    onSelectEntry,
+    onSelectEntry
   }: {
     providerLabel: string;
     entryIdsByView: ShindenListViews;
@@ -25,7 +25,7 @@
   const listPane = createAnimeListPaneController({
     getEntryIdsByView: () => entryIdsByView,
     getMatchResult: () => matchResult,
-    getSelectedEntryId: () => selectedEntryId,
+    getSelectedEntryId: () => selectedEntryId
   });
 </script>
 
@@ -49,7 +49,7 @@
           <AnimeRow
             {entryId}
             entryState={entryStore.getShindenEntryState(entryId)}
-            matchStatus={listPane.matchStatuses.get(entryId) ?? "unmatched"}
+            matchStatus={listPane.matchStatuses.get(entryId) ?? 'unmatched'}
             isSelected={entryId === selectedEntryId}
             onSelect={() => onSelectEntry(entryId)}
             {entryStore}

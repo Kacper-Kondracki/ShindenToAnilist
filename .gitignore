@@ -1,3 +1,7 @@
 node_modules/
 target/
 dist/
+tmp/
+anime-offline-database.jsonl
+animedb.jsonl
+animedb.info.json

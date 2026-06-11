@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount } from 'svelte';
 
-  import AppHeader from "./lib/components/AppHeader.svelte";
-  import EmptyWorkspace from "./lib/components/EmptyWorkspace.svelte";
-  import WorkspaceView from "./lib/components/WorkspaceView.svelte";
-  import { createAppController } from "./lib/features/app/appController.svelte";
+  import AppHeader from './lib/components/AppHeader.svelte';
+  import EmptyWorkspace from './lib/components/EmptyWorkspace.svelte';
+  import WorkspaceView from './lib/components/WorkspaceView.svelte';
+  import { createAppController } from './lib/features/app/appController.svelte';
 
   const app = createAppController();
 
@@ -39,7 +39,7 @@
   />
 
   <div class="relative min-h-0 flex-1 overflow-hidden contain-[layout_paint]">
-    {#if app.workspace.state.status === "empty"}
+    {#if app.workspace.state.status === 'empty'}
       <div class="view-frame">
         <EmptyWorkspace
           provider={app.selectedProviderDetails}

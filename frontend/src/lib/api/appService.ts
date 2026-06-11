@@ -11,8 +11,8 @@ import type {
   SearchResult,
   ShindenEntry,
   ShindenListIndex,
-  ShindenListView,
-} from "../domain/anime";
+  ShindenListView
+} from '../domain/anime';
 
 type DriverSearchOptions = Required<SearchOptions>;
 
@@ -41,30 +41,30 @@ export async function getLoadedShindenEntries(entryIds: number[]) {
 
 export async function getAnimeDatabaseEntries(entryIds: number[]) {
   return (await AppService.GetAnimeDatabaseEntries(
-    entryIds,
+    entryIds
   )) as DatabaseEntry[];
 }
 
 export async function matchLoadedShindenList(options: MatchOptions = {}) {
   return (await AppService.MatchLoadedShindenList(
-    toDriverMatchOptions(options),
+    toDriverMatchOptions(options)
   )) as MatchListResult;
 }
 
 export async function searchAnime(query: string, options: SearchOptions = {}) {
   return (await AppService.SearchAnime(
     query,
-    toDriverSearchOptions(options),
+    toDriverSearchOptions(options)
   )) as SearchResult;
 }
 
 export async function matchQuery(
   query: string,
-  options: MatchQueryOptions = {},
+  options: MatchQueryOptions = {}
 ) {
   return (await AppService.MatchQuery(
     query,
-    toDriverMatchQueryOptions(options),
+    toDriverMatchQueryOptions(options)
   )) as MatchResult;
 }
 
@@ -73,12 +73,12 @@ export async function exportMatches(matches: MatchSelection[]) {
 }
 
 function toDriverSearchOptions(
-  options: SearchOptions = {},
+  options: SearchOptions = {}
 ): DriverSearchOptions {
   return {
-    mode: options.mode ?? "",
+    mode: options.mode ?? '',
     limit: options.limit ?? 0,
-    threshold: options.threshold ?? 0,
+    threshold: options.threshold ?? 0
   };
 }
 
@@ -86,15 +86,15 @@ function toDriverMatchOptions(options: MatchOptions = {}): DriverMatchOptions {
   return {
     candidateLimit: options.candidateLimit ?? 0,
     searchThreshold: options.searchThreshold ?? 0,
-    resultLimit: options.resultLimit ?? null,
+    resultLimit: options.resultLimit ?? null
   };
 }
 
 function toDriverMatchQueryOptions(
-  options: MatchQueryOptions = {},
+  options: MatchQueryOptions = {}
 ): DriverMatchQueryOptions {
   return {
     search: toDriverSearchOptions(options.search),
-    resultLimit: options.resultLimit ?? null,
+    resultLimit: options.resultLimit ?? null
   };
 }

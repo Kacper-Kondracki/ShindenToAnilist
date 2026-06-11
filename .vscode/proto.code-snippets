@@ -1,0 +1,7 @@
+{
+  "rpc endpoint": {
+    "scope": "proto",
+    "prefix": "rpc",
+    "body": ["rpc ${1:name}(${1:name}Request) returns (${1:name}Response);"]
+  }
+}

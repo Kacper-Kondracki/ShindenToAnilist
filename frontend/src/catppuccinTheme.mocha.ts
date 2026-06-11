@@ -1,6 +1,6 @@
-import { createCatppuccinPlugin } from "@catppuccin/daisyui";
+import { createCatppuccinPlugin } from '@catppuccin/daisyui';
 
-export default createCatppuccinPlugin("mocha", undefined, {
+export default createCatppuccinPlugin('mocha', undefined, {
   default: true,
-  prefersdark: true,
+  prefersdark: true
 });

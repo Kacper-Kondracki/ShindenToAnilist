@@ -1,0 +1,19 @@
+info:
+  name: Get Shinden Entries
+  type: grpc
+  seq: 4
+
+grpc:
+  url: 127.0.0.1:50051
+  method: /shinden_to_anilist.v1.ShindenToAnilistService/GetShindenEntries
+  methodType: unary
+  protoFilePath: ../../proto/shinden_to_anilist/v1/service.proto
+  message: |-
+    {
+      "ids": [
+        49772,
+        57333,
+        64138
+      ]
+    }
+  auth: inherit

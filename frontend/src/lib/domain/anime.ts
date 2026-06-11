@@ -1,4 +1,4 @@
-import type { Provider } from "../config/providers";
+import type { Provider } from '../config/providers';
 
 export type DatabaseInfo = {
   lastUpdate: string;
@@ -33,7 +33,7 @@ export type ShindenListIndex = {
   entryIds: number[];
 };
 
-export type ShindenListView = "manual" | "automatic" | "all";
+export type ShindenListView = 'manual' | 'automatic' | 'all';
 
 export type ShindenListViews = Record<ShindenListView, number[]>;
 
@@ -78,7 +78,7 @@ export type DatabaseEntry = {
   tags: string[];
 };
 
-export type SearchMode = "strict" | "fuzzy" | "";
+export type SearchMode = 'strict' | 'fuzzy' | '';
 
 export type SearchOptions = {
   mode?: SearchMode;
@@ -148,16 +148,16 @@ export type LoadedUserList = {
 };
 
 export type DatabaseState =
-  | { status: "loading" }
-  | { status: "ready"; info: DatabaseInfo }
-  | { status: "error"; message: string };
+  | { status: 'loading' }
+  | { status: 'ready'; info: DatabaseInfo }
+  | { status: 'error'; message: string };
 
 export type UserListRequestState =
-  | { status: "idle" }
-  | { status: "loading"; provider: Provider; query: string }
-  | ({ status: "loaded" } & LoadedUserList)
-  | { status: "error"; provider: Provider; query: string; message: string };
+  | { status: 'idle' }
+  | { status: 'loading'; provider: Provider; query: string }
+  | ({ status: 'loaded' } & LoadedUserList)
+  | { status: 'error'; provider: Provider; query: string; message: string };
 
 export type WorkspaceState =
-  | { status: "empty" }
-  | ({ status: "active" } & LoadedUserList);
+  | { status: 'empty' }
+  | ({ status: 'active' } & LoadedUserList);

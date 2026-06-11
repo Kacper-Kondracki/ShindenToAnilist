@@ -1,19 +1,19 @@
-import { exportMatches } from "../../api/appService";
-import type { EntryStore } from "../../data/entryStore.svelte";
+import { exportMatches } from '../../api/appService';
+import type { EntryStore } from '../../data/entryStore.svelte';
 import type {
   DatabaseEntry,
   LoadedUserList,
   MatchListResult,
   MatchSelection,
-  WorkspaceState,
-} from "../../domain/anime";
+  WorkspaceState
+} from '../../domain/anime';
 
 export type ExportState =
-  | { status: "idle" }
-  | { status: "exporting" }
-  | { status: "exported"; path: string; exportedCount: number }
-  | { status: "cancelled" }
-  | { status: "error"; message: string };
+  | { status: 'idle' }
+  | { status: 'exporting' }
+  | { status: 'exported'; path: string; exportedCount: number }
+  | { status: 'cancelled' }
+  | { status: 'error'; message: string };
 
 export type WorkspaceActivation = LoadedUserList & {
   matchResult: MatchListResult;
@@ -22,13 +22,13 @@ export type WorkspaceActivation = LoadedUserList & {
 };
 
 export type SelectedWinnerState =
-  | { status: "no-selection" }
-  | { status: "no-winner"; selectedEntryId: number }
-  | { status: "loading"; selectedEntryId: number; databaseEntryId: number }
-  | { status: "ready"; selectedEntryId: number; entry: DatabaseEntry }
-  | { status: "missing"; selectedEntryId: number; databaseEntryId: number }
+  | { status: 'no-selection' }
+  | { status: 'no-winner'; selectedEntryId: number }
+  | { status: 'loading'; selectedEntryId: number; databaseEntryId: number }
+  | { status: 'ready'; selectedEntryId: number; entry: DatabaseEntry }
+  | { status: 'missing'; selectedEntryId: number; databaseEntryId: number }
   | {
-      status: "error";
+      status: 'error';
       selectedEntryId: number;
       databaseEntryId: number;
       message: string;
@@ -37,22 +37,22 @@ export type SelectedWinnerState =
 export type WorkspaceController = ReturnType<typeof createWorkspaceController>;
 
 export function createWorkspaceController(entryStore: EntryStore) {
-  let state = $state<WorkspaceState>({ status: "empty" });
+  let state = $state<WorkspaceState>({ status: 'empty' });
   let matchResult = $state<MatchListResult | null>(null);
   let matchErrorMessage = $state<string | null>(null);
   let fetchDurationMs = $state<number | null>(null);
   let matchDurationMs = $state<number | null>(null);
   let selectedEntryId = $state<number | null>(null);
   let manualOverrides = $state<Record<number, number>>({});
-  let exportState = $state<ExportState>({ status: "idle" });
+  let exportState = $state<ExportState>({ status: 'idle' });
   let selectionRequestId = 0;
 
   let selectedMatchEntry = $derived(
     selectedEntryId === null
       ? null
       : (matchResult?.entries.find(
-          (entry) => entry.shindenId === selectedEntryId,
-        ) ?? null),
+          (entry) => entry.shindenId === selectedEntryId
+        ) ?? null)
   );
   let selectedWinnerId = $derived.by(() => {
     if (selectedEntryId === null) {
@@ -63,52 +63,52 @@ export function createWorkspaceController(entryStore: EntryStore) {
   });
   let selectedWinnerState = $derived.by((): SelectedWinnerState => {
     if (selectedEntryId === null) {
-      return { status: "no-selection" };
+      return { status: 'no-selection' };
     }
 
     if (selectedWinnerId === null) {
-      return { status: "no-winner", selectedEntryId };
+      return { status: 'no-winner', selectedEntryId };
     }
 
     const entryState = entryStore.getDatabaseEntryState(selectedWinnerId);
-    if (entryState.status === "ready") {
+    if (entryState.status === 'ready') {
       return {
-        status: "ready",
+        status: 'ready',
         selectedEntryId,
-        entry: entryState.entry,
+        entry: entryState.entry
       };
     }
 
-    if (entryState.status === "error") {
+    if (entryState.status === 'error') {
       return {
-        status: "error",
+        status: 'error',
         selectedEntryId,
         databaseEntryId: selectedWinnerId,
-        message: entryState.message,
+        message: entryState.message
       };
     }
 
-    if (entryState.status === "missing") {
+    if (entryState.status === 'missing') {
       return {
-        status: "missing",
+        status: 'missing',
         selectedEntryId,
-        databaseEntryId: selectedWinnerId,
+        databaseEntryId: selectedWinnerId
       };
     }
 
     return {
-      status: "loading",
+      status: 'loading',
       selectedEntryId,
-      databaseEntryId: selectedWinnerId,
+      databaseEntryId: selectedWinnerId
     };
   });
   let effectiveSelections = $derived.by(() =>
-    buildEffectiveSelections(matchResult, manualOverrides),
+    buildEffectiveSelections(matchResult, manualOverrides)
   );
   let canExport = $derived(
-    state.status === "active" &&
+    state.status === 'active' &&
       effectiveSelections.length > 0 &&
-      exportState.status !== "exporting",
+      exportState.status !== 'exporting'
   );
 
   $effect(() => {
@@ -119,10 +119,10 @@ export function createWorkspaceController(entryStore: EntryStore) {
     selectionRequestId += 1;
     entryStore.reset();
     state = {
-      status: "active",
+      status: 'active',
       provider: next.provider,
       query: next.query,
-      entryIdsByView: next.entryIdsByView,
+      entryIdsByView: next.entryIdsByView
     };
     matchResult = next.matchResult;
     matchErrorMessage = null;
@@ -130,11 +130,11 @@ export function createWorkspaceController(entryStore: EntryStore) {
     matchDurationMs = next.matchDurationMs;
     selectedEntryId = null;
     manualOverrides = {};
-    exportState = { status: "idle" };
+    exportState = { status: 'idle' };
   }
 
   async function selectEntry(entryId: number) {
-    if (state.status !== "active") {
+    if (state.status !== 'active') {
       return;
     }
 
@@ -150,7 +150,7 @@ export function createWorkspaceController(entryStore: EntryStore) {
     const nextWinnerId = winnerIdForEntry(
       entryId,
       matchResult,
-      manualOverrides,
+      manualOverrides
     );
     if (nextWinnerId !== null) {
       await entryStore.ensureReadyDatabaseEntry(nextWinnerId);
@@ -158,7 +158,7 @@ export function createWorkspaceController(entryStore: EntryStore) {
 
     if (
       selectionRequestId !== requestId ||
-      state.status !== "active" ||
+      state.status !== 'active' ||
       !state.entryIdsByView.all.some((id) => id === entryId)
     ) {
       return;
@@ -169,7 +169,7 @@ export function createWorkspaceController(entryStore: EntryStore) {
 
   function clearSelectionIfMissing() {
     if (
-      state.status === "active" &&
+      state.status === 'active' &&
       selectedEntryId !== null &&
       !state.entryIdsByView.all.some((entryId) => entryId === selectedEntryId)
     ) {
@@ -180,15 +180,15 @@ export function createWorkspaceController(entryStore: EntryStore) {
   function setManualOverride(shindenId: number, databaseId: number) {
     manualOverrides = {
       ...manualOverrides,
-      [shindenId]: databaseId,
+      [shindenId]: databaseId
     };
-    exportState = { status: "idle" };
+    exportState = { status: 'idle' };
   }
 
   function clearManualOverride(shindenId: number) {
     const { [shindenId]: _removed, ...nextOverrides } = manualOverrides;
     manualOverrides = nextOverrides;
-    exportState = { status: "idle" };
+    exportState = { status: 'idle' };
   }
 
   async function exportCurrentSelections() {
@@ -197,19 +197,19 @@ export function createWorkspaceController(entryStore: EntryStore) {
     }
 
     const selections = effectiveSelections;
-    exportState = { status: "exporting" };
+    exportState = { status: 'exporting' };
 
     try {
       const result = await exportMatches(selections);
       exportState = result.cancelled
-        ? { status: "cancelled" }
+        ? { status: 'cancelled' }
         : {
-            status: "exported",
+            status: 'exported',
             path: result.path,
-            exportedCount: result.exportedCount,
+            exportedCount: result.exportedCount
           };
     } catch (error) {
-      exportState = { status: "error", message: errorMessage(error) };
+      exportState = { status: 'error', message: errorMessage(error) };
     }
   }
 
@@ -252,14 +252,14 @@ export function createWorkspaceController(entryStore: EntryStore) {
     clearSelectionIfMissing,
     setManualOverride,
     clearManualOverride,
-    exportCurrentSelections,
+    exportCurrentSelections
   };
 }
 
 function winnerIdForEntry(
   entryId: number,
   matchResult: MatchListResult | null,
-  manualOverrides: Record<number, number>,
+  manualOverrides: Record<number, number>
 ) {
   const matchEntry =
     matchResult?.entries.find((entry) => entry.shindenId === entryId) ?? null;
@@ -269,7 +269,7 @@ function winnerIdForEntry(
 
 function buildEffectiveSelections(
   matchResult: MatchListResult | null,
-  manualOverrides: Record<number, number>,
+  manualOverrides: Record<number, number>
 ): MatchSelection[] {
   const selections: MatchSelection[] = [];
 
@@ -280,7 +280,7 @@ function buildEffectiveSelections(
     if (databaseId !== null) {
       selections.push({
         shindenId: entry.shindenId,
-        databaseId,
+        databaseId
       });
     }
   }
@@ -293,9 +293,9 @@ function errorMessage(error: unknown) {
     return error.message;
   }
 
-  if (typeof error === "string") {
+  if (typeof error === 'string') {
     return error;
   }
 
-  return "Nie udało się wyeksportować dopasowań";
+  return 'Nie udało się wyeksportować dopasowań';
 }

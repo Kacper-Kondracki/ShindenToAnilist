@@ -1,20 +1,20 @@
 <script lang="ts">
-  import type { DatabaseState } from "../domain/anime";
-  import { databaseStatusTitle } from "../domain/animeView";
+  import type { DatabaseState } from '../domain/anime';
+  import { databaseStatusTitle } from '../domain/animeView';
 
   let { state, text }: { state: DatabaseState; text: string } = $props();
 </script>
 
 <div
   class="database-status flex items-center gap-1 text-xs font-medium"
-  class:database-status--loaded={state.status === "ready"}
-  class:database-status--error={state.status === "error"}
+  class:database-status--loaded={state.status === 'ready'}
+  class:database-status--error={state.status === 'error'}
   aria-live="polite"
   title={databaseStatusTitle(state)}
 >
-  {#if state.status === "loading"}
+  {#if state.status === 'loading'}
     <span class="loading loading-xs loading-spinner" aria-hidden="true"></span>
-  {:else if state.status === "ready"}
+  {:else if state.status === 'ready'}
     <span
       class="database-status__icon database-status__icon--loaded"
       aria-hidden="true"
@@ -59,7 +59,7 @@
     height: 0.58rem;
     border-right: 2px solid var(--color-base-300);
     border-bottom: 2px solid var(--color-base-300);
-    content: "";
+    content: '';
     transform: rotate(45deg) translate(-0.02rem, -0.08rem);
   }
 
@@ -68,7 +68,7 @@
     position: absolute;
     border-radius: 999px;
     background-color: var(--color-base-300);
-    content: "";
+    content: '';
   }
 
   .database-status__icon--error::before {
