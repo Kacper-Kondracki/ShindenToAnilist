@@ -312,7 +312,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
     ) -> Result<Response<GetShindenEntriesResponse>, Status> {
         let request = request.into_inner();
         let requested_ids = request.ids.len();
-        info!(requested_ids, "loading shinden entries");
+        info!(requested_ids, ?request.ids, "loading shinden entries");
 
         let guard = self.shinden_list.load();
 
@@ -482,7 +482,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
     ) -> Result<Response<GetDatabaseEntriesResponse>, Status> {
         let request = request.into_inner();
         let requested_ids = request.ids.len();
-        info!(requested_ids, "loading database entries");
+        info!(requested_ids, ?request.ids, "loading database entries");
 
         let guard = self.database.load();
 
