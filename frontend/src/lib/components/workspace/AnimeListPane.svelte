@@ -41,8 +41,10 @@
       <VList
         bind:this={listPane.listRef}
         data={listPane.visibleEntryIds}
+        itemSize={72}
         class="anime-list size-full"
         getKey={(entryId) => entryId}
+        bufferSize={576}
         onscroll={listPane.handleScroll}
       >
         {#snippet children(entryId)}
