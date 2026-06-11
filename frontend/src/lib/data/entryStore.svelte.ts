@@ -1,4 +1,10 @@
 import {
+  QueryObserver,
+  type QueryCacheNotifyEvent,
+  type QueryKey
+} from '@tanstack/query-core';
+
+import {
   getDatabaseEntries,
   getShindenEntries
 } from '../api/appService';
@@ -21,9 +27,13 @@ export type EntryStore = ReturnType<typeof createEntryStore>;
 
 export function createEntryStore() {
   let revision = $state(0);
+  let isRevisionUpdateQueued = false;
+  let isDestroyed = false;
 
-  const unsubscribe = queryClient.getQueryCache().subscribe(() => {
-    revision += 1;
+  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+    if (isEntryStateChange(event)) {
+      queueRevisionUpdate();
+    }
   });
 
   function reset() {
@@ -63,24 +73,15 @@ export function createEntryStore() {
   }
 
   async function ensureShindenEntry(entryId: number) {
-    return await queryClient.fetchQuery({
-      queryKey: queryKeys.shindenEntry(entryId),
-      queryFn: () => loadShindenEntry(entryId)
-    });
+    return await queryClient.fetchQuery(shindenEntryQuery(entryId));
   }
 
   async function ensureDatabaseEntry(entryId: number) {
-    return await queryClient.fetchQuery({
-      queryKey: queryKeys.databaseEntry(entryId),
-      queryFn: () => loadDatabaseEntry(entryId)
-    });
+    return await queryClient.fetchQuery(databaseEntryQuery(entryId));
   }
 
   function prefetchShindenEntry(entryId: number) {
-    void queryClient.prefetchQuery({
-      queryKey: queryKeys.shindenEntry(entryId),
-      queryFn: () => loadShindenEntry(entryId)
-    });
+    void queryClient.prefetchQuery(shindenEntryQuery(entryId));
   }
 
   function prefetchDatabaseEntry(entryId: number | null) {
@@ -88,20 +89,19 @@ export function createEntryStore() {
       return;
     }
 
-    void queryClient.prefetchQuery({
-      queryKey: queryKeys.databaseEntry(entryId),
-      queryFn: () => loadDatabaseEntry(entryId)
-    });
+    void queryClient.prefetchQuery(databaseEntryQuery(entryId));
   }
 
   function retainShindenEntry(entryId: number) {
-    prefetchShindenEntry(entryId);
-    return () => {};
+    return retainEntry(shindenEntryQuery(entryId));
   }
 
   function pinDatabaseEntry(entryId: number | null) {
-    prefetchDatabaseEntry(entryId);
-    return () => {};
+    if (entryId === null) {
+      return () => {};
+    }
+
+    return retainEntry(databaseEntryQuery(entryId));
   }
 
   function requestShindenEntries(entryIds: number[]) {
@@ -117,7 +117,22 @@ export function createEntryStore() {
   }
 
   function destroy() {
+    isDestroyed = true;
     unsubscribe();
+  }
+
+  function queueRevisionUpdate() {
+    if (isRevisionUpdateQueued) {
+      return;
+    }
+
+    isRevisionUpdateQueued = true;
+    queueMicrotask(() => {
+      isRevisionUpdateQueued = false;
+      if (!isDestroyed) {
+        revision += 1;
+      }
+    });
   }
 
   return {
@@ -144,6 +159,41 @@ export function createEntryStore() {
     requestShindenEntries,
     requestDatabaseEntries
   };
+}
+
+function shindenEntryQuery(entryId: number) {
+  return {
+    queryKey: queryKeys.shindenEntry(entryId),
+    queryFn: () => loadShindenEntry(entryId)
+  };
+}
+
+function databaseEntryQuery(entryId: number) {
+  return {
+    queryKey: queryKeys.databaseEntry(entryId),
+    queryFn: () => loadDatabaseEntry(entryId)
+  };
+}
+
+function retainEntry<T>(options: {
+  queryKey: QueryKey;
+  queryFn: () => Promise<T | null>;
+}) {
+  const observer = new QueryObserver<T | null>(queryClient, {
+    ...options,
+    refetchOnMount: false,
+    staleTime: Infinity
+  });
+
+  return observer.subscribe(() => {});
+}
+
+function isEntryStateChange(event: QueryCacheNotifyEvent) {
+  return (
+    event.type === 'added' ||
+    event.type === 'removed' ||
+    event.type === 'updated'
+  );
 }
 
 function getEntryState<T>(
