@@ -188,6 +188,40 @@ fn write_database_sidecar(
     result
 }
 
+async fn spawn_blocking_status<T>(
+    operation: &'static str,
+    f: impl FnOnce() -> Result<T, Status> + Send + 'static,
+) -> Result<T, Status>
+where
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|err| Status::internal(format!("{operation} blocking task failed: {err}")))?
+}
+
+async fn read_database_sidecar_blocking(
+    database_path: impl AsRef<Path>,
+) -> Result<Option<CoreDatabaseReleaseInfo>, Status> {
+    let database_path = PathBuf::from(database_path.as_ref());
+    spawn_blocking_status("database sidecar read", move || {
+        read_database_sidecar(database_path)
+    })
+    .await
+}
+
+async fn write_database_sidecar_blocking(
+    database_path: impl AsRef<Path>,
+    status: CoreDatabaseReleaseInfo,
+) -> Result<CoreDatabaseReleaseInfo, Status> {
+    let database_path = PathBuf::from(database_path.as_ref());
+    spawn_blocking_status("database sidecar write", move || {
+        write_database_sidecar(database_path, &status)?;
+        Ok(status)
+    })
+    .await
+}
+
 fn database_update_check(
     local: Option<CoreDatabaseReleaseInfo>,
     remote: CoreDatabaseReleaseInfo,
@@ -378,7 +412,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .await
             .map_err(IntoStatus::into_status)?
             .conv::<CoreDatabaseReleaseInfo>();
-        let local = read_database_sidecar(&request.path)?;
+        let local = read_database_sidecar_blocking(&request.path).await?;
         let needs_update = local.as_ref() != Some(&remote);
         info!(path = %request.path, needs_update, "database update check finished");
 
@@ -410,7 +444,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .map_err(IntoStatus::into_status)?
             .conv::<CoreDatabaseReleaseInfo>();
 
-        write_database_sidecar(&request.path, &status)?;
+        let status = write_database_sidecar_blocking(&request.path, status).await?;
         info!(path = %request.path, "database downloaded");
 
         Ok(DownloadDatabaseResponse {
@@ -427,7 +461,11 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let request = request.into_inner();
         info!(path = %request.path, "loading database");
 
-        let database = DatabaseState::load(request.path).map_err(IntoStatus::into_status)?;
+        let path = request.path;
+        let database = spawn_blocking_status("database loading", move || {
+            DatabaseState::load(path).map_err(IntoStatus::into_status)
+        })
+        .await?;
         let entries = database.database.len();
 
         let database_version = self.database.store(database);
@@ -444,7 +482,11 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let request = request.into_inner();
         info!(path = %request.path, "loading database metadata");
 
-        let metadata = root_metadata_from_path(request.path).map_err(IntoStatus::into_status)?;
+        let path = request.path;
+        let metadata = spawn_blocking_status("database metadata loading", move || {
+            root_metadata_from_path(path).map_err(IntoStatus::into_status)
+        })
+        .await?;
         info!("database metadata loaded");
 
         Ok(GetDatabaseMetadataResponse {
@@ -625,28 +667,31 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let shinden_version = shinden_guard.version();
         let database_version = database_guard.version();
         let shinden = shinden_guard
-            .get()
+            .get_arc()
             .ok_or_else(|| shinden_list_not_loaded().into_status())?;
         let database = database_guard
-            .get()
+            .get_arc()
             .ok_or_else(|| database_not_loaded().into_status())?;
         let options = search_options(request.options, SearchMode::Strict);
-        let matcher = DefaultMatcher::strict_preset();
         let shinden_entries = shinden.len();
         let database_entries = database.database.len();
 
-        let mut results = shinden
-            .par_values()
-            .map(|entry| entry.search_by_title_ref(&database.database, &database.searcher, options))
-            .map(|(entry, candidates)| (entry.id(), matcher.score_candidates(entry, &candidates, 0.5)))
-            .collect::<Vec<_>>();
+        let results = spawn_blocking_status("shinden list matching", move || {
+            let matcher = DefaultMatcher::strict_preset();
+            let mut results = shinden
+                .par_values()
+                .map(|entry| entry.search_by_title_ref(&database.database, &database.searcher, options))
+                .map(|(entry, candidates)| (entry.id(), matcher.score_candidates(entry, &candidates, 0.5)))
+                .collect::<Vec<_>>();
 
-        results.iter_mut().map(|(_, result)| result).finalize_matches();
+            results.iter_mut().map(|(_, result)| result).finalize_matches();
 
-        let results = results
-            .into_iter()
-            .map(ShindenMatchResult::from)
-            .collect::<Vec<_>>();
+            Ok(results
+                .into_iter()
+                .map(ShindenMatchResult::from)
+                .collect::<Vec<_>>())
+        })
+        .await?;
         info!(
             shinden_version,
             database_version,
@@ -679,15 +724,20 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let shinden_version = guard.version();
         let shinden = guard
-            .get()
+            .get_arc()
             .ok_or_else(|| shinden_list_not_loaded().into_status())?;
         let path = request.path;
         let matches = request
             .matches
             .into_iter()
-            .map(|pair| (pair.shinden_id, pair.database_id));
+            .map(|pair| (pair.shinden_id, pair.database_id))
+            .collect::<Vec<_>>();
 
-        export_xml_to_path(shinden, matches, &path)?;
+        let path = spawn_blocking_status("xml export", move || {
+            export_xml_to_path(&shinden, matches.into_iter(), &path)?;
+            Ok(path)
+        })
+        .await?;
         info!(shinden_version, path = %path, requested_matches, "xml exported");
 
         Ok(ExportXmlResponse {
