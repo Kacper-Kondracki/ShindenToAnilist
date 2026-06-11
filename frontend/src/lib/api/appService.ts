@@ -59,7 +59,8 @@ export const databasePath =
   globalThis.shindenToAnilist?.paths.database ??
   '/tmp/shinden-to-anilist-database.jsonl';
 export const exportPath =
-  globalThis.shindenToAnilist?.paths.export ?? '/tmp/shinden-to-anilist-export.xml';
+  globalThis.shindenToAnilist?.paths.export ??
+  '/tmp/shinden-to-anilist-export.xml';
 
 const transport = createGrpcWebTransport({
   baseUrl: grpcBaseUrl

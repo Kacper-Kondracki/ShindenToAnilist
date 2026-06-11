@@ -59,32 +59,31 @@
   title={rowTitle()}
   onclick={onSelect}
 >
-<div 
-  class="size-full flex pl-2 pr-2 justify-between items-center skeleton"
-  class:skeleton={entryState.status !== 'ready'}
->
-  <div class="min-w-0">
-    {#if entryState.status !== 'ready'}
-      <h2 class="truncate text-sm font-semibold">Wpis #{entryId}</h2>
-      <p class="truncate text-xs text-muted">
-        {entryState.status === 'error'
-          ? 'Nie udało się wczytać danych'
-          : entryState.status === 'missing'
-            ? 'Nie znaleziono danych wpisu'
-            : 'Ładowanie danych wpisu'}
-      </p>
-    {:else}
-      <h2 class="truncate text-sm font-semibold">{entryState.entry.title}</h2>
-      <p class="truncate text-xs text-muted">
-        {formatPremiereYear(entryState.entry.premiereDate)} · {translateAnimeType(
-          entryState.entry.animeType
-        )}
-        · {translateAnimeStatus(entryState.entry.animeStatus)}
-      </p>
-    {/if}
+  <div
+    class="size-full flex pl-2 pr-2 justify-between items-center skeleton"
+    class:skeleton={entryState.status !== 'ready'}
+  >
+    <div class="min-w-0">
+      {#if entryState.status !== 'ready'}
+        <h2 class="truncate text-sm font-semibold">Wpis #{entryId}</h2>
+        <p class="truncate text-xs text-muted">
+          {entryState.status === 'error'
+            ? 'Nie udało się wczytać danych'
+            : entryState.status === 'missing'
+              ? 'Nie znaleziono danych wpisu'
+              : 'Ładowanie danych wpisu'}
+        </p>
+      {:else}
+        <h2 class="truncate text-sm font-semibold">{entryState.entry.title}</h2>
+        <p class="truncate text-xs text-muted">
+          {formatPremiereYear(entryState.entry.premiereDate)} · {translateAnimeType(
+            entryState.entry.animeType
+          )}
+          · {translateAnimeStatus(entryState.entry.animeStatus)}
+        </p>
+      {/if}
+    </div>
   </div>
-</div>
-
 </button>
 
 <style>

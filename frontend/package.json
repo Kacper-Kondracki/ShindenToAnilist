@@ -8,8 +8,8 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "proto:gen": "buf generate --template ../buf.gen.yaml ../proto",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format": "prettier --ignore-path ../.prettierignore --write .",
+    "format:check": "prettier --ignore-path ../.prettierignore --check ."
   },
   "devEngines": {
     "packageManager": {

@@ -21,6 +21,7 @@ Cargo.lock
 # Generated files
 *.generated.*
 generated/
+gen/
 
 # Environment
 .env
