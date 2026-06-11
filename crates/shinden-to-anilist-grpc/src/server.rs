@@ -41,9 +41,12 @@ use tonic::{
 use crate::{
     DatabaseState,
     VersionedArcOption,
-    mapper::{
-        database_error_to_status,
-        shinden_error_to_status,
+    error::{
+        IntoStatus,
+        database_not_loaded,
+        database_sidecar_io_error,
+        database_sidecar_json_error,
+        shinden_list_not_loaded,
     },
     pb::{
         shinden_to_anilist_service_server::ShindenToAnilistService,
@@ -79,7 +82,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let shinden = ShindenList::get_from_shinden(self.http_client.clone(), request.id)
             .await
-            .map_err(shinden_error_to_status)?;
+            .map_err(IntoStatus::into_status)?;
 
         let version = self.shinden_list.store(shinden);
 
@@ -96,7 +99,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let shinden = guard
             .get()
-            .ok_or_else(|| Status::failed_precondition("shinden list is not loaded"))?;
+            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
 
         let version = guard.version();
         let ids = shinden
@@ -130,7 +133,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let shinden = guard
             .get()
-            .ok_or_else(|| Status::failed_precondition("shinden list is not loaded"))?;
+            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
 
         let version = guard.version();
         let entries: Vec<ShindenEntry> = request
@@ -142,20 +145,42 @@ impl ShindenToAnilistService for ShindenToAnilist {
         Ok(GetShindenEntriesResponse { version, entries }.into())
     }
 
+    type GetShindenFullStream = ReceiverStream<Result<GetShindenFullResponse, Status>>;
+
     async fn get_shinden_full(
         &self,
         _request: Request<GetShindenFullRequest>,
-    ) -> Result<Response<GetShindenFullResponse>, Status> {
+    ) -> Result<Response<Self::GetShindenFullStream>, Status> {
         let guard = self.shinden_list.load();
 
         let shinden = guard
             .get()
-            .ok_or_else(|| Status::failed_precondition("shinden list is not loaded"))?;
+            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
 
         let version = guard.version();
         let entries: Vec<ShindenEntry> = shinden.values().map(ShindenEntry::from).collect();
 
-        Ok(GetShindenFullResponse { version, entries }.into())
+        let (tx, rx) = mpsc::channel(64);
+
+        tokio::spawn(async move {
+            let chunk_size = 500;
+            let mut iter = entries.into_iter();
+            loop {
+                let batch: Vec<ShindenEntry> = iter.by_ref().take(chunk_size).collect();
+                if batch.is_empty() {
+                    break;
+                }
+
+                let response = GetShindenFullResponse {
+                    version,
+                    entries: batch,
+                };
+                if tx.send(Ok(response)).await.is_err() {
+                    break;
+                }
+            }
+        });
+        Ok(Response::new(ReceiverStream::new(rx)))
     }
 
     // Database
@@ -167,7 +192,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let remote = latest_database_archive_asset(self.http_client.clone())
             .await
-            .map_err(database_error_to_status)?
+            .map_err(IntoStatus::into_status)?
             .conv::<database::updater::DatabaseReleaseInfo>();
 
         if !PathBuf::from(&request.path).exists() {
@@ -184,7 +209,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let mut sidecar_path = PathBuf::from(request.path);
         sidecar_path.set_extension("info.json");
 
-        let sidecar = File::open(sidecar_path);
+        let sidecar = File::open(&sidecar_path);
         if let Err(err) = &sidecar
             && err.kind() == io::ErrorKind::NotFound
         {
@@ -197,9 +222,11 @@ impl ShindenToAnilistService for ShindenToAnilist {
             }
             .into());
         }
-        let sidecar = sidecar?.pipe(BufReader::new);
+        let sidecar = sidecar
+            .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "open").into_status())?
+            .pipe(BufReader::new);
         let local = serde_json::from_reader::<_, database::updater::DatabaseReleaseInfo>(sidecar)
-            .map_err(|err| Status::internal(err.to_string()))?;
+            .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())?;
 
         let needs_update = local != remote;
 
@@ -221,7 +248,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let status = update_latest_jsonl_from_github(self.http_client.clone(), &request.path)
             .await
-            .map_err(database_error_to_status)?
+            .map_err(IntoStatus::into_status)?
             .conv::<database::updater::DatabaseReleaseInfo>();
 
         let mut sidecar_path = PathBuf::from(request.path);
@@ -231,10 +258,12 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .create(true)
             .write(true)
             .truncate(true)
-            .open(sidecar_path)?
+            .open(&sidecar_path)
+            .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "write").into_status())?
             .pipe(BufWriter::new);
 
-        serde_json::to_writer_pretty(writer, &status).map_err(|err| Status::internal(err.to_string()))?;
+        serde_json::to_writer_pretty(writer, &status)
+            .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())?;
 
         Ok(DownloadDatabaseResponse {
             status: Some(status.into()),
@@ -248,7 +277,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
     ) -> Result<Response<LoadDatabaseResponse>, Status> {
         let request = request.into_inner();
 
-        let database = DatabaseState::load(request.path).map_err(database_error_to_status)?;
+        let database = DatabaseState::load(request.path).map_err(IntoStatus::into_status)?;
 
         let version = self.database.store(database);
 
@@ -261,7 +290,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
     ) -> Result<Response<GetDatabaseMetadataResponse>, Status> {
         let request = request.into_inner();
 
-        let metadata = root_metadata_from_path(request.path).map_err(database_error_to_status)?;
+        let metadata = root_metadata_from_path(request.path).map_err(IntoStatus::into_status)?;
 
         Ok(GetDatabaseMetadataResponse {
             metadata: Some(metadata.into()),
@@ -273,21 +302,32 @@ impl ShindenToAnilistService for ShindenToAnilist {
         &self,
         request: Request<GetDatabaseEntriesRequest>,
     ) -> Result<Response<GetDatabaseEntriesResponse>, Status> {
-        todo!()
+        let request = request.into_inner();
+
+        let guard = self.database.load();
+
+        let version = guard.version();
+        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
+
+        let entries = request
+            .ids
+            .into_iter()
+            .filter_map(|id| database.database.get(id).map(DatabaseEntry::from))
+            .collect();
+
+        Ok(GetDatabaseEntriesResponse { version, entries }.into())
     }
 
     type GetDatabaseFullStream = ReceiverStream<Result<GetDatabaseFullResponse, Status>>;
 
     async fn get_database_full(
         &self,
-        request: Request<GetDatabaseFullRequest>,
+        _request: Request<GetDatabaseFullRequest>,
     ) -> Result<Response<Self::GetDatabaseFullStream>, Status> {
         let guard = self.database.load();
 
         let version = guard.version();
-        let database = guard
-            .get()
-            .ok_or_else(|| Status::failed_precondition("database is not loaded"))?;
+        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
 
         let entries = database
             .database

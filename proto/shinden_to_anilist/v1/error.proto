@@ -2,3 +2,92 @@ syntax = "proto3";
 
 package shinden_to_anilist.v1;
 
+message AppError {
+  ErrorKind kind = 1;
+  string message = 2;
+
+  oneof details {
+    UnloadedResourceError unloaded_resource = 3;
+    IoError io = 4;
+    JsonError json = 5;
+    HttpError http = 6;
+    ShindenApiError shinden_api = 7;
+    MissingReleaseAssetError missing_release_asset = 8;
+    DigestMismatchError digest_mismatch = 9;
+    XmlExportError xml_export = 10;
+    OutOfIndexError out_of_index = 11;
+  }
+}
+
+enum ErrorKind {
+  ERROR_KIND_UNSPECIFIED = 0;
+
+  ERROR_KIND_SHINDEN_LIST_NOT_LOADED = 1;
+  ERROR_KIND_DATABASE_NOT_LOADED = 2;
+
+  ERROR_KIND_SHINDEN_IO = 3;
+  ERROR_KIND_SHINDEN_JSON = 4;
+  ERROR_KIND_SHINDEN_HTTP = 5;
+  ERROR_KIND_SHINDEN_API = 6;
+
+  ERROR_KIND_DATABASE_IO = 7;
+  ERROR_KIND_DATABASE_JSON = 8;
+  ERROR_KIND_DATABASE_HTTP = 9;
+  ERROR_KIND_DATABASE_EMPTY = 10;
+  ERROR_KIND_DATABASE_MISSING_RELEASE_ASSET = 11;
+  ERROR_KIND_DATABASE_DIGEST_MISMATCH = 12;
+  ERROR_KIND_DATABASE_SIDECAR_IO = 13;
+  ERROR_KIND_DATABASE_SIDECAR_JSON = 14;
+
+  ERROR_KIND_EXPORT_XML = 15;
+  ERROR_KIND_EXPORT_OUT_OF_INDEX = 16;
+
+  ERROR_KIND_UNKNOWN = 17;
+}
+
+message UnloadedResourceError {
+  string resource = 1;
+}
+
+message IoError {
+  string message = 1;
+  string path = 2;
+  string operation = 3;
+  string os_error_kind = 4;
+}
+
+message JsonError {
+  string message = 1;
+  string path = 2;
+  uint64 line = 3;
+  uint64 column = 4;
+  string category = 5;
+}
+
+message HttpError {
+  string message = 1;
+  string url = 2;
+  uint32 status = 3;
+}
+
+message ShindenApiError {
+  string message = 1;
+}
+
+message MissingReleaseAssetError {
+  string asset = 1;
+}
+
+message DigestMismatchError {
+  string expected = 1;
+  string actual = 2;
+}
+
+message XmlExportError {
+  string message = 1;
+}
+
+message OutOfIndexError {
+  uint64 id = 1;
+  string collection = 2;
+}

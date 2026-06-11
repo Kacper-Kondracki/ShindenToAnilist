@@ -10,7 +10,7 @@ service ShindenToAnilistService {
   rpc FetchShindenList(FetchShindenListRequest) returns (FetchShindenListResponse);
   rpc GetShindenIds(GetShindenIdsRequest) returns (GetShindenIdsResponse);
   rpc GetShindenEntries(GetShindenEntriesRequest) returns (GetShindenEntriesResponse);
-  rpc GetShindenFull(GetShindenFullRequest) returns (GetShindenFullResponse);
+  rpc GetShindenFull(GetShindenFullRequest) returns (stream GetShindenFullResponse);
 
   rpc CheckDatabaseUpdate(CheckDatabaseUpdateRequest) returns (CheckDatabaseUpdateResponse);
   rpc DownloadDatabase(DownloadDatabaseRequest) returns (DownloadDatabaseResponse);

@@ -1,18 +1,11 @@
 use shinden_to_anilist_core::{
     Datelike,
     NaiveDate,
-    database::{
-        self,
-        DatabaseError,
-    },
+    database,
     exporter,
-    providers::shinden::{
-        self,
-        ShindenError,
-    },
+    providers::shinden,
 };
 use tap::prelude::Conv;
-use tonic::Status;
 
 use crate::pb::{
     AnimeStatus,
@@ -142,31 +135,5 @@ impl From<database::DatabaseRootMetadata> for DatabaseMetadata {
         Self {
             last_update: Some(value.last_update().into()),
         }
-    }
-}
-
-pub fn database_error_to_status(value: DatabaseError) -> Status {
-    match value {
-        shinden_to_anilist_core::database::DatabaseError::Io(..) => Status::internal(value.to_string()),
-        shinden_to_anilist_core::database::DatabaseError::Json(..) => Status::internal(value.to_string()),
-        shinden_to_anilist_core::database::DatabaseError::Request(..) => {
-            Status::unavailable(value.to_string())
-        },
-        shinden_to_anilist_core::database::DatabaseError::Empty => Status::internal(value.to_string()),
-        shinden_to_anilist_core::database::DatabaseError::MissingReleaseAsset { .. } => {
-            Status::not_found(value.to_string())
-        },
-        shinden_to_anilist_core::database::DatabaseError::DigestMismatch { .. } => {
-            Status::internal(value.to_string())
-        },
-    }
-}
-
-pub fn shinden_error_to_status(value: ShindenError) -> Status {
-    match value {
-        ShindenError::Io(..) => Status::internal(value.to_string()),
-        ShindenError::Json(..) => Status::internal(value.to_string()),
-        ShindenError::Request(..) => Status::internal(value.to_string()),
-        ShindenError::Shinden(..) => Status::unavailable(value.to_string()),
     }
 }
