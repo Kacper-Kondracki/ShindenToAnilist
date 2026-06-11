@@ -4,6 +4,7 @@ use shinden_to_anilist_grpc::{
     server::ShindenToAnilist,
 };
 use tonic::transport::Server;
+use tonic_web::GrpcWebLayer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,6 +14,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("ShindenToAnilist gRPC listening on {addr}");
 
     Server::builder()
+        .accept_http1(true)
+        .layer(GrpcWebLayer::new())
         .add_service(ShindenToAnilistServiceServer::new(service))
         .serve(addr)
         .await?;

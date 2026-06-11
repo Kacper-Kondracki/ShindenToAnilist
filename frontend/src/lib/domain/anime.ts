@@ -1,100 +1,62 @@
 import type { Provider } from '../config/providers';
+import type {
+  AnimeStatus,
+  AnimeType,
+  Season,
+  WatchStatus
+} from '../gen/shinden_to_anilist/v1/common_pb';
 
 export type DatabaseInfo = {
   lastUpdate: string;
   release: string;
   sha256: string;
   path: string;
-  updated: boolean;
+  needsUpdate: boolean;
+  databaseVersion: number;
 };
 
 export type ShindenEntry = {
   id: number;
   coverId: number | null;
   title: string;
-  animeStatus: string;
-  animeType: string;
+  animeStatus: AnimeStatus;
+  animeType: AnimeType;
   premiereDate: string | null;
   finishDate: string | null;
   episodes: number | null;
   isFavourite: boolean;
-  watchStatus: string;
+  watchStatus: WatchStatus;
   watchedEpisodes: number;
   score: number | null;
-  note: string | null;
-  description: string | null;
 };
 
-export type ShindenList = {
-  entries: ShindenEntry[];
+export type DatabaseEntry = {
+  id: number;
+  sources: string[];
+  title: string;
+  animeType: AnimeType;
+  episodes: number;
+  status: AnimeStatus;
+  season: Season;
+  year: number | null;
+  picture: string;
+  thumbnail: string;
+  duration: number | null;
+  synonyms: string[];
 };
 
 export type ShindenListIndex = {
   entryIds: number[];
+  shindenVersion: number;
 };
 
 export type ShindenListView = 'manual' | 'automatic' | 'all';
 
 export type ShindenListViews = Record<ShindenListView, number[]>;
 
-export type TitleMetadata = {
-  season: number | null;
-  part: number | null;
-  episode: number | null;
-  hasSeasonKeyword: boolean;
-  hasPartKeyword: boolean;
-  hasEpisodeKeyword: boolean;
-};
-
-export type ConsolidatedMetadata = {
-  season: number | null;
-  part: number | null;
-  episode: number | null;
-  isFinalSeason: boolean;
-  isFinalPart: boolean;
-  isFinalEpisode: boolean;
-};
-
-export type DatabaseEntry = {
-  id: number;
-  consolidatedMetadata: ConsolidatedMetadata;
-  sources: string[];
-  title: string;
-  normalizedTitle: string;
-  metadata: TitleMetadata;
-  animeType: string;
-  episodes: number;
-  status: string;
-  season: string;
-  year: number | null;
-  picture: string;
-  thumbnail: string;
-  duration: number | null;
-  synonyms: string[];
-  normalizedSynonyms: string[];
-  studios: string[];
-  producers: string[];
-  relatedAnime: string[];
-  tags: string[];
-};
-
-export type SearchMode = 'strict' | 'fuzzy' | '';
-
 export type SearchOptions = {
-  mode?: SearchMode;
   limit?: number;
   threshold?: number;
-};
-
-export type MatchOptions = {
-  candidateLimit?: number;
-  searchThreshold?: number;
-  resultLimit?: number | null;
-};
-
-export type MatchQueryOptions = {
-  search?: SearchOptions;
-  resultLimit?: number | null;
 };
 
 export type SearchItem = {
@@ -104,6 +66,7 @@ export type SearchItem = {
 
 export type SearchResult = {
   items: SearchItem[];
+  databaseVersion: number;
 };
 
 export type ScoredCandidate = {
@@ -128,6 +91,8 @@ export type MatchListResult = {
   winners: number;
   hasTop: number;
   unmatched: number;
+  shindenVersion: number;
+  databaseVersion: number;
 };
 
 export type MatchSelection = {
@@ -139,6 +104,7 @@ export type ExportResult = {
   path: string;
   exportedCount: number;
   cancelled: boolean;
+  shindenVersion: number;
 };
 
 export type LoadedUserList = {

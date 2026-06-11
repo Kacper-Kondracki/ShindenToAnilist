@@ -1,11 +1,16 @@
 import {
-  getLoadedShindenEntryIds,
-  loadShindenList,
-  matchLoadedShindenList
+  fetchShindenList,
+  getShindenIds,
+  matchShindenList
 } from '../../api/appService';
 import { providerById, providers, type Provider } from '../../config/providers';
 import { createEntryStore } from '../../data/entryStore.svelte';
-import type { DatabaseState, UserListRequestState } from '../../domain/anime';
+import type {
+  DatabaseState,
+  MatchListResult,
+  ShindenListViews,
+  UserListRequestState
+} from '../../domain/anime';
 import {
   errorMessage,
   initializeDatabaseState
@@ -124,7 +129,7 @@ export function createAppController() {
 
     try {
       const fetchStartedAt = performance.now();
-      const list = await loadShindenList(parsedShindenUserId);
+      await fetchShindenList(parsedShindenUserId);
       const nextFetchDurationMs = performance.now() - fetchStartedAt;
       const readyDatabaseState = await waitForReadyDatabase();
 
@@ -137,11 +142,9 @@ export function createAppController() {
       }
 
       const matchStartedAt = performance.now();
-      const nextMatchResult = await matchLoadedShindenList();
-      const [manualIds, automaticIds, allIds] = await Promise.all([
-        getLoadedShindenEntryIds('manual'),
-        getLoadedShindenEntryIds('automatic'),
-        getLoadedShindenEntryIds('all')
+      const [nextMatchResult, allIds] = await Promise.all([
+        matchShindenList(),
+        getShindenIds()
       ]);
       const nextMatchDurationMs = performance.now() - matchStartedAt;
 
@@ -149,11 +152,7 @@ export function createAppController() {
         return;
       }
 
-      const entryIdsByView = {
-        manual: manualIds.entryIds,
-        automatic: automaticIds.entryIds,
-        all: allIds.entryIds.length > 0 ? allIds.entryIds : list.entryIds
-      };
+      const entryIdsByView = buildEntryIdsByView(nextMatchResult, allIds.entryIds);
 
       userListRequestState = {
         status: 'loaded',
@@ -241,5 +240,27 @@ export function createAppController() {
     setUserQuery,
     clearUserListError,
     submitUserList
+  };
+}
+
+function buildEntryIdsByView(
+  matchResult: MatchListResult,
+  allEntryIds: number[]
+): ShindenListViews {
+  const manual = new Set<number>();
+  const automatic = new Set<number>();
+
+  for (const entry of matchResult.entries) {
+    if (entry.result.winner !== null) {
+      automatic.add(entry.shindenId);
+    } else if (entry.result.top.length > 0) {
+      manual.add(entry.shindenId);
+    }
+  }
+
+  return {
+    manual: allEntryIds.filter((entryId) => manual.has(entryId)),
+    automatic: allEntryIds.filter((entryId) => automatic.has(entryId)),
+    all: allEntryIds
   };
 }
