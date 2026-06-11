@@ -152,7 +152,10 @@ export function createAppController() {
         return;
       }
 
-      const entryIdsByView = buildEntryIdsByView(nextMatchResult, allIds.entryIds);
+      const entryIdsByView = buildEntryIdsByView(
+        nextMatchResult,
+        allIds.entryIds
+      );
 
       userListRequestState = {
         status: 'loaded',
@@ -247,20 +250,27 @@ function buildEntryIdsByView(
   matchResult: MatchListResult,
   allEntryIds: number[]
 ): ShindenListViews {
-  const manual = new Set<number>();
+  const unmatched = new Set<number>();
+  const review = new Set<number>();
   const automatic = new Set<number>();
 
   for (const entry of matchResult.entries) {
     if (entry.result.winner !== null) {
       automatic.add(entry.shindenId);
     } else if (entry.result.top.length > 0) {
-      manual.add(entry.shindenId);
+      review.add(entry.shindenId);
+    } else {
+      unmatched.add(entry.shindenId);
     }
   }
 
+  const unmatchedIds = allEntryIds.filter((entryId) => unmatched.has(entryId));
+  const reviewIds = allEntryIds.filter((entryId) => review.has(entryId));
+  const automaticIds = allEntryIds.filter((entryId) => automatic.has(entryId));
+
   return {
-    manual: allEntryIds.filter((entryId) => manual.has(entryId)),
-    automatic: allEntryIds.filter((entryId) => automatic.has(entryId)),
-    all: allEntryIds
+    manual: [...unmatchedIds, ...reviewIds],
+    automatic: automaticIds,
+    all: [...unmatchedIds, ...reviewIds, ...automaticIds]
   };
 }

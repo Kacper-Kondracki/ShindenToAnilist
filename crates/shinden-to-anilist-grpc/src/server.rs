@@ -251,9 +251,9 @@ impl ShindenToAnilistService for ShindenToAnilist {
                 if request.sorted_by() == AnimeListSortedBy::Urgency {
                     v.sort_by(|(_, date_a), (_, date_b)| match (date_a, date_b) {
                         (None, None) => Ordering::Equal,
-                        (None, Some(_)) => Ordering::Less,
-                        (Some(_), None) => Ordering::Greater,
-                        (Some(date_a), Some(date_b)) => date_a.cmp(date_b),
+                        (None, Some(_)) => Ordering::Greater,
+                        (Some(_), None) => Ordering::Less,
+                        (Some(date_a), Some(date_b)) => date_b.cmp(date_a),
                     })
                 }
             })
