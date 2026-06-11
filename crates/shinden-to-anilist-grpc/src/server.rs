@@ -7,10 +7,8 @@ use std::{
         BufWriter,
     },
     path::PathBuf,
-    sync::Arc,
 };
 
-use arc_swap::ArcSwap;
 use shinden_to_anilist_core::{
     common::AnimeList,
     database::{
@@ -31,6 +29,8 @@ use tap::prelude::{
     Pipe,
     Tap,
 };
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{
     Request,
     Response,
@@ -40,7 +40,7 @@ use tonic::{
 
 use crate::{
     DatabaseState,
-    Versioned,
+    VersionedArcOption,
     mapper::{
         database_error_to_status,
         shinden_error_to_status,
@@ -51,32 +51,19 @@ use crate::{
     },
 };
 
-fn load_shinden(
-    guard: &arc_swap::Guard<Arc<Versioned<Option<Arc<ShindenList>>>>>,
-) -> Result<(u64, &ShindenList), Status> {
-    let version = guard.version;
-
-    let data = guard
-        .data
-        .as_ref()
-        .ok_or_else(|| Status::failed_precondition("shinden list is not yet loaded"))?;
-
-    Ok((version, data))
-}
-
 #[derive(Debug, Default)]
 pub struct ShindenToAnilist {
     http_client: reqwest::Client,
-    shinden_list: ArcSwap<Versioned<Option<Arc<ShindenList>>>>,
-    database: ArcSwap<Versioned<Option<Arc<DatabaseState>>>>,
+    shinden_list: VersionedArcOption<ShindenList>,
+    database: VersionedArcOption<DatabaseState>,
 }
 
 impl ShindenToAnilist {
     pub fn new(http_client: reqwest::Client) -> Self {
         Self {
             http_client,
-            shinden_list: Versioned::new(None).pipe(ArcSwap::from_pointee),
-            database: Versioned::new(None).pipe(ArcSwap::from_pointee),
+            shinden_list: VersionedArcOption::empty(),
+            database: VersionedArcOption::empty(),
         }
     }
 }
@@ -94,12 +81,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .await
             .map_err(shinden_error_to_status)?;
 
-        let shinden = Arc::new(shinden);
-        let version = self
-            .shinden_list
-            .rcu(|old| Versioned::new_inc(old, Some(shinden.clone())))
-            .version
-            .wrapping_add(1);
+        let version = self.shinden_list.store(shinden);
 
         Ok(FetchShindenListResponse { version }.into())
     }
@@ -110,9 +92,13 @@ impl ShindenToAnilistService for ShindenToAnilist {
     ) -> Result<Response<GetShindenIdsResponse>, Status> {
         let request = request.into_inner();
 
-        let shinden = self.shinden_list.load();
-        let (version, shinden) = load_shinden(&shinden)?;
+        let guard = self.shinden_list.load();
 
+        let shinden = guard
+            .get()
+            .ok_or_else(|| Status::failed_precondition("shinden list is not loaded"))?;
+
+        let version = guard.version();
         let ids = shinden
             .iter()
             .map(|(id, entry)| (id, entry.premiere_date()))
@@ -140,13 +126,17 @@ impl ShindenToAnilistService for ShindenToAnilist {
     ) -> Result<Response<GetShindenEntriesResponse>, Status> {
         let request = request.into_inner();
 
-        let shinden = self.shinden_list.load();
-        let (version, shinden) = load_shinden(&shinden)?;
+        let guard = self.shinden_list.load();
 
+        let shinden = guard
+            .get()
+            .ok_or_else(|| Status::failed_precondition("shinden list is not loaded"))?;
+
+        let version = guard.version();
         let entries: Vec<ShindenEntry> = request
             .ids
             .into_iter()
-            .filter_map(|id| shinden.get(id).map(ShindenEntry::from))
+            .filter_map(|id| shinden.get(id).map(Into::into))
             .collect();
 
         Ok(GetShindenEntriesResponse { version, entries }.into())
@@ -156,9 +146,13 @@ impl ShindenToAnilistService for ShindenToAnilist {
         &self,
         _request: Request<GetShindenFullRequest>,
     ) -> Result<Response<GetShindenFullResponse>, Status> {
-        let shinden = self.shinden_list.load();
-        let (version, shinden) = load_shinden(&shinden)?;
+        let guard = self.shinden_list.load();
 
+        let shinden = guard
+            .get()
+            .ok_or_else(|| Status::failed_precondition("shinden list is not loaded"))?;
+
+        let version = guard.version();
         let entries: Vec<ShindenEntry> = shinden.values().map(ShindenEntry::from).collect();
 
         Ok(GetShindenFullResponse { version, entries }.into())
@@ -256,12 +250,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let database = DatabaseState::load(request.path).map_err(database_error_to_status)?;
 
-        let database = Arc::new(database);
-        let version = self
-            .database
-            .rcu(|old| Versioned::new_inc(old, Some(database.clone())))
-            .version
-            .wrapping_add(1);
+        let version = self.database.store(database);
 
         Ok(LoadDatabaseResponse { version }.into())
     }
@@ -287,10 +276,45 @@ impl ShindenToAnilistService for ShindenToAnilist {
         todo!()
     }
 
+    type GetDatabaseFullStream = ReceiverStream<Result<GetDatabaseFullResponse, Status>>;
+
     async fn get_database_full(
         &self,
         request: Request<GetDatabaseFullRequest>,
-    ) -> Result<Response<GetDatabaseFullResponse>, Status> {
-        todo!()
+    ) -> Result<Response<Self::GetDatabaseFullStream>, Status> {
+        let guard = self.database.load();
+
+        let version = guard.version();
+        let database = guard
+            .get()
+            .ok_or_else(|| Status::failed_precondition("database is not loaded"))?;
+
+        let entries = database
+            .database
+            .values()
+            .map(DatabaseEntry::from)
+            .collect::<Vec<_>>();
+
+        let (tx, rx) = mpsc::channel(64);
+
+        tokio::spawn(async move {
+            let chunk_size = 500;
+            let mut iter = entries.into_iter();
+            loop {
+                let batch: Vec<DatabaseEntry> = iter.by_ref().take(chunk_size).collect();
+                if batch.is_empty() {
+                    break;
+                }
+
+                let response = GetDatabaseFullResponse {
+                    version,
+                    entries: batch,
+                };
+                if tx.send(Ok(response)).await.is_err() {
+                    break;
+                }
+            }
+        });
+        Ok(Response::new(ReceiverStream::new(rx)))
     }
 }

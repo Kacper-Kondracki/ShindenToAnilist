@@ -1,0 +1,4 @@
+syntax = "proto3";
+
+package shinden_to_anilist.v1;
+

@@ -2775,6 +2775,7 @@ dependencies = [
  "shinden-to-anilist-core",
  "tap",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-prost",
  "tonic-prost-build",

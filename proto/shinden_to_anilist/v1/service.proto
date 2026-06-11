@@ -17,7 +17,7 @@ service ShindenToAnilistService {
   rpc LoadDatabase(LoadDatabaseRequest) returns (LoadDatabaseResponse);
   rpc GetDatabaseMetadata(GetDatabaseMetadataRequest) returns (GetDatabaseMetadataResponse);
   rpc GetDatabaseEntries(GetDatabaseEntriesRequest) returns (GetDatabaseEntriesResponse);
-  rpc GetDatabaseFull(GetDatabaseFullRequest) returns (GetDatabaseFullResponse);
+  rpc GetDatabaseFull(GetDatabaseFullRequest) returns (stream GetDatabaseFullResponse);
 }
 
 // Shinden

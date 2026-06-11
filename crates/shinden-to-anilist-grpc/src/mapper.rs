@@ -17,9 +17,11 @@ use tonic::Status;
 use crate::pb::{
     AnimeStatus,
     AnimeType,
+    DatabaseEntry,
     DatabaseMetadata,
     DatabaseReleaseInfo,
     Date,
+    Season,
     ShindenEntry,
     WatchStatus,
 };
@@ -39,6 +41,25 @@ impl From<&shinden::AnimeEntry> for ShindenEntry {
             watch_status: value.watch_status().conv::<WatchStatus>().into(),
             watched_episodes: value.watched_episodes(),
             score: value.score(),
+        }
+    }
+}
+
+impl From<&database::AnimeEntry> for DatabaseEntry {
+    fn from(value: &database::AnimeEntry) -> Self {
+        Self {
+            id: value.id(),
+            sources: value.sources().iter().map(|v| v.to_string()).collect(),
+            title: value.title().to_string(),
+            anime_type: value.anime_type().conv::<AnimeType>().into(),
+            episodes: value.episodes(),
+            status: value.status().conv::<AnimeStatus>().into(),
+            season: value.season().conv::<Season>().into(),
+            year: value.year(),
+            picture: value.picture().to_string(),
+            thumbnail: value.thumbnail().to_string(),
+            duration: value.duration(),
+            synonyms: value.synonyms().iter().map(|v| v.to_string()).collect(),
         }
     }
 }
@@ -75,6 +96,18 @@ impl From<exporter::WatchStatus> for WatchStatus {
             exporter::WatchStatus::Watching => WatchStatus::Watching,
             exporter::WatchStatus::OnHold => WatchStatus::OnHold,
             exporter::WatchStatus::PlanToWatch => WatchStatus::PlanToWatch,
+        }
+    }
+}
+
+impl From<database::Season> for Season {
+    fn from(value: database::Season) -> Self {
+        match value {
+            database::Season::Spring => Season::Spring,
+            database::Season::Summer => Season::Summer,
+            database::Season::Fall => Season::Fall,
+            database::Season::Winter => Season::Winter,
+            database::Season::Undefined => Season::Unknown,
         }
     }
 }
