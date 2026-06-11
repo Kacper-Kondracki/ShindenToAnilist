@@ -22,8 +22,16 @@ const idleShindenEntryState: EntryLoadState<ShindenEntry> = { status: 'idle' };
 const idleDatabaseEntryState: EntryLoadState<DatabaseEntry> = {
   status: 'idle'
 };
+const retainedEntryGcTimeMs = 15_000;
 
 export type EntryStore = ReturnType<typeof createEntryStore>;
+
+type EntryQueryOptions<T> = {
+  queryKey: QueryKey;
+  queryFn: () => Promise<T | null>;
+  staleTime: number;
+  gcTime: number;
+};
 
 export function createEntryStore() {
   let revision = $state(0);
@@ -73,11 +81,11 @@ export function createEntryStore() {
   }
 
   async function ensureShindenEntry(entryId: number) {
-    return await queryClient.fetchQuery(shindenEntryQuery(entryId));
+    return await queryClient.ensureQueryData(shindenEntryQuery(entryId));
   }
 
   async function ensureDatabaseEntry(entryId: number) {
-    return await queryClient.fetchQuery(databaseEntryQuery(entryId));
+    return await queryClient.ensureQueryData(databaseEntryQuery(entryId));
   }
 
   function prefetchShindenEntry(entryId: number) {
@@ -177,25 +185,25 @@ export function createEntryStore() {
 function shindenEntryQuery(entryId: number) {
   return {
     queryKey: queryKeys.shindenEntry(entryId),
-    queryFn: () => loadShindenEntry(entryId)
+    queryFn: () => loadShindenEntry(entryId),
+    staleTime: Infinity,
+    gcTime: retainedEntryGcTimeMs
   };
 }
 
 function databaseEntryQuery(entryId: number) {
   return {
     queryKey: queryKeys.databaseEntry(entryId),
-    queryFn: () => loadDatabaseEntry(entryId)
+    queryFn: () => loadDatabaseEntry(entryId),
+    staleTime: Infinity,
+    gcTime: retainedEntryGcTimeMs
   };
 }
 
-function retainEntry<T>(options: {
-  queryKey: QueryKey;
-  queryFn: () => Promise<T | null>;
-}) {
+function retainEntry<T>(options: EntryQueryOptions<T>) {
   const observer = new QueryObserver<T | null>(queryClient, {
     ...options,
-    refetchOnMount: false,
-    staleTime: Infinity
+    refetchOnMount: false
   });
 
   return observer.subscribe(() => {});
