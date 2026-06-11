@@ -6,13 +6,27 @@ use shinden_to_anilist_grpc::{
 use tonic::transport::Server;
 use tonic_web::GrpcWebLayer;
 use tower_http::cors::CorsLayer;
+use tracing::info;
+use tracing_subscriber::{
+    EnvFilter,
+    fmt,
+};
+
+fn init_tracing() {
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("shinden_to_anilist_grpc=info,tower_http=info"));
+
+    fmt().with_env_filter(filter).init();
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init_tracing();
+
     let addr = "127.0.0.1:50051".parse()?;
     let service = ShindenToAnilist::new(Client::new());
 
-    println!("ShindenToAnilist gRPC listening on {addr}");
+    info!(%addr, "ShindenToAnilist gRPC listening");
 
     Server::builder()
         .accept_http1(true)

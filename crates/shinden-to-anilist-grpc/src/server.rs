@@ -59,6 +59,11 @@ use tonic::{
     Status,
     async_trait,
 };
+use tracing::{
+    info,
+    instrument,
+    warn,
+};
 
 use crate::{
     DatabaseState,
@@ -119,21 +124,29 @@ fn database_sidecar_path(path: impl AsRef<Path>) -> PathBuf {
 fn read_database_sidecar(database_path: impl AsRef<Path>) -> Result<Option<CoreDatabaseReleaseInfo>, Status> {
     let database_path = database_path.as_ref();
     if !database_path.exists() {
+        info!(path = %database_path.display(), "database file does not exist; no sidecar to read");
         return Ok(None);
     }
 
     let sidecar_path = database_sidecar_path(database_path);
     let sidecar = match File::open(&sidecar_path) {
         Ok(sidecar) => sidecar,
-        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => {
+            info!(path = %sidecar_path.display(), "database sidecar not found");
+            return Ok(None);
+        },
         Err(err) => {
             return Err(database_sidecar_io_error(err, &sidecar_path, "open").into_status());
         },
     };
 
-    serde_json::from_reader(BufReader::new(sidecar))
+    let status = serde_json::from_reader(BufReader::new(sidecar))
         .map(Some)
-        .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())
+        .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())?;
+
+    info!(path = %sidecar_path.display(), "database sidecar loaded");
+
+    Ok(status)
 }
 
 fn write_database_sidecar(
@@ -168,6 +181,10 @@ fn write_database_sidecar(
         let _ = std::fs::remove_file(&temp_path);
     }
 
+    if result.is_ok() {
+        info!(path = %sidecar_path.display(), "database sidecar written");
+    }
+
     result
 }
 
@@ -193,20 +210,36 @@ where
     T: Send + 'static,
     R: Send + 'static,
 {
+    let total_entries = entries.len();
     let (tx, rx) = mpsc::channel(64);
 
     tokio::spawn(async move {
         let mut iter = entries.into_iter();
+        let mut batches = 0usize;
         loop {
             let batch = iter.by_ref().take(STREAM_CHUNK_SIZE).collect::<Vec<_>>();
             if batch.is_empty() {
                 break;
             }
 
+            batches += 1;
             if tx.send(Ok(into_response(version, batch))).await.is_err() {
+                warn!(
+                    version,
+                    total_entries,
+                    batches_sent = batches,
+                    "response stream receiver dropped"
+                );
                 break;
             }
         }
+
+        info!(
+            version,
+            total_entries,
+            batches_sent = batches,
+            "response stream finished"
+        );
     });
 
     ReceiverStream::new(rx)
@@ -215,26 +248,33 @@ where
 #[async_trait]
 impl ShindenToAnilistService for ShindenToAnilist {
     // Shinden
+    #[instrument(skip_all, name = "grpc.fetch_shinden_list")]
     async fn fetch_shinden_list(
         &self,
         request: Request<FetchShindenListRequest>,
     ) -> Result<Response<FetchShindenListResponse>, Status> {
         let request = request.into_inner();
+        info!(shinden_id = request.id, "fetching shinden list");
 
         let shinden = ShindenList::get_from_shinden(self.http_client.clone(), request.id)
             .await
             .map_err(IntoStatus::into_status)?;
+        let entries = shinden.len();
 
         let shinden_version = self.shinden_list.store(shinden);
+        info!(shinden_version, entries, "shinden list fetched");
 
         Ok(FetchShindenListResponse { shinden_version }.into())
     }
 
+    #[instrument(skip_all, name = "grpc.get_shinden_ids")]
     async fn get_shinden_ids(
         &self,
         request: Request<GetShindenIdsRequest>,
     ) -> Result<Response<GetShindenIdsResponse>, Status> {
         let request = request.into_inner();
+        let sorted_by = request.sorted_by();
+        info!(?sorted_by, "loading shinden ids");
 
         let guard = self.shinden_list.load();
 
@@ -243,12 +283,12 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .ok_or_else(|| shinden_list_not_loaded().into_status())?;
 
         let shinden_version = guard.version();
-        let ids = shinden
+        let ids: Vec<u64> = shinden
             .iter()
             .map(|(id, entry)| (id, entry.premiere_date()))
             .collect::<Vec<_>>()
             .tap_mut(|v| {
-                if request.sorted_by() == AnimeListSortedBy::Urgency {
+                if sorted_by == AnimeListSortedBy::Urgency {
                     v.sort_by(|(_, date_a), (_, date_b)| match (date_a, date_b) {
                         (None, None) => Ordering::Equal,
                         (None, Some(_)) => Ordering::Greater,
@@ -260,15 +300,19 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .into_iter()
             .map(|(id, _)| id)
             .collect();
+        info!(shinden_version, ids = ids.len(), "shinden ids loaded");
 
         Ok(GetShindenIdsResponse { shinden_version, ids }.into())
     }
 
+    #[instrument(skip_all, name = "grpc.get_shinden_entries")]
     async fn get_shinden_entries(
         &self,
         request: Request<GetShindenEntriesRequest>,
     ) -> Result<Response<GetShindenEntriesResponse>, Status> {
         let request = request.into_inner();
+        let requested_ids = request.ids.len();
+        info!(requested_ids, "loading shinden entries");
 
         let guard = self.shinden_list.load();
 
@@ -292,6 +336,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
     type GetShindenFullStream = ReceiverStream<Result<GetShindenFullResponse, Status>>;
 
+    #[instrument(skip_all, name = "grpc.get_shinden_full")]
     async fn get_shinden_full(
         &self,
         _request: Request<GetShindenFullRequest>,
@@ -304,6 +349,11 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let shinden_version = guard.version();
         let entries: Vec<ShindenEntry> = shinden.values().map(ShindenEntry::from).collect();
+        info!(
+            shinden_version,
+            entries = entries.len(),
+            "streaming full shinden list"
+        );
 
         Ok(Response::new(stream_batches(
             shinden_version,
@@ -316,17 +366,21 @@ impl ShindenToAnilistService for ShindenToAnilist {
     }
 
     // Database
+    #[instrument(skip_all, name = "grpc.check_database_update")]
     async fn check_database_update(
         &self,
         request: Request<CheckDatabaseUpdateRequest>,
     ) -> Result<Response<CheckDatabaseUpdateResponse>, Status> {
         let request = request.into_inner();
+        info!(path = %request.path, "checking database update");
 
         let remote = latest_database_archive_asset(self.http_client.clone())
             .await
             .map_err(IntoStatus::into_status)?
             .conv::<CoreDatabaseReleaseInfo>();
         let local = read_database_sidecar(&request.path)?;
+        let needs_update = local.as_ref() != Some(&remote);
+        info!(path = %request.path, needs_update, "database update check finished");
 
         Ok(CheckDatabaseUpdateResponse {
             status: Some(database_update_check(local, remote)),
@@ -334,11 +388,13 @@ impl ShindenToAnilistService for ShindenToAnilist {
         .into())
     }
 
+    #[instrument(skip_all, name = "grpc.download_database")]
     async fn download_database(
         &self,
         request: Request<DownloadDatabaseRequest>,
     ) -> Result<Response<DownloadDatabaseResponse>, Status> {
         let request = request.into_inner();
+        info!(path = %request.path, "waiting for database download lock");
         let _download_guard = timeout(DATABASE_DOWNLOAD_LOCK_TIMEOUT, self.database_download_lock.lock())
             .await
             .map_err(|_| {
@@ -347,6 +403,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
                     DATABASE_DOWNLOAD_LOCK_TIMEOUT.as_secs()
                 ))
             })?;
+        info!(path = %request.path, "database download lock acquired");
 
         let status = update_latest_jsonl_from_github(self.http_client.clone(), &request.path)
             .await
@@ -354,6 +411,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .conv::<CoreDatabaseReleaseInfo>();
 
         write_database_sidecar(&request.path, &status)?;
+        info!(path = %request.path, "database downloaded");
 
         Ok(DownloadDatabaseResponse {
             status: Some(status.into()),
@@ -361,26 +419,33 @@ impl ShindenToAnilistService for ShindenToAnilist {
         .into())
     }
 
+    #[instrument(skip_all, name = "grpc.load_database")]
     async fn load_database(
         &self,
         request: Request<LoadDatabaseRequest>,
     ) -> Result<Response<LoadDatabaseResponse>, Status> {
         let request = request.into_inner();
+        info!(path = %request.path, "loading database");
 
         let database = DatabaseState::load(request.path).map_err(IntoStatus::into_status)?;
+        let entries = database.database.len();
 
         let database_version = self.database.store(database);
+        info!(database_version, entries, "database loaded");
 
         Ok(LoadDatabaseResponse { database_version }.into())
     }
 
+    #[instrument(skip_all, name = "grpc.get_database_metadata")]
     async fn get_database_metadata(
         &self,
         request: Request<GetDatabaseMetadataRequest>,
     ) -> Result<Response<GetDatabaseMetadataResponse>, Status> {
         let request = request.into_inner();
+        info!(path = %request.path, "loading database metadata");
 
         let metadata = root_metadata_from_path(request.path).map_err(IntoStatus::into_status)?;
+        info!("database metadata loaded");
 
         Ok(GetDatabaseMetadataResponse {
             metadata: Some(metadata.into()),
@@ -388,18 +453,20 @@ impl ShindenToAnilistService for ShindenToAnilist {
         .into())
     }
 
+    #[instrument(skip_all, name = "grpc.get_database_ids")]
     async fn get_database_ids(
         &self,
-        request: Request<GetDatabaseIdsRequest>,
+        _request: Request<GetDatabaseIdsRequest>,
     ) -> Result<Response<GetDatabaseIdsResponse>, Status> {
-        let request = request.into_inner();
+        info!("loading database ids");
 
         let guard = self.database.load();
 
         let database_version = guard.version();
         let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
 
-        let ids = database.database.values().map(|entry| entry.id()).collect();
+        let ids: Vec<u64> = database.database.values().map(|entry| entry.id()).collect();
+        info!(database_version, ids = ids.len(), "database ids loaded");
 
         Ok(GetDatabaseIdsResponse {
             database_version,
@@ -408,18 +475,21 @@ impl ShindenToAnilistService for ShindenToAnilist {
         .into())
     }
 
+    #[instrument(skip_all, name = "grpc.get_database_entries")]
     async fn get_database_entries(
         &self,
         request: Request<GetDatabaseEntriesRequest>,
     ) -> Result<Response<GetDatabaseEntriesResponse>, Status> {
         let request = request.into_inner();
+        let requested_ids = request.ids.len();
+        info!(requested_ids, "loading database entries");
 
         let guard = self.database.load();
 
         let database_version = guard.version();
         let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
 
-        let entries = request
+        let entries: Vec<DatabaseEntry> = request
             .ids
             .into_iter()
             .filter_map(|id| database.database.get(id).map(DatabaseEntry::from))
@@ -434,6 +504,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
     type GetDatabaseFullStream = ReceiverStream<Result<GetDatabaseFullResponse, Status>>;
 
+    #[instrument(skip_all, name = "grpc.get_database_full")]
     async fn get_database_full(
         &self,
         _request: Request<GetDatabaseFullRequest>,
@@ -448,6 +519,11 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .values()
             .map(DatabaseEntry::from)
             .collect::<Vec<_>>();
+        info!(
+            database_version,
+            entries = entries.len(),
+            "streaming full database"
+        );
 
         Ok(Response::new(stream_batches(
             database_version,
@@ -460,11 +536,14 @@ impl ShindenToAnilistService for ShindenToAnilist {
     }
 
     // Matching / Export
+    #[instrument(skip_all, name = "grpc.fuzzy_search")]
     async fn fuzzy_search(
         &self,
         request: Request<FuzzySearchRequest>,
     ) -> Result<Response<FuzzySearchResponse>, Status> {
         let request = request.into_inner();
+        let query_len = request.query.len();
+        info!(query_len, "running fuzzy search");
         let guard = self.database.load();
 
         let database_version = guard.version();
@@ -472,12 +551,13 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let query = normalize_str(&request.query);
         let options = search_options(request.options, SearchMode::Fuzzy);
 
-        let results = database
+        let results: Vec<SearchResult> = database
             .searcher
             .search(&query, options)
             .into_iter()
             .map(|(id, score)| SearchResult { id, score })
             .collect();
+        info!(database_version, results = results.len(), "fuzzy search finished");
 
         Ok(FuzzySearchResponse {
             database_version,
@@ -486,11 +566,14 @@ impl ShindenToAnilistService for ShindenToAnilist {
         .into())
     }
 
+    #[instrument(skip_all, name = "grpc.fuzzy_match")]
     async fn fuzzy_match(
         &self,
         request: Request<FuzzyMatchRequest>,
     ) -> Result<Response<FuzzyMatchResponse>, Status> {
         let request = request.into_inner();
+        let query_len = request.query.len();
+        info!(query_len, "running fuzzy match");
         let guard = self.database.load();
 
         let database_version = guard.version();
@@ -506,13 +589,19 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let candidates = database
             .searcher
             .search_ref(&database.database, query.normalized_title(), options);
-        let results = matcher
+        let results: Vec<MatchResult> = matcher
             .score_candidates(&query, &candidates, 0.0)
             .items()
             .iter()
             .copied()
             .map(Into::into)
             .collect();
+        info!(
+            database_version,
+            candidates = candidates.len(),
+            results = results.len(),
+            "fuzzy match finished"
+        );
 
         Ok(FuzzyMatchResponse {
             database_version,
@@ -523,11 +612,13 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
     type MatchShindenListStream = ReceiverStream<Result<MatchShindenListResponse, Status>>;
 
+    #[instrument(skip_all, name = "grpc.match_shinden_list")]
     async fn match_shinden_list(
         &self,
         request: Request<MatchShindenListRequest>,
     ) -> Result<Response<Self::MatchShindenListStream>, Status> {
         let request = request.into_inner();
+        info!("matching shinden list");
         let shinden_guard = self.shinden_list.load();
         let database_guard = self.database.load();
 
@@ -541,6 +632,8 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .ok_or_else(|| database_not_loaded().into_status())?;
         let options = search_options(request.options, SearchMode::Strict);
         let matcher = DefaultMatcher::strict_preset();
+        let shinden_entries = shinden.len();
+        let database_entries = database.database.len();
 
         let mut results = shinden
             .par_values()
@@ -554,6 +647,14 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .into_iter()
             .map(ShindenMatchResult::from)
             .collect::<Vec<_>>();
+        info!(
+            shinden_version,
+            database_version,
+            shinden_entries,
+            database_entries,
+            results = results.len(),
+            "shinden list matched"
+        );
 
         Ok(Response::new(stream_batches(
             shinden_version,
@@ -566,11 +667,14 @@ impl ShindenToAnilistService for ShindenToAnilist {
         )))
     }
 
+    #[instrument(skip_all, name = "grpc.export_xml")]
     async fn export_xml(
         &self,
         request: Request<ExportXmlRequest>,
     ) -> Result<Response<ExportXmlResponse>, Status> {
         let request = request.into_inner();
+        let requested_matches = request.matches.len();
+        info!(path = %request.path, requested_matches, "exporting xml");
         let guard = self.shinden_list.load();
 
         let shinden_version = guard.version();
@@ -584,6 +688,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .map(|pair| (pair.shinden_id, pair.database_id));
 
         export_xml_to_path(shinden, matches, &path)?;
+        info!(shinden_version, path = %path, requested_matches, "xml exported");
 
         Ok(ExportXmlResponse {
             shinden_version,
