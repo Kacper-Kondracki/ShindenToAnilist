@@ -59,10 +59,10 @@
   title={matchStatusLabels[matchStatus]}
   onclick={onSelect}
 >
-  <div class="min-w-0">
+  <div class="min-w-0z">
     {#if entryState.status !== 'ready'}
-      <h2 class="truncate text-sm font-semibold">Wpis #{entryId}</h2>
-      <p class="truncate text-xs text-muted">
+      <h2 class="truncate text-sm font-semibold skeleton skeleton-text">Wpis #{entryId}</h2>
+      <p class="truncate text-xs text-muted skeleton skeleton-text">
         {entryState.status === 'error'
           ? 'Nie udało się wczytać danych'
           : entryState.status === 'missing'
