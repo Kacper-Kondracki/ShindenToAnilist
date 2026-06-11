@@ -19,6 +19,7 @@ service ShindenToAnilistService {
   rpc DownloadDatabase(DownloadDatabaseRequest) returns (DownloadDatabaseResponse);
   rpc LoadDatabase(LoadDatabaseRequest) returns (LoadDatabaseResponse);
   rpc GetDatabaseMetadata(GetDatabaseMetadataRequest) returns (GetDatabaseMetadataResponse);
+  rpc GetDatabaseIds(GetDatabaseIdsRequest) returns (GetDatabaseIdsResponse);
   rpc GetDatabaseEntries(GetDatabaseEntriesRequest) returns (GetDatabaseEntriesResponse);
   rpc GetDatabaseFull(GetDatabaseFullRequest) returns (stream GetDatabaseFullResponse);
 
@@ -87,6 +88,14 @@ message GetDatabaseMetadataRequest {
 }
 message GetDatabaseMetadataResponse {
   DatabaseMetadata metadata = 1;
+}
+
+message GetDatabaseIdsRequest {
+  AnimeListSortedBy sorted_by = 1;
+}
+message GetDatabaseIdsResponse {
+  uint64 database_version = 1;
+  repeated uint64 ids = 2;
 }
 
 message GetDatabaseEntriesRequest {

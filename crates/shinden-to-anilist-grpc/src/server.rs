@@ -388,6 +388,26 @@ impl ShindenToAnilistService for ShindenToAnilist {
         .into())
     }
 
+    async fn get_database_ids(
+        &self,
+        request: Request<GetDatabaseIdsRequest>,
+    ) -> Result<Response<GetDatabaseIdsResponse>, Status> {
+        let request = request.into_inner();
+
+        let guard = self.database.load();
+
+        let database_version = guard.version();
+        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
+
+        let ids = database.database.values().map(|entry| entry.id()).collect();
+
+        Ok(GetDatabaseIdsResponse {
+            database_version,
+            ids,
+        }
+        .into())
+    }
+
     async fn get_database_entries(
         &self,
         request: Request<GetDatabaseEntriesRequest>,
