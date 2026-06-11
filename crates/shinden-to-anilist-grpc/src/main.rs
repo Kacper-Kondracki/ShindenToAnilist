@@ -5,6 +5,7 @@ use shinden_to_anilist_grpc::{
 };
 use tonic::transport::Server;
 use tonic_web::GrpcWebLayer;
+use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,6 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Server::builder()
         .accept_http1(true)
+        .layer(CorsLayer::permissive())
         .layer(GrpcWebLayer::new())
         .add_service(ShindenToAnilistServiceServer::new(service))
         .serve(addr)

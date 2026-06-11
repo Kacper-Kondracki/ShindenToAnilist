@@ -2780,6 +2780,7 @@ dependencies = [
  "tonic-prost",
  "tonic-prost-build",
  "tonic-web",
+ "tower-http",
 ]
 
 [[package]]

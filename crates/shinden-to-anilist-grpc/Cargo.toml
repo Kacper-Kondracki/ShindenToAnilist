@@ -17,6 +17,7 @@ tokio-stream = "0.1"
 tonic = { version = "0.14", features = ["transport"] }
 tonic-web = "0.14"
 tonic-prost = "0.14"
+tower-http = { version = "0.6", features = ["cors"] }
 
 [build-dependencies]
 tonic-prost-build = "0.14"
