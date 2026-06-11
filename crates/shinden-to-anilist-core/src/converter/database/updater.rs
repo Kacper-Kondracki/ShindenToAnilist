@@ -1,5 +1,8 @@
 use std::{
-    fs::File,
+    fs::{
+        self,
+        File,
+    },
     io::{
         self,
         Cursor,
@@ -360,13 +363,20 @@ where
 pub fn decompress_zstd_to_path(compressed: &[u8], path: &Path) -> Result<(), io::Error> {
     create_parent_dir(path)?;
 
-    let tmp_path = temporary_path_for(path);
+    let (mut output, tmp_path) = create_unique_temp_file(path)?;
     let mut decoder = Cursor::new(compressed);
-    let mut output = File::create(&tmp_path)?;
-    zstd::stream::copy_decode(&mut decoder, &mut output)?;
-    output.sync_all()?;
-    drop(output);
-    std::fs::rename(tmp_path, path)
+    let result = zstd::stream::copy_decode(&mut decoder, &mut output)
+        .and_then(|_| output.sync_all())
+        .and_then(|_| {
+            drop(output);
+            fs::rename(&tmp_path, path).and_then(|_| sync_parent_dir(path))
+        });
+
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+
+    result
 }
 
 /// Computes lowercase hexadecimal SHA-256 for `bytes`.
@@ -412,14 +422,34 @@ fn verify_archive_digest(bytes: &[u8], expected_sha256: Option<String>) -> Resul
     Ok(actual)
 }
 
-fn temporary_path_for(path: &Path) -> PathBuf {
-    let extension = path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .map(|extension| format!("{extension}.tmp"))
-        .unwrap_or_else(|| "tmp".to_string());
+fn create_unique_temp_file(path: &Path) -> io::Result<(File, PathBuf)> {
+    let file_name = path.file_name().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "database path must include a file name",
+        )
+    })?;
+    let parent = path.parent().filter(|path| !path.as_os_str().is_empty());
 
-    path.with_extension(extension)
+    for attempt in 0..1000 {
+        let mut temp_file_name = file_name.to_os_string();
+        temp_file_name.push(format!(".tmp.{}.{}", std::process::id(), attempt));
+
+        let temp_path = parent
+            .map(|parent| parent.join(&temp_file_name))
+            .unwrap_or_else(|| PathBuf::from(&temp_file_name));
+
+        match File::options().write(true).create_new(true).open(&temp_path) {
+            Ok(file) => return Ok((file, temp_path)),
+            Err(err) if err.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(err),
+        }
+    }
+
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        "could not allocate temporary database path",
+    ))
 }
 
 fn create_parent_dir(path: &Path) -> Result<(), io::Error> {
@@ -431,6 +461,18 @@ fn create_parent_dir(path: &Path) -> Result<(), io::Error> {
 
     Ok(())
 }
+
+#[cfg(unix)]
+fn sync_parent_dir(path: &Path) -> io::Result<()> {
+    let Some(parent) = path.parent().filter(|path| !path.as_os_str().is_empty()) else {
+        return Ok(());
+    };
+
+    File::open(parent)?.sync_all()
+}
+
+#[cfg(not(unix))]
+fn sync_parent_dir(_path: &Path) -> io::Result<()> { Ok(()) }
 
 #[derive(Deserialize)]
 struct GitHubRelease {

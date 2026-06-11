@@ -1,8 +1,10 @@
 use shinden_to_anilist_core::{
     Datelike,
     NaiveDate,
+    common::AnimeId,
     database,
     exporter,
+    matcher,
     providers::shinden,
 };
 use tap::prelude::Conv;
@@ -14,8 +16,10 @@ use crate::pb::{
     DatabaseMetadata,
     DatabaseReleaseInfo,
     Date,
+    MatchResult,
     Season,
     ShindenEntry,
+    ShindenMatchResult,
     WatchStatus,
 };
 
@@ -53,6 +57,26 @@ impl From<&database::AnimeEntry> for DatabaseEntry {
             thumbnail: value.thumbnail().to_string(),
             duration: value.duration(),
             synonyms: value.synonyms().iter().map(|v| v.to_string()).collect(),
+        }
+    }
+}
+
+impl From<(AnimeId, matcher::ScoreBreakdown)> for MatchResult {
+    fn from((id, score): (AnimeId, matcher::ScoreBreakdown)) -> Self {
+        Self {
+            id,
+            final_score: score.final_score,
+        }
+    }
+}
+
+impl From<(AnimeId, matcher::MatchResult)> for ShindenMatchResult {
+    fn from((shinden_id, result): (AnimeId, matcher::MatchResult)) -> Self {
+        Self {
+            shinden_id,
+            candidates: result.items().iter().copied().map(MatchResult::from).collect(),
+            top_candidates: result.top().iter().copied().map(MatchResult::from).collect(),
+            winner: result.winner().map(MatchResult::from),
         }
     }
 }

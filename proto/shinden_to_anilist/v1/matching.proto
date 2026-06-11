@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package shinden_to_anilist.v1;
+
+message MatchResult {
+  uint64 id = 1;
+  float final_score = 2;
+}
+
+message ShindenMatchResult {
+  uint64 shinden_id = 1;
+  repeated MatchResult candidates = 2;
+  repeated MatchResult top_candidates = 3;
+  optional MatchResult winner = 4;
+}

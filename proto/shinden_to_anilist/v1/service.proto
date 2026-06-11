@@ -4,6 +4,9 @@ package shinden_to_anilist.v1;
 
 import "shinden_to_anilist/v1/common.proto";
 import "shinden_to_anilist/v1/database.proto";
+import "shinden_to_anilist/v1/export.proto";
+import "shinden_to_anilist/v1/matching.proto";
+import "shinden_to_anilist/v1/search.proto";
 import "shinden_to_anilist/v1/shinden.proto";
 
 service ShindenToAnilistService {
@@ -18,6 +21,11 @@ service ShindenToAnilistService {
   rpc GetDatabaseMetadata(GetDatabaseMetadataRequest) returns (GetDatabaseMetadataResponse);
   rpc GetDatabaseEntries(GetDatabaseEntriesRequest) returns (GetDatabaseEntriesResponse);
   rpc GetDatabaseFull(GetDatabaseFullRequest) returns (stream GetDatabaseFullResponse);
+
+  rpc FuzzySearch(FuzzySearchRequest) returns (FuzzySearchResponse);
+  rpc FuzzyMatch(FuzzyMatchRequest) returns (FuzzyMatchResponse);
+  rpc MatchShindenList(MatchShindenListRequest) returns (stream MatchShindenListResponse);
+  rpc ExportXml(ExportXmlRequest) returns (ExportXmlResponse);
 }
 
 // Shinden
@@ -26,14 +34,14 @@ message FetchShindenListRequest {
   uint64 id = 1;
 }
 message FetchShindenListResponse {
-  uint64 version = 1;
+  uint64 shinden_version = 1;
 }
 
 message GetShindenIdsRequest {
   AnimeListSortedBy sorted_by = 1;
 }
 message GetShindenIdsResponse {
-  uint64 version = 1;
+  uint64 shinden_version = 1;
   repeated uint64 ids = 2;
 }
 
@@ -41,13 +49,13 @@ message GetShindenEntriesRequest {
   repeated uint64 ids = 1;
 }
 message GetShindenEntriesResponse {
-  uint64 version = 1;
+  uint64 shinden_version = 1;
   repeated ShindenEntry entries = 2;
 }
 
 message GetShindenFullRequest {}
 message GetShindenFullResponse {
-  uint64 version = 1;
+  uint64 shinden_version = 1;
   repeated ShindenEntry entries = 2;
 }
 
@@ -71,7 +79,7 @@ message LoadDatabaseRequest {
   string path = 1;
 }
 message LoadDatabaseResponse {
-  uint64 version = 1;
+  uint64 database_version = 1;
 }
 
 message GetDatabaseMetadataRequest {
@@ -85,12 +93,50 @@ message GetDatabaseEntriesRequest {
   repeated uint64 ids = 1;
 }
 message GetDatabaseEntriesResponse {
-  uint64 version = 1;
+  uint64 database_version = 1;
   repeated DatabaseEntry entries = 2;
 }
 
 message GetDatabaseFullRequest {}
 message GetDatabaseFullResponse {
-  uint64 version = 1;
+  uint64 database_version = 1;
   repeated DatabaseEntry entries = 2;
+}
+
+// Matching / Export
+
+message FuzzySearchRequest {
+  string query = 1;
+  SearchOptions options = 2;
+}
+message FuzzySearchResponse {
+  uint64 database_version = 1;
+  repeated SearchResult results = 2;
+}
+
+message FuzzyMatchRequest {
+  string query = 1;
+  SearchOptions options = 2;
+}
+message FuzzyMatchResponse {
+  uint64 database_version = 1;
+  repeated MatchResult results = 2;
+}
+
+message MatchShindenListRequest {
+  SearchOptions options = 1;
+}
+message MatchShindenListResponse {
+  uint64 shinden_version = 1;
+  uint64 database_version = 2;
+  repeated ShindenMatchResult results = 3;
+}
+
+message ExportXmlRequest {
+  repeated AnimeIdPair matches = 1;
+  string path = 2;
+}
+message ExportXmlResponse {
+  uint64 shinden_version = 1;
+  string path = 2;
 }

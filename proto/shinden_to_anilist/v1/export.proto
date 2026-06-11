@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package shinden_to_anilist.v1;
+
+message AnimeIdPair {
+  uint64 shinden_id = 1;
+  uint64 database_id = 2;
+}

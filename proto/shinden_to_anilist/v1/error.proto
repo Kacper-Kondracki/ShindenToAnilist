@@ -42,7 +42,9 @@ enum ErrorKind {
   ERROR_KIND_EXPORT_XML = 15;
   ERROR_KIND_EXPORT_OUT_OF_INDEX = 16;
 
-  ERROR_KIND_UNKNOWN = 17;
+  ERROR_KIND_EXPORT_IO = 17;
+
+  ERROR_KIND_UNKNOWN = 18;
 }
 
 message UnloadedResourceError {
