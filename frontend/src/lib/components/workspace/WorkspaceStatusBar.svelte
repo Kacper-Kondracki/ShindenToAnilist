@@ -104,16 +104,11 @@
     <button
       class="btn btn-error xl:btn-wide"
       type="button"
-      disabled={!canExport}
       onclick={onExport}
       title={exportState.status === 'error'
         ? exportState.message
         : 'Eksportuj dopasowania do pliku XML'}
     >
-      {#if exportState.status === 'exporting'}
-        <span class="loading loading-xs loading-spinner" aria-hidden="true"
-        ></span>
-      {/if}
       {exportText}
     </button>
   </div>

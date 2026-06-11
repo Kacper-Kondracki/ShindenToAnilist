@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "dev:grpc": "cargo run -p shinden-to-anilist-grpc",
+    "dev:grpc-optimized": "cargo run --release -p shinden-to-anilist-grpc",
     "dev:frontend": "wait-on tcp:50051 && pnpm --filter frontend dev",
     "dev:electron": "wait-on tcp:50051 && pnpm --filter electron dev",
     "dev": "concurrently -k \"pnpm dev:grpc\" \"pnpm dev:frontend\" \"pnpm dev:electron\"",
+    "dev:optimized": "concurrently -k \"pnpm dev:grpc-optimized\" \"pnpm dev:frontend\" \"pnpm dev:electron\"",
     "format:frontend": "pnpm --filter frontend format",
     "format:electron": "pnpm --filter electron format",
     "format:crates": "cargo +nightly fmt",

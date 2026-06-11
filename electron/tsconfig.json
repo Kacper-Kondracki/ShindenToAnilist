@@ -9,5 +9,5 @@
     "types": ["node", "electron"],
     "noEmit": false
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.cts"]
 }

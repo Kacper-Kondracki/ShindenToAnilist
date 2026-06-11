@@ -55,8 +55,11 @@ import type {
 import { clearDatabaseQueries, clearMatchQueries } from './queryClient';
 
 const grpcBaseUrl = 'http://127.0.0.1:50051';
-export const databasePath = '/tmp/shinden-to-anilist-database.jsonl';
-export const exportPath = '/tmp/shinden-to-anilist-export.xml';
+export const databasePath =
+  globalThis.shindenToAnilist?.paths.database ??
+  '/tmp/shinden-to-anilist-database.jsonl';
+export const exportPath =
+  globalThis.shindenToAnilist?.paths.export ?? '/tmp/shinden-to-anilist-export.xml';
 
 const transport = createGrpcWebTransport({
   baseUrl: grpcBaseUrl
