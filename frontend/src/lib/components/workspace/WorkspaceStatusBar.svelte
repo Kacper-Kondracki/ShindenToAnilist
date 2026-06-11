@@ -161,7 +161,7 @@
   .is-export-ready {
     position: relative;
     isolation: isolate;
-    border: none;
+    border-color: transparent;
     background:
       linear-gradient(
         110deg,
