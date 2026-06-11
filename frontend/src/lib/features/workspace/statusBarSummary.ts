@@ -60,14 +60,14 @@ export function formatDuration(durationMs: number | null) {
   return `${(durationMs / 1000).toFixed(2)}s`;
 }
 
-export function exportButtonText(exportState: ExportState) {
-  if (exportState.status === 'exporting') {
-    return 'Eksportowanie';
-  }
+export function exportButtonText(_exportState: ExportState) {
+  // if (exportState.status === 'exporting') {
+  //   return 'Eksportowanie';
+  // }
 
-  if (exportState.status === 'exported') {
-    return `Wyeksportowano ${exportState.exportedCount}`;
-  }
+  // if (exportState.status === 'exported') {
+  //   return `Wyeksportowano ${exportState.exportedCount}`;
+  // }
 
   return 'Eksport';
 }
