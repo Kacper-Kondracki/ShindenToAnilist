@@ -2,4 +2,5 @@ packages:
   - "frontend"
   - "electron"
 allowBuilds:
+  '@bufbuild/buf': true
   protobufjs: set this to true or false

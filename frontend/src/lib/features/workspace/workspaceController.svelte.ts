@@ -1,4 +1,4 @@
-import { exportMatches } from '../../api/appService';
+import { exportXml } from '../../api/appService';
 import type { EntryStore } from '../../data/entryStore.svelte';
 import type {
   DatabaseEntry,
@@ -200,7 +200,7 @@ export function createWorkspaceController(entryStore: EntryStore) {
     exportState = { status: 'exporting' };
 
     try {
-      const result = await exportMatches(selections);
+      const result = await exportXml(selections);
       exportState = result.cancelled
         ? { status: 'cancelled' }
         : {

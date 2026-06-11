@@ -15,6 +15,7 @@ tap = "1.0.1"
 tokio = { version = "1.52", features = ["macros", "rt-multi-thread", "time"] }
 tokio-stream = "0.1"
 tonic = { version = "0.14", features = ["transport"] }
+tonic-web = "0.14"
 tonic-prost = "0.14"
 
 [build-dependencies]
