@@ -19,6 +19,7 @@ export type WorkspaceActivation = LoadedUserList & {
   matchResult: MatchListResult;
   fetchDurationMs: number;
   matchDurationMs: number;
+  resetEntryStore?: boolean;
 };
 
 export type SelectedWinnerState =
@@ -135,7 +136,9 @@ export function createWorkspaceController(entryStore: EntryStore) {
 
   function activate(next: WorkspaceActivation) {
     selectionRequestId += 1;
-    entryStore.reset();
+    if (next.resetEntryStore ?? true) {
+      entryStore.reset();
+    }
     state = {
       status: 'active',
       provider: next.provider,

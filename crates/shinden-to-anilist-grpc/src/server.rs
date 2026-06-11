@@ -94,6 +94,7 @@ type CoreDatabaseReleaseInfo = database::updater::DatabaseReleaseInfo;
 
 const DATABASE_SIDECAR_EXTENSION: &str = "info.json";
 const DATABASE_DOWNLOAD_LOCK_TIMEOUT: Duration = Duration::from_secs(10);
+const SHINDEN_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 const STREAM_CHUNK_SIZE: usize = 500;
 
 #[derive(Debug, Default)]
@@ -290,8 +291,15 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let request = request.into_inner();
         info!(shinden_id = request.id, "fetching shinden list");
 
-        let shinden = ShindenList::get_from_shinden(self.http_client.clone(), request.id)
+        let shinden = ShindenList::get_from_shinden(self.http_client.clone(), request.id);
+        let shinden = timeout(SHINDEN_FETCH_TIMEOUT, shinden)
             .await
+            .map_err(|_| {
+                Status::deadline_exceeded(format!(
+                    "shinden list could not be fetched within {} seconds",
+                    SHINDEN_FETCH_TIMEOUT.as_secs()
+                ))
+            })?
             .map_err(IntoStatus::into_status)?;
         let entries = shinden.len();
 

@@ -75,6 +75,7 @@ export function createAppController() {
   let canSubmit = $derived(
     Boolean(trimmedQuery) && !isUserListLoading && isProviderSupported
   );
+  const manualPrehydrateLimit = 100;
 
   async function initializeDatabase() {
     databaseState = { status: 'loading' };
@@ -129,8 +130,13 @@ export function createAppController() {
 
     try {
       const fetchStartedAt = performance.now();
-      await fetchShindenList(parsedShindenUserId);
+      const fetchedList = await fetchShindenList(parsedShindenUserId);
       const nextFetchDurationMs = performance.now() - fetchStartedAt;
+
+      if (activeRequestId !== requestId) {
+        return;
+      }
+
       const readyDatabaseState = await waitForReadyDatabase();
 
       if (readyDatabaseState.status !== 'ready') {
@@ -139,6 +145,10 @@ export function createAppController() {
             ? readyDatabaseState.message
             : 'Baza danych nie jest gotowa'
         );
+      }
+
+      if (activeRequestId !== requestId) {
+        return;
       }
 
       const matchStartedAt = performance.now();
@@ -152,10 +162,33 @@ export function createAppController() {
         return;
       }
 
+      assertConsistentWorkspaceVersions(
+        fetchedList.shindenVersion,
+        readyDatabaseState.info.databaseVersion,
+        nextMatchResult,
+        allIds.shindenVersion
+      );
+
       const entryIdsByView = buildEntryIdsByView(
         nextMatchResult,
         allIds.entryIds
       );
+
+      const isPrehydrated = await entryStore.resetAndPrehydrateShindenEntries(
+        entryIdsByView.manual.slice(0, manualPrehydrateLimit),
+        nextMatchResult.shindenVersion,
+        () => activeRequestId === requestId
+      );
+
+      if (activeRequestId !== requestId) {
+        return;
+      }
+
+      if (!isPrehydrated) {
+        throw new Error(
+          'Lista Shinden zmieniła się podczas przygotowywania widoku'
+        );
+      }
 
       userListRequestState = {
         status: 'loaded',
@@ -169,7 +202,8 @@ export function createAppController() {
         entryIdsByView,
         matchResult: nextMatchResult,
         fetchDurationMs: nextFetchDurationMs,
-        matchDurationMs: nextMatchDurationMs
+        matchDurationMs: nextMatchDurationMs,
+        resetEntryStore: false
       });
     } catch (error) {
       if (activeRequestId !== requestId) {
@@ -244,6 +278,28 @@ export function createAppController() {
     clearUserListError,
     submitUserList
   };
+}
+
+function assertConsistentWorkspaceVersions(
+  fetchedShindenVersion: number,
+  readyDatabaseVersion: number,
+  matchResult: MatchListResult,
+  shindenIdsVersion: number
+) {
+  if (
+    fetchedShindenVersion !== matchResult.shindenVersion ||
+    shindenIdsVersion !== matchResult.shindenVersion
+  ) {
+    throw new Error(
+      'Lista Shinden zmieniła się podczas dopasowywania. Spróbuj ponownie.'
+    );
+  }
+
+  if (readyDatabaseVersion !== matchResult.databaseVersion) {
+    throw new Error(
+      'Baza danych zmieniła się podczas dopasowywania. Spróbuj ponownie.'
+    );
+  }
 }
 
 function buildEntryIdsByView(

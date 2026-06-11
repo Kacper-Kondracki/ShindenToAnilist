@@ -5,8 +5,9 @@ import {
 } from '@tanstack/query-core';
 
 import {
-  getDatabaseEntries,
-  getShindenEntries
+  currentVersions,
+  getDatabaseEntriesWithVersion,
+  getShindenEntriesWithVersion
 } from '../api/appService';
 import { queryClient, queryKeys } from '../api/queryClient';
 import type { DatabaseEntry, ShindenEntry } from '../domain/anime';
@@ -54,6 +55,39 @@ export function createEntryStore() {
     queryClient.removeQueries({ queryKey: queryKeys.shinden });
     queryClient.removeQueries({ queryKey: queryKeys.database });
     revision += 1;
+  }
+
+  async function resetAndPrehydrateShindenEntries(
+    entryIds: number[],
+    expectedShindenVersion: number,
+    canApply = () => true
+  ) {
+    const result =
+      entryIds.length === 0
+        ? { shindenVersion: expectedShindenVersion, entries: [] }
+        : await getShindenEntriesWithVersion(entryIds);
+
+    if (
+      result.shindenVersion !== expectedShindenVersion ||
+      currentVersions().shinden !== expectedShindenVersion ||
+      !canApply()
+    ) {
+      return false;
+    }
+
+    reset();
+    const entriesById = new Map(
+      result.entries.map((entry) => [entry.id, entry])
+    );
+    for (const entryId of entryIds) {
+      queryClient.setQueryData(
+        queryKeys.shindenEntry(entryId),
+        entriesById.get(entryId) ?? null
+      );
+    }
+    revision += 1;
+
+    return true;
   }
 
   function getShindenEntryState(entryId: number) {
@@ -172,6 +206,7 @@ export function createEntryStore() {
     },
     reset,
     destroy,
+    resetAndPrehydrateShindenEntries,
     getShindenEntryState,
     getReadyShindenEntry,
     getDatabaseEntryState,
@@ -241,7 +276,10 @@ function countCachedEntryQueries() {
   };
 }
 
-function isEntryQueryKey(queryKey: QueryKey, namespace: 'shinden' | 'database') {
+function isEntryQueryKey(
+  queryKey: QueryKey,
+  namespace: 'shinden' | 'database'
+) {
   return (
     queryKey.length === 3 &&
     queryKey[0] === namespace &&
@@ -283,13 +321,50 @@ function getEntryState<T>(
 }
 
 async function loadShindenEntry(entryId: number) {
-  const entries = await getShindenEntries([entryId]);
-  return entries.find((entry) => entry.id === entryId) ?? null;
+  const expectedVersion = currentVersions().shinden;
+  const result = await getShindenEntriesWithVersion([entryId]);
+  if (
+    !isFreshVersion(
+      result.shindenVersion,
+      expectedVersion,
+      currentVersions().shinden
+    )
+  ) {
+    return getCachedEntry<ShindenEntry>(queryKeys.shindenEntry(entryId));
+  }
+
+  return result.entries.find((entry) => entry.id === entryId) ?? null;
 }
 
 async function loadDatabaseEntry(entryId: number) {
-  const entries = await getDatabaseEntries([entryId]);
-  return entries.find((entry) => entry.id === entryId) ?? null;
+  const expectedVersion = currentVersions().database;
+  const result = await getDatabaseEntriesWithVersion([entryId]);
+  if (
+    !isFreshVersion(
+      result.databaseVersion,
+      expectedVersion,
+      currentVersions().database
+    )
+  ) {
+    return getCachedEntry<DatabaseEntry>(queryKeys.databaseEntry(entryId));
+  }
+
+  return result.entries.find((entry) => entry.id === entryId) ?? null;
+}
+
+function isFreshVersion(
+  responseVersion: number,
+  expectedVersion: number,
+  currentVersion: number
+) {
+  return (
+    expectedVersion === 0 ||
+    (responseVersion === expectedVersion && currentVersion === expectedVersion)
+  );
+}
+
+function getCachedEntry<T>(queryKey: QueryKey) {
+  return queryClient.getQueryData<T | null>(queryKey) ?? null;
 }
 
 function errorMessage(error: unknown) {
