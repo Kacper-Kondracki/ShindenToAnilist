@@ -56,7 +56,7 @@
   class="anime-row h-0"
   aria-label={`${rowTitle()}: ${matchStatusLabels[matchStatus]}`}
   aria-pressed={isSelected}
-  title={matchStatusLabels[matchStatus]}
+  title={rowTitle()}
   onclick={onSelect}
 >
 <div 

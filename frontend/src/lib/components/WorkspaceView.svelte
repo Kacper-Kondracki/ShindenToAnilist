@@ -49,9 +49,11 @@
 <style>
   .workspace-layout {
     display: grid;
+    height: 100%;
     min-height: 0;
     gap: 2px;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     background-color: color-mix(
       in oklab,
       var(--color-base-content) 10%,
@@ -62,6 +64,7 @@
   @media (width <= 48rem) {
     .workspace-layout {
       grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: repeat(2, minmax(0, 1fr));
     }
   }
 </style>
