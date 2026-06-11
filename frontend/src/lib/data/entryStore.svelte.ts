@@ -43,6 +43,12 @@ export function createEntryStore() {
       queueRevisionUpdate();
     }
   });
+  const cachedEntryCounts = $derived.by(() => {
+    revision;
+    return countCachedEntryQueries();
+  });
+
+  $inspect(cachedEntryCounts);
 
   function reset() {
     queryClient.removeQueries({ queryKey: queryKeys.shinden });
@@ -214,6 +220,33 @@ function isEntryStateChange(event: QueryCacheNotifyEvent) {
     event.type === 'added' ||
     event.type === 'removed' ||
     event.type === 'updated'
+  );
+}
+
+function countCachedEntryQueries() {
+  let shinden = 0;
+  let database = 0;
+
+  for (const query of queryClient.getQueryCache().getAll()) {
+    if (isEntryQueryKey(query.queryKey, 'shinden')) {
+      shinden += 1;
+    } else if (isEntryQueryKey(query.queryKey, 'database')) {
+      database += 1;
+    }
+  }
+
+  return {
+    shinden,
+    database
+  };
+}
+
+function isEntryQueryKey(queryKey: QueryKey, namespace: 'shinden' | 'database') {
+  return (
+    queryKey.length === 3 &&
+    queryKey[0] === namespace &&
+    queryKey[1] === 'entry' &&
+    typeof queryKey[2] === 'number'
   );
 }
 
