@@ -162,28 +162,22 @@
     position: relative;
     isolation: isolate;
     border-color: transparent;
-    background:
-      linear-gradient(
-        110deg,
-        color-mix(in oklab, #ff6b8a 72%, white 28%) 0%,
-        color-mix(in oklab, #ffd166 76%, white 24%) 10%,
-        color-mix(in oklab, #7bd88f 72%, white 28%) 20%,
-        color-mix(in oklab, #5cc8ff 72%, white 28%) 30%,
-        color-mix(in oklab, #c084fc 72%, white 28%) 40%,
-        color-mix(in oklab, #ff6b8a 72%, white 28%) 50%,
-        color-mix(in oklab, #ffd166 76%, white 24%) 60%,
-        color-mix(in oklab, #7bd88f 72%, white 28%) 70%,
-        color-mix(in oklab, #5cc8ff 72%, white 28%) 80%,
-        color-mix(in oklab, #c084fc 72%, white 28%) 90%,
-        color-mix(in oklab, #ff6b8a 72%, white 28%) 100%
-      );
-    background-size: 200% 100%;
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, #ff6b8a 72%, white 28%) 0rem,
+      color-mix(in oklab, #ffd166 76%, white 24%) 8rem,
+      color-mix(in oklab, #7bd88f 72%, white 28%) 16rem,
+      color-mix(in oklab, #5cc8ff 72%, white 28%) 24rem,
+      color-mix(in oklab, #c084fc 72%, white 28%) 32rem,
+      color-mix(in oklab, #ff6b8a 72%, white 28%) 40rem
+    );
+    background-size: 40rem 100%;
     box-shadow:
       0 0 0.5rem color-mix(in oklab, #ffd166 34%, transparent),
       0 0 1.2rem color-mix(in oklab, #5cc8ff 26%, transparent),
       0 0 2rem color-mix(in oklab, #c084fc 20%, transparent);
     color: color-mix(in oklab, var(--color-base-100) 88%, white 12%);
-    text-shadow: 0 1px 0 color-mix(in oklab, black 22%, transparent);
+    text-shadow: 0 1px 0 color-mix(in oklab, rgb(2, 2, 2) 22%, transparent);
     animation: export-rainbow-shine 3.2s linear infinite;
   }
 
@@ -217,11 +211,11 @@
 
   @keyframes export-rainbow-shine {
     0% {
-      background-position: 0% 50%;
+      background-position: 0 50%;
     }
 
     100% {
-      background-position: 100% 50%;
+      background-position: 40rem 50%;
     }
   }
 
