@@ -52,11 +52,7 @@ import type {
   ShindenEntry,
   ShindenListIndex
 } from '../domain/anime';
-import {
-  clearDatabaseQueries,
-  clearMatchQueries,
-  clearShindenQueries
-} from './queryClient';
+import { clearDatabaseQueries, clearMatchQueries } from './queryClient';
 
 const grpcBaseUrl = 'http://127.0.0.1:50051';
 export const databasePath = '/tmp/shinden-to-anilist-database.jsonl';
@@ -110,6 +106,21 @@ export async function fetchShindenList(userId: number) {
   });
 }
 
+export async function getShindenEntriesWithVersion(entryIds: number[]) {
+  return callRpc(async () => {
+    const response = await client.getShindenEntries(
+      create(GetShindenEntriesRequestSchema, {
+        ids: entryIds.map(BigInt)
+      })
+    );
+    observeShindenVersion(response.shindenVersion);
+    return {
+      shindenVersion: toNumber(response.shindenVersion),
+      entries: response.entries.map(toShindenEntry)
+    };
+  });
+}
+
 export async function getShindenIds(sortedBy = AnimeListSortedBy.URGENCY) {
   return callRpc(async (): Promise<ShindenListIndex> => {
     const response = await client.getShindenIds(
@@ -125,15 +136,7 @@ export async function getShindenIds(sortedBy = AnimeListSortedBy.URGENCY) {
 }
 
 export async function getShindenEntries(entryIds: number[]) {
-  return callRpc(async () => {
-    const response = await client.getShindenEntries(
-      create(GetShindenEntriesRequestSchema, {
-        ids: entryIds.map(BigInt)
-      })
-    );
-    observeShindenVersion(response.shindenVersion);
-    return response.entries.map(toShindenEntry);
-  });
+  return (await getShindenEntriesWithVersion(entryIds)).entries;
 }
 
 export async function getShindenFull() {
@@ -209,6 +212,10 @@ export async function getDatabaseMetadata(path = databasePath) {
 }
 
 export async function getDatabaseEntries(entryIds: number[]) {
+  return (await getDatabaseEntriesWithVersion(entryIds)).entries;
+}
+
+export async function getDatabaseEntriesWithVersion(entryIds: number[]) {
   return callRpc(async () => {
     const response = await client.getDatabaseEntries(
       create(GetDatabaseEntriesRequestSchema, {
@@ -216,7 +223,10 @@ export async function getDatabaseEntries(entryIds: number[]) {
       })
     );
     observeDatabaseVersion(response.databaseVersion);
-    return response.entries.map(toDatabaseEntry);
+    return {
+      databaseVersion: toNumber(response.databaseVersion),
+      entries: response.entries.map(toDatabaseEntry)
+    };
   });
 }
 
@@ -335,7 +345,6 @@ function observeShindenVersion(version: bigint) {
   const nextVersion = toNumber(version);
   if (nextVersion > shindenVersion) {
     shindenVersion = nextVersion;
-    clearShindenQueries();
     clearMatchQueries();
   }
 }
@@ -422,11 +431,9 @@ function toMatchListResult(
     total: mappedEntries.length,
     winners: mappedEntries.filter((entry) => entry.result.winner !== null)
       .length,
-    hasTop: mappedEntries.filter((entry) => entry.result.top.length > 0)
-      .length,
+    hasTop: mappedEntries.filter((entry) => entry.result.top.length > 0).length,
     unmatched: mappedEntries.filter(
-      (entry) =>
-        entry.result.winner === null && entry.result.top.length === 0
+      (entry) => entry.result.winner === null && entry.result.top.length === 0
     ).length,
     shindenVersion: toNumber(nextShindenVersion),
     databaseVersion: toNumber(nextDatabaseVersion)

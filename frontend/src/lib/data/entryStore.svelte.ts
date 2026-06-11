@@ -1,6 +1,13 @@
 import {
-  getDatabaseEntries,
-  getShindenEntries
+  QueryObserver,
+  type QueryCacheNotifyEvent,
+  type QueryKey
+} from '@tanstack/query-core';
+
+import {
+  currentVersions,
+  getDatabaseEntriesWithVersion,
+  getShindenEntriesWithVersion
 } from '../api/appService';
 import { queryClient, queryKeys } from '../api/queryClient';
 import type { DatabaseEntry, ShindenEntry } from '../domain/anime';
@@ -16,20 +23,71 @@ const idleShindenEntryState: EntryLoadState<ShindenEntry> = { status: 'idle' };
 const idleDatabaseEntryState: EntryLoadState<DatabaseEntry> = {
   status: 'idle'
 };
+const retainedEntryGcTimeMs = 15_000;
 
 export type EntryStore = ReturnType<typeof createEntryStore>;
 
+type EntryQueryOptions<T> = {
+  queryKey: QueryKey;
+  queryFn: () => Promise<T | null>;
+  staleTime: number;
+  gcTime: number;
+};
+
 export function createEntryStore() {
   let revision = $state(0);
+  let isRevisionUpdateQueued = false;
+  let isDestroyed = false;
 
-  const unsubscribe = queryClient.getQueryCache().subscribe(() => {
-    revision += 1;
+  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+    if (isEntryStateChange(event)) {
+      queueRevisionUpdate();
+    }
   });
+  const cachedEntryCounts = $derived.by(() => {
+    revision;
+    return countCachedEntryQueries();
+  });
+
+  $inspect(cachedEntryCounts);
 
   function reset() {
     queryClient.removeQueries({ queryKey: queryKeys.shinden });
     queryClient.removeQueries({ queryKey: queryKeys.database });
     revision += 1;
+  }
+
+  async function resetAndPrehydrateShindenEntries(
+    entryIds: number[],
+    expectedShindenVersion: number,
+    canApply = () => true
+  ) {
+    const result =
+      entryIds.length === 0
+        ? { shindenVersion: expectedShindenVersion, entries: [] }
+        : await getShindenEntriesWithVersion(entryIds);
+
+    if (
+      result.shindenVersion !== expectedShindenVersion ||
+      currentVersions().shinden !== expectedShindenVersion ||
+      !canApply()
+    ) {
+      return false;
+    }
+
+    reset();
+    const entriesById = new Map(
+      result.entries.map((entry) => [entry.id, entry])
+    );
+    for (const entryId of entryIds) {
+      queryClient.setQueryData(
+        queryKeys.shindenEntry(entryId),
+        entriesById.get(entryId) ?? null
+      );
+    }
+    revision += 1;
+
+    return true;
   }
 
   function getShindenEntryState(entryId: number) {
@@ -63,24 +121,15 @@ export function createEntryStore() {
   }
 
   async function ensureShindenEntry(entryId: number) {
-    return await queryClient.fetchQuery({
-      queryKey: queryKeys.shindenEntry(entryId),
-      queryFn: () => loadShindenEntry(entryId)
-    });
+    return await queryClient.ensureQueryData(shindenEntryQuery(entryId));
   }
 
   async function ensureDatabaseEntry(entryId: number) {
-    return await queryClient.fetchQuery({
-      queryKey: queryKeys.databaseEntry(entryId),
-      queryFn: () => loadDatabaseEntry(entryId)
-    });
+    return await queryClient.ensureQueryData(databaseEntryQuery(entryId));
   }
 
   function prefetchShindenEntry(entryId: number) {
-    void queryClient.prefetchQuery({
-      queryKey: queryKeys.shindenEntry(entryId),
-      queryFn: () => loadShindenEntry(entryId)
-    });
+    void queryClient.prefetchQuery(shindenEntryQuery(entryId));
   }
 
   function prefetchDatabaseEntry(entryId: number | null) {
@@ -88,20 +137,31 @@ export function createEntryStore() {
       return;
     }
 
-    void queryClient.prefetchQuery({
-      queryKey: queryKeys.databaseEntry(entryId),
-      queryFn: () => loadDatabaseEntry(entryId)
-    });
+    void queryClient.prefetchQuery(databaseEntryQuery(entryId));
   }
 
   function retainShindenEntry(entryId: number) {
-    prefetchShindenEntry(entryId);
-    return () => {};
+    return retainEntry(shindenEntryQuery(entryId));
   }
 
   function pinDatabaseEntry(entryId: number | null) {
-    prefetchDatabaseEntry(entryId);
-    return () => {};
+    if (entryId === null) {
+      return () => {};
+    }
+
+    return retainEntry(databaseEntryQuery(entryId));
+  }
+
+  function pinDatabaseEntries(entryIds: number[]) {
+    const releaseEntries = entryIds.map((entryId) =>
+      retainEntry(databaseEntryQuery(entryId))
+    );
+
+    return () => {
+      for (const releaseEntry of releaseEntries) {
+        releaseEntry();
+      }
+    };
   }
 
   function requestShindenEntries(entryIds: number[]) {
@@ -117,7 +177,22 @@ export function createEntryStore() {
   }
 
   function destroy() {
+    isDestroyed = true;
     unsubscribe();
+  }
+
+  function queueRevisionUpdate() {
+    if (isRevisionUpdateQueued) {
+      return;
+    }
+
+    isRevisionUpdateQueued = true;
+    queueMicrotask(() => {
+      isRevisionUpdateQueued = false;
+      if (!isDestroyed) {
+        revision += 1;
+      }
+    });
   }
 
   return {
@@ -131,6 +206,7 @@ export function createEntryStore() {
     },
     reset,
     destroy,
+    resetAndPrehydrateShindenEntries,
     getShindenEntryState,
     getReadyShindenEntry,
     getDatabaseEntryState,
@@ -141,9 +217,75 @@ export function createEntryStore() {
     ensureReadyDatabaseEntry: ensureDatabaseEntry,
     retainShindenEntry,
     pinDatabaseEntry,
+    pinDatabaseEntries,
     requestShindenEntries,
     requestDatabaseEntries
   };
+}
+
+function shindenEntryQuery(entryId: number) {
+  return {
+    queryKey: queryKeys.shindenEntry(entryId),
+    queryFn: () => loadShindenEntry(entryId),
+    staleTime: Infinity,
+    gcTime: retainedEntryGcTimeMs
+  };
+}
+
+function databaseEntryQuery(entryId: number) {
+  return {
+    queryKey: queryKeys.databaseEntry(entryId),
+    queryFn: () => loadDatabaseEntry(entryId),
+    staleTime: Infinity,
+    gcTime: retainedEntryGcTimeMs
+  };
+}
+
+function retainEntry<T>(options: EntryQueryOptions<T>) {
+  const observer = new QueryObserver<T | null>(queryClient, {
+    ...options,
+    refetchOnMount: false
+  });
+
+  return observer.subscribe(() => {});
+}
+
+function isEntryStateChange(event: QueryCacheNotifyEvent) {
+  return (
+    event.type === 'added' ||
+    event.type === 'removed' ||
+    event.type === 'updated'
+  );
+}
+
+function countCachedEntryQueries() {
+  let shinden = 0;
+  let database = 0;
+
+  for (const query of queryClient.getQueryCache().getAll()) {
+    if (isEntryQueryKey(query.queryKey, 'shinden')) {
+      shinden += 1;
+    } else if (isEntryQueryKey(query.queryKey, 'database')) {
+      database += 1;
+    }
+  }
+
+  return {
+    shinden,
+    database
+  };
+}
+
+function isEntryQueryKey(
+  queryKey: QueryKey,
+  namespace: 'shinden' | 'database'
+) {
+  return (
+    queryKey.length === 3 &&
+    queryKey[0] === namespace &&
+    queryKey[1] === 'entry' &&
+    typeof queryKey[2] === 'number'
+  );
 }
 
 function getEntryState<T>(
@@ -179,13 +321,50 @@ function getEntryState<T>(
 }
 
 async function loadShindenEntry(entryId: number) {
-  const entries = await getShindenEntries([entryId]);
-  return entries.find((entry) => entry.id === entryId) ?? null;
+  const expectedVersion = currentVersions().shinden;
+  const result = await getShindenEntriesWithVersion([entryId]);
+  if (
+    !isFreshVersion(
+      result.shindenVersion,
+      expectedVersion,
+      currentVersions().shinden
+    )
+  ) {
+    return getCachedEntry<ShindenEntry>(queryKeys.shindenEntry(entryId));
+  }
+
+  return result.entries.find((entry) => entry.id === entryId) ?? null;
 }
 
 async function loadDatabaseEntry(entryId: number) {
-  const entries = await getDatabaseEntries([entryId]);
-  return entries.find((entry) => entry.id === entryId) ?? null;
+  const expectedVersion = currentVersions().database;
+  const result = await getDatabaseEntriesWithVersion([entryId]);
+  if (
+    !isFreshVersion(
+      result.databaseVersion,
+      expectedVersion,
+      currentVersions().database
+    )
+  ) {
+    return getCachedEntry<DatabaseEntry>(queryKeys.databaseEntry(entryId));
+  }
+
+  return result.entries.find((entry) => entry.id === entryId) ?? null;
+}
+
+function isFreshVersion(
+  responseVersion: number,
+  expectedVersion: number,
+  currentVersion: number
+) {
+  return (
+    expectedVersion === 0 ||
+    (responseVersion === expectedVersion && currentVersion === expectedVersion)
+  );
+}
+
+function getCachedEntry<T>(queryKey: QueryKey) {
+  return queryClient.getQueryData<T | null>(queryKey) ?? null;
 }
 
 function errorMessage(error: unknown) {

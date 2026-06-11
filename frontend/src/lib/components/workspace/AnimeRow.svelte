@@ -53,11 +53,15 @@
   class:anime-row--review={matchStatus === 'review'}
   class:anime-row--unmatched={matchStatus === 'unmatched'}
   class:anime-row--selected={isSelected}
-  class="anime-row"
+  class="anime-row h-0"
   aria-label={`${rowTitle()}: ${matchStatusLabels[matchStatus]}`}
   aria-pressed={isSelected}
   title={matchStatusLabels[matchStatus]}
   onclick={onSelect}
+>
+<div 
+  class="size-full flex pl-2 pr-2 justify-between items-center skeleton"
+  class:skeleton={entryState.status !== 'ready'}
 >
   <div class="min-w-0">
     {#if entryState.status !== 'ready'}
@@ -79,12 +83,8 @@
       </p>
     {/if}
   </div>
+</div>
 
-  {#if entryState.status === 'ready' && entryState.entry.score !== null}
-    <span class="badge shrink-0 badge-soft badge-info">
-      {entryState.entry.score}/10
-    </span>
-  {/if}
 </button>
 
 <style>
@@ -121,9 +121,9 @@
     font: inherit;
     text-align: left;
     cursor: pointer;
-    padding-inline: calc(var(--spacing) * 4);
-    padding-left: calc(var(--spacing) * 5);
-    padding-block: calc(var(--spacing) * 3);
+    padding-inline: calc(var(--spacing) * 2);
+    padding-left: calc(var(--spacing) * 4);
+    padding-block: calc(var(--spacing) * 2);
     transition:
       background-color 160ms ease,
       box-shadow 160ms ease;
