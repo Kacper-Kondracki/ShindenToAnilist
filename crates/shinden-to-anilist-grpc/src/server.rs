@@ -6,7 +6,10 @@ use std::{
         BufReader,
         BufWriter,
     },
-    path::PathBuf,
+    path::{
+        Path,
+        PathBuf,
+    },
 };
 
 use shinden_to_anilist_core::{
@@ -54,6 +57,11 @@ use crate::{
     },
 };
 
+type CoreDatabaseReleaseInfo = database::updater::DatabaseReleaseInfo;
+
+const DATABASE_SIDECAR_EXTENSION: &str = "info.json";
+const STREAM_CHUNK_SIZE: usize = 500;
+
 #[derive(Debug, Default)]
 pub struct ShindenToAnilist {
     http_client: reqwest::Client,
@@ -69,6 +77,90 @@ impl ShindenToAnilist {
             database: VersionedArcOption::empty(),
         }
     }
+}
+
+fn database_sidecar_path(path: impl AsRef<Path>) -> PathBuf {
+    let mut sidecar_path = PathBuf::from(path.as_ref());
+    sidecar_path.set_extension(DATABASE_SIDECAR_EXTENSION);
+    sidecar_path
+}
+
+fn read_database_sidecar(database_path: impl AsRef<Path>) -> Result<Option<CoreDatabaseReleaseInfo>, Status> {
+    let database_path = database_path.as_ref();
+    if !database_path.exists() {
+        return Ok(None);
+    }
+
+    let sidecar_path = database_sidecar_path(database_path);
+    let sidecar = match File::open(&sidecar_path) {
+        Ok(sidecar) => sidecar,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => {
+            return Err(database_sidecar_io_error(err, &sidecar_path, "open").into_status());
+        },
+    };
+
+    serde_json::from_reader(BufReader::new(sidecar))
+        .map(Some)
+        .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())
+}
+
+fn write_database_sidecar(
+    database_path: impl AsRef<Path>,
+    status: &CoreDatabaseReleaseInfo,
+) -> Result<(), Status> {
+    let sidecar_path = database_sidecar_path(database_path);
+    let writer = File::options()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&sidecar_path)
+        .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "write").into_status())?
+        .pipe(BufWriter::new);
+
+    serde_json::to_writer_pretty(writer, status)
+        .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())
+}
+
+fn database_update_check(
+    local: Option<CoreDatabaseReleaseInfo>,
+    remote: CoreDatabaseReleaseInfo,
+) -> DatabaseUpdateCheck {
+    let needs_update = local.as_ref() != Some(&remote);
+
+    DatabaseUpdateCheck {
+        local: local.map(Into::into),
+        remote: Some(remote.into()),
+        needs_update,
+    }
+}
+
+fn stream_batches<T, R>(
+    version: u64,
+    entries: Vec<T>,
+    into_response: impl Fn(u64, Vec<T>) -> R + Send + 'static,
+) -> ReceiverStream<Result<R, Status>>
+where
+    T: Send + 'static,
+    R: Send + 'static,
+{
+    let (tx, rx) = mpsc::channel(64);
+
+    tokio::spawn(async move {
+        let mut iter = entries.into_iter();
+        loop {
+            let batch = iter.by_ref().take(STREAM_CHUNK_SIZE).collect::<Vec<_>>();
+            if batch.is_empty() {
+                break;
+            }
+
+            if tx.send(Ok(into_response(version, batch))).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    ReceiverStream::new(rx)
 }
 
 #[async_trait]
@@ -160,27 +252,11 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let version = guard.version();
         let entries: Vec<ShindenEntry> = shinden.values().map(ShindenEntry::from).collect();
 
-        let (tx, rx) = mpsc::channel(64);
-
-        tokio::spawn(async move {
-            let chunk_size = 500;
-            let mut iter = entries.into_iter();
-            loop {
-                let batch: Vec<ShindenEntry> = iter.by_ref().take(chunk_size).collect();
-                if batch.is_empty() {
-                    break;
-                }
-
-                let response = GetShindenFullResponse {
-                    version,
-                    entries: batch,
-                };
-                if tx.send(Ok(response)).await.is_err() {
-                    break;
-                }
-            }
-        });
-        Ok(Response::new(ReceiverStream::new(rx)))
+        Ok(Response::new(stream_batches(
+            version,
+            entries,
+            |version, entries| GetShindenFullResponse { version, entries },
+        )))
     }
 
     // Database
@@ -193,49 +269,11 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let remote = latest_database_archive_asset(self.http_client.clone())
             .await
             .map_err(IntoStatus::into_status)?
-            .conv::<database::updater::DatabaseReleaseInfo>();
-
-        if !PathBuf::from(&request.path).exists() {
-            return Ok(CheckDatabaseUpdateResponse {
-                status: Some(DatabaseUpdateCheck {
-                    local: None,
-                    remote: Some(remote.into()),
-                    needs_update: true,
-                }),
-            }
-            .into());
-        }
-
-        let mut sidecar_path = PathBuf::from(request.path);
-        sidecar_path.set_extension("info.json");
-
-        let sidecar = File::open(&sidecar_path);
-        if let Err(err) = &sidecar
-            && err.kind() == io::ErrorKind::NotFound
-        {
-            return Ok(CheckDatabaseUpdateResponse {
-                status: Some(DatabaseUpdateCheck {
-                    local: None,
-                    remote: Some(remote.into()),
-                    needs_update: true,
-                }),
-            }
-            .into());
-        }
-        let sidecar = sidecar
-            .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "open").into_status())?
-            .pipe(BufReader::new);
-        let local = serde_json::from_reader::<_, database::updater::DatabaseReleaseInfo>(sidecar)
-            .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())?;
-
-        let needs_update = local != remote;
+            .conv::<CoreDatabaseReleaseInfo>();
+        let local = read_database_sidecar(&request.path)?;
 
         Ok(CheckDatabaseUpdateResponse {
-            status: Some(DatabaseUpdateCheck {
-                local: Some(local.into()),
-                remote: Some(remote.into()),
-                needs_update,
-            }),
+            status: Some(database_update_check(local, remote)),
         }
         .into())
     }
@@ -249,21 +287,9 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let status = update_latest_jsonl_from_github(self.http_client.clone(), &request.path)
             .await
             .map_err(IntoStatus::into_status)?
-            .conv::<database::updater::DatabaseReleaseInfo>();
+            .conv::<CoreDatabaseReleaseInfo>();
 
-        let mut sidecar_path = PathBuf::from(request.path);
-        sidecar_path.set_extension("info.json");
-
-        let writer = File::options()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(&sidecar_path)
-            .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "write").into_status())?
-            .pipe(BufWriter::new);
-
-        serde_json::to_writer_pretty(writer, &status)
-            .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())?;
+        write_database_sidecar(&request.path, &status)?;
 
         Ok(DownloadDatabaseResponse {
             status: Some(status.into()),
@@ -335,26 +361,10 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .map(DatabaseEntry::from)
             .collect::<Vec<_>>();
 
-        let (tx, rx) = mpsc::channel(64);
-
-        tokio::spawn(async move {
-            let chunk_size = 500;
-            let mut iter = entries.into_iter();
-            loop {
-                let batch: Vec<DatabaseEntry> = iter.by_ref().take(chunk_size).collect();
-                if batch.is_empty() {
-                    break;
-                }
-
-                let response = GetDatabaseFullResponse {
-                    version,
-                    entries: batch,
-                };
-                if tx.send(Ok(response)).await.is_err() {
-                    break;
-                }
-            }
-        });
-        Ok(Response::new(ReceiverStream::new(rx)))
+        Ok(Response::new(stream_batches(
+            version,
+            entries,
+            |version, entries| GetDatabaseFullResponse { version, entries },
+        )))
     }
 }
