@@ -59,7 +59,7 @@ export function formatEpisodeDuration(duration: number | null) {
     return missingValueText;
   }
 
-  return `${duration} min`;
+  return `${duration / 60} min`;
 }
 
 export function translateAnimeType(animeType: AnimeType) {
