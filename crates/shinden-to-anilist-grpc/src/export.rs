@@ -37,13 +37,8 @@ pub(crate) fn export_xml_to_path(
     path: impl AsRef<Path>,
 ) -> Result<(), tonic::Status> {
     let path = path.as_ref();
-    let temp_path =
-        unique_temp_path(path).map_err(|err| export_xml_io_error(err, path, "temp_path").into_status())?;
-    let mut temp_file = File::options()
-        .write(true)
-        .create_new(true)
-        .open(&temp_path)
-        .map_err(|err| export_xml_io_error(err, &temp_path, "create").into_status())?;
+    let (mut temp_file, temp_path) = create_unique_temp_file(path)
+        .map_err(|err| export_xml_io_error(err, path, "create").into_status())?;
 
     let result = write_xml(shinden, matches, &mut temp_file)
         .and_then(|_| temp_file.sync_all().map_err(ExportWriteError::Io))
@@ -52,7 +47,9 @@ pub(crate) fn export_xml_to_path(
             ExportWriteError::Io(err) => export_xml_io_error(err, &temp_path, "write").into_status(),
         })
         .and_then(|_| {
-            fs::rename(&temp_path, path).map_err(|err| export_xml_io_error(err, path, "rename").into_status())
+            fs::rename(&temp_path, path)
+                .and_then(|_| sync_parent_dir(path))
+                .map_err(|err| export_xml_io_error(err, path, "rename").into_status())
         });
 
     if result.is_err() {
@@ -74,7 +71,7 @@ fn write_xml(
     writer.flush().map_err(ExportWriteError::Io)
 }
 
-fn unique_temp_path(path: &Path) -> io::Result<PathBuf> {
+pub(crate) fn create_unique_temp_file(path: &Path) -> io::Result<(File, PathBuf)> {
     let file_name = path.file_name().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -91,8 +88,10 @@ fn unique_temp_path(path: &Path) -> io::Result<PathBuf> {
             .map(|parent| parent.join(&temp_file_name))
             .unwrap_or_else(|| PathBuf::from(&temp_file_name));
 
-        if !temp_path.exists() {
-            return Ok(temp_path);
+        match File::options().write(true).create_new(true).open(&temp_path) {
+            Ok(file) => return Ok((file, temp_path)),
+            Err(err) if err.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(err),
         }
     }
 
@@ -101,6 +100,18 @@ fn unique_temp_path(path: &Path) -> io::Result<PathBuf> {
         "could not allocate temporary export path",
     ))
 }
+
+#[cfg(unix)]
+pub(crate) fn sync_parent_dir(path: &Path) -> io::Result<()> {
+    let Some(parent) = path.parent().filter(|path| !path.as_os_str().is_empty()) else {
+        return Ok(());
+    };
+
+    File::open(parent)?.sync_all()
+}
+
+#[cfg(not(unix))]
+pub(crate) fn sync_parent_dir(_path: &Path) -> io::Result<()> { Ok(()) }
 
 enum ExportWriteError {
     Xml(XmlExportError),

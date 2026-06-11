@@ -5,11 +5,13 @@ use std::{
         self,
         BufReader,
         BufWriter,
+        Write,
     },
     path::{
         Path,
         PathBuf,
     },
+    time::Duration,
 };
 
 use rayon::prelude::*;
@@ -41,10 +43,15 @@ use shinden_to_anilist_core::{
 };
 use tap::prelude::{
     Conv,
-    Pipe,
     Tap,
 };
-use tokio::sync::mpsc;
+use tokio::{
+    sync::{
+        Mutex,
+        mpsc,
+    },
+    time::timeout,
+};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{
     Request,
@@ -63,7 +70,11 @@ use crate::{
         database_sidecar_json_error,
         shinden_list_not_loaded,
     },
-    export::export_xml_to_path,
+    export::{
+        create_unique_temp_file,
+        export_xml_to_path,
+        sync_parent_dir,
+    },
     matching::{
         QueryMatchView,
         search_options,
@@ -77,6 +88,7 @@ use crate::{
 type CoreDatabaseReleaseInfo = database::updater::DatabaseReleaseInfo;
 
 const DATABASE_SIDECAR_EXTENSION: &str = "info.json";
+const DATABASE_DOWNLOAD_LOCK_TIMEOUT: Duration = Duration::from_secs(10);
 const STREAM_CHUNK_SIZE: usize = 500;
 
 #[derive(Debug, Default)]
@@ -84,6 +96,7 @@ pub struct ShindenToAnilist {
     http_client: reqwest::Client,
     shinden_list: VersionedArcOption<ShindenList>,
     database: VersionedArcOption<DatabaseState>,
+    database_download_lock: Mutex<()>,
 }
 
 impl ShindenToAnilist {
@@ -92,6 +105,7 @@ impl ShindenToAnilist {
             http_client,
             shinden_list: VersionedArcOption::empty(),
             database: VersionedArcOption::empty(),
+            database_download_lock: Mutex::new(()),
         }
     }
 }
@@ -127,16 +141,34 @@ fn write_database_sidecar(
     status: &CoreDatabaseReleaseInfo,
 ) -> Result<(), Status> {
     let sidecar_path = database_sidecar_path(database_path);
-    let writer = File::options()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&sidecar_path)
-        .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "write").into_status())?
-        .pipe(BufWriter::new);
+    let (mut temp_file, temp_path) = create_unique_temp_file(&sidecar_path)
+        .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "create").into_status())?;
 
-    serde_json::to_writer_pretty(writer, status)
-        .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())
+    let result = (|| {
+        {
+            let mut writer = BufWriter::new(&mut temp_file);
+            serde_json::to_writer_pretty(&mut writer, status)
+                .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())?;
+            writer
+                .flush()
+                .map_err(|err| database_sidecar_io_error(err, &temp_path, "write").into_status())?;
+        }
+
+        temp_file
+            .sync_all()
+            .map_err(|err| database_sidecar_io_error(err, &temp_path, "write").into_status())?;
+        drop(temp_file);
+
+        std::fs::rename(&temp_path, &sidecar_path)
+            .and_then(|_| sync_parent_dir(&sidecar_path))
+            .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "rename").into_status())
+    })();
+
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp_path);
+    }
+
+    result
 }
 
 fn database_update_check(
@@ -307,6 +339,14 @@ impl ShindenToAnilistService for ShindenToAnilist {
         request: Request<DownloadDatabaseRequest>,
     ) -> Result<Response<DownloadDatabaseResponse>, Status> {
         let request = request.into_inner();
+        let _download_guard = timeout(DATABASE_DOWNLOAD_LOCK_TIMEOUT, self.database_download_lock.lock())
+            .await
+            .map_err(|_| {
+                Status::deadline_exceeded(format!(
+                    "database download lock could not be acquired within {} seconds",
+                    DATABASE_DOWNLOAD_LOCK_TIMEOUT.as_secs()
+                ))
+            })?;
 
         let status = update_latest_jsonl_from_github(self.http_client.clone(), &request.path)
             .await
