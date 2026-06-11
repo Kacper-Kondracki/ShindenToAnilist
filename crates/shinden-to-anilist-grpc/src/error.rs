@@ -81,6 +81,16 @@ pub fn database_sidecar_json_error(error: serde_json::Error, path: impl AsRef<Pa
     json_error(ErrorKind::DatabaseSidecarJson, error, Some(path.as_ref()))
 }
 
+pub fn export_xml_io_error(error: io::Error, path: impl AsRef<Path>, operation: &'static str) -> AppError {
+    io_error(
+        ErrorKind::ExportIo,
+        error.to_string(),
+        Some(path.as_ref()),
+        operation,
+        Some(error.kind()),
+    )
+}
+
 pub fn database_error(error: DatabaseError) -> AppError {
     match error {
         DatabaseError::Io(error) => io_error(

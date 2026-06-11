@@ -12,6 +12,7 @@ use std::{
     },
 };
 
+use rayon::prelude::*;
 use shinden_to_anilist_core::{
     common::AnimeList,
     database::{
@@ -22,10 +23,21 @@ use shinden_to_anilist_core::{
             update_latest_jsonl_from_github,
         },
     },
+    matcher::{
+        DefaultMatcher,
+        Matcher,
+        MatcherFinalizer,
+    },
     providers::shinden::{
         ShindenList,
         ShindenListLoad,
     },
+    searcher::{
+        SearchMode,
+        Searcher,
+        SearcherAnimeExt,
+    },
+    utils::normalize_str,
 };
 use tap::prelude::{
     Conv,
@@ -50,6 +62,11 @@ use crate::{
         database_sidecar_io_error,
         database_sidecar_json_error,
         shinden_list_not_loaded,
+    },
+    export::export_xml_to_path,
+    matching::{
+        QueryMatchView,
+        search_options,
     },
     pb::{
         shinden_to_anilist_service_server::ShindenToAnilistService,
@@ -176,9 +193,9 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .await
             .map_err(IntoStatus::into_status)?;
 
-        let version = self.shinden_list.store(shinden);
+        let shinden_version = self.shinden_list.store(shinden);
 
-        Ok(FetchShindenListResponse { version }.into())
+        Ok(FetchShindenListResponse { shinden_version }.into())
     }
 
     async fn get_shinden_ids(
@@ -193,7 +210,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .get()
             .ok_or_else(|| shinden_list_not_loaded().into_status())?;
 
-        let version = guard.version();
+        let shinden_version = guard.version();
         let ids = shinden
             .iter()
             .map(|(id, entry)| (id, entry.premiere_date()))
@@ -212,7 +229,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .map(|(id, _)| id)
             .collect();
 
-        Ok(GetShindenIdsResponse { version, ids }.into())
+        Ok(GetShindenIdsResponse { shinden_version, ids }.into())
     }
 
     async fn get_shinden_entries(
@@ -227,14 +244,18 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .get()
             .ok_or_else(|| shinden_list_not_loaded().into_status())?;
 
-        let version = guard.version();
+        let shinden_version = guard.version();
         let entries: Vec<ShindenEntry> = request
             .ids
             .into_iter()
             .filter_map(|id| shinden.get(id).map(Into::into))
             .collect();
 
-        Ok(GetShindenEntriesResponse { version, entries }.into())
+        Ok(GetShindenEntriesResponse {
+            shinden_version,
+            entries,
+        }
+        .into())
     }
 
     type GetShindenFullStream = ReceiverStream<Result<GetShindenFullResponse, Status>>;
@@ -249,13 +270,16 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .get()
             .ok_or_else(|| shinden_list_not_loaded().into_status())?;
 
-        let version = guard.version();
+        let shinden_version = guard.version();
         let entries: Vec<ShindenEntry> = shinden.values().map(ShindenEntry::from).collect();
 
         Ok(Response::new(stream_batches(
-            version,
+            shinden_version,
             entries,
-            |version, entries| GetShindenFullResponse { version, entries },
+            |shinden_version, entries| GetShindenFullResponse {
+                shinden_version,
+                entries,
+            },
         )))
     }
 
@@ -305,9 +329,9 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let database = DatabaseState::load(request.path).map_err(IntoStatus::into_status)?;
 
-        let version = self.database.store(database);
+        let database_version = self.database.store(database);
 
-        Ok(LoadDatabaseResponse { version }.into())
+        Ok(LoadDatabaseResponse { database_version }.into())
     }
 
     async fn get_database_metadata(
@@ -332,7 +356,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
 
         let guard = self.database.load();
 
-        let version = guard.version();
+        let database_version = guard.version();
         let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
 
         let entries = request
@@ -341,7 +365,11 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .filter_map(|id| database.database.get(id).map(DatabaseEntry::from))
             .collect();
 
-        Ok(GetDatabaseEntriesResponse { version, entries }.into())
+        Ok(GetDatabaseEntriesResponse {
+            database_version,
+            entries,
+        }
+        .into())
     }
 
     type GetDatabaseFullStream = ReceiverStream<Result<GetDatabaseFullResponse, Status>>;
@@ -352,7 +380,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
     ) -> Result<Response<Self::GetDatabaseFullStream>, Status> {
         let guard = self.database.load();
 
-        let version = guard.version();
+        let database_version = guard.version();
         let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
 
         let entries = database
@@ -362,9 +390,145 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .collect::<Vec<_>>();
 
         Ok(Response::new(stream_batches(
-            version,
+            database_version,
             entries,
-            |version, entries| GetDatabaseFullResponse { version, entries },
+            |database_version, entries| GetDatabaseFullResponse {
+                database_version,
+                entries,
+            },
         )))
+    }
+
+    // Matching / Export
+    async fn fuzzy_search(
+        &self,
+        request: Request<FuzzySearchRequest>,
+    ) -> Result<Response<FuzzySearchResponse>, Status> {
+        let request = request.into_inner();
+        let guard = self.database.load();
+
+        let database_version = guard.version();
+        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
+        let query = normalize_str(&request.query);
+        let options = search_options(request.options, SearchMode::Fuzzy);
+
+        let results = database
+            .searcher
+            .search(&query, options)
+            .into_iter()
+            .map(|(id, score)| SearchResult { id, score })
+            .collect();
+
+        Ok(FuzzySearchResponse {
+            database_version,
+            results,
+        }
+        .into())
+    }
+
+    async fn fuzzy_match(
+        &self,
+        request: Request<FuzzyMatchRequest>,
+    ) -> Result<Response<FuzzyMatchResponse>, Status> {
+        let request = request.into_inner();
+        let guard = self.database.load();
+
+        let database_version = guard.version();
+        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
+        let query = QueryMatchView::new(request.query);
+        let options = search_options(request.options, SearchMode::Fuzzy);
+        let matcher = DefaultMatcher {
+            search_weight: 0.8,
+            season_weight: 0.2,
+            ..Default::default()
+        };
+
+        let candidates = database
+            .searcher
+            .search_ref(&database.database, query.normalized_title(), options);
+        let results = matcher
+            .score_candidates(&query, &candidates, 0.0)
+            .items()
+            .iter()
+            .copied()
+            .map(Into::into)
+            .collect();
+
+        Ok(FuzzyMatchResponse {
+            database_version,
+            results,
+        }
+        .into())
+    }
+
+    type MatchShindenListStream = ReceiverStream<Result<MatchShindenListResponse, Status>>;
+
+    async fn match_shinden_list(
+        &self,
+        request: Request<MatchShindenListRequest>,
+    ) -> Result<Response<Self::MatchShindenListStream>, Status> {
+        let request = request.into_inner();
+        let shinden_guard = self.shinden_list.load();
+        let database_guard = self.database.load();
+
+        let shinden_version = shinden_guard.version();
+        let database_version = database_guard.version();
+        let shinden = shinden_guard
+            .get()
+            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+        let database = database_guard
+            .get()
+            .ok_or_else(|| database_not_loaded().into_status())?;
+        let options = search_options(request.options, SearchMode::Strict);
+        let matcher = DefaultMatcher::strict_preset();
+
+        let mut results = shinden
+            .par_values()
+            .map(|entry| entry.search_by_title_ref(&database.database, &database.searcher, options))
+            .map(|(entry, candidates)| (entry.id(), matcher.score_candidates(entry, &candidates, 0.5)))
+            .collect::<Vec<_>>();
+
+        results.iter_mut().map(|(_, result)| result).finalize_matches();
+
+        let results = results
+            .into_iter()
+            .map(ShindenMatchResult::from)
+            .collect::<Vec<_>>();
+
+        Ok(Response::new(stream_batches(
+            shinden_version,
+            results,
+            move |shinden_version, results| MatchShindenListResponse {
+                shinden_version,
+                database_version,
+                results,
+            },
+        )))
+    }
+
+    async fn export_xml(
+        &self,
+        request: Request<ExportXmlRequest>,
+    ) -> Result<Response<ExportXmlResponse>, Status> {
+        let request = request.into_inner();
+        let guard = self.shinden_list.load();
+
+        let shinden_version = guard.version();
+        let shinden = guard
+            .get()
+            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+        let path = request.path;
+        let matches = request
+            .matches
+            .into_iter()
+            .map(|pair| (pair.shinden_id, pair.database_id));
+
+        export_xml_to_path(shinden, matches, &path)?;
+
+        Ok(ExportXmlResponse {
+            shinden_version,
+            path,
+        }
+        .into())
     }
 }

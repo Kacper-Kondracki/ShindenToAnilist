@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package shinden_to_anilist.v1;
+
+message SearchOptions {
+  uint32 limit = 1;
+  optional float threshold = 2;
+}
+
+message SearchResult {
+  uint64 id = 1;
+  float score = 2;
+}
