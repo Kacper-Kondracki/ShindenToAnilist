@@ -91,6 +91,10 @@
     padding: calc(var(--spacing) * 4);
   }
 
+  :global(.anime-list) {
+    scrollbar-color: var(--color-primary) var(--color-base-300);
+  }
+
   :global(.anime-list > *) {
     pointer-events: auto !important;
   }
