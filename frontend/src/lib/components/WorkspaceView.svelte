@@ -29,7 +29,14 @@
       selectedEntryId={workspace.selectedEntryId}
       onSelectEntry={workspace.selectEntry}
     />
-    <WorkspaceEditorPane selectedWinnerState={workspace.selectedWinnerState} />
+    <WorkspaceEditorPane
+      {animeData}
+      selectedEntryId={workspace.selectedEntryId}
+      selectedWinnerState={workspace.selectedWinnerState}
+      manualOverrides={workspace.manualOverrides}
+      onSetManualOverride={workspace.setManualOverride}
+      onClearManualOverride={workspace.clearManualOverride}
+    />
   </div>
 </section>
 
