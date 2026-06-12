@@ -9,6 +9,7 @@ import type {
 type MatchSelectorControllerInput = {
   getSelectedEntry: () => ShindenEntry;
   getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
+  getInitialSearch: () => MatchSelectorInitialSearch | null;
   setManualOverride: (shindenId: number, databaseId: number) => void;
   clearManualOverride: (shindenId: number) => void;
 };
@@ -21,6 +22,21 @@ export type MatchSelectorController = ReturnType<
   typeof createMatchSelectorController
 >;
 
+export type MatchSelectorInitialSearch =
+  | { status: 'idle'; shindenId: number; query: string }
+  | {
+      status: 'ready';
+      shindenId: number;
+      query: string;
+      result: MatchResult;
+    }
+  | {
+      status: 'error';
+      shindenId: number;
+      query: string;
+      message: string;
+    };
+
 type MatchSearchState =
   | { status: 'idle' }
   | { status: 'ready'; query: string; result: MatchResult }
@@ -30,9 +46,13 @@ export function createMatchSelectorController(
   input: MatchSelectorControllerInput
 ) {
   const initialSelectedEntry = input.getSelectedEntry();
+  const initialSearchState = getInitialSearchState(
+    initialSelectedEntry,
+    input.getInitialSearch()
+  );
 
   let query = $state(initialSelectedEntry.title);
-  let searchState = $state<MatchSearchState>({ status: 'idle' });
+  let searchState = $state<MatchSearchState>(initialSearchState);
   let requestId = 0;
 
   let results = $derived.by((): MatchSelectorResult[] => {
@@ -53,7 +73,9 @@ export function createMatchSelectorController(
     searchState.status === 'error' ? searchState.message : null
   );
 
-  search(query);
+  if (initialSearchState.status === 'idle') {
+    search(query);
+  }
 
   function updateQuery(nextQuery: string) {
     query = nextQuery;
@@ -69,7 +91,11 @@ export function createMatchSelectorController(
       return;
     }
 
-    void fuzzyMatch(currentQuery, { limit: 50 }, input.getSelectedEntry().id).then(
+    void fuzzyMatch(
+      currentQuery,
+      { limit: 50 },
+      input.getSelectedEntry().id
+    ).then(
       (response) => {
         if (currentRequestId !== requestId) {
           return;
@@ -117,6 +143,71 @@ export function createMatchSelectorController(
     applyManualOverride,
     clearManualOverride
   };
+}
+
+export async function loadInitialMatchSelectorSearch(
+  selectedEntry: ShindenEntry
+): Promise<MatchSelectorInitialSearch> {
+  const query = selectedEntry.title.trim();
+
+  if (query.length === 0) {
+    return {
+      status: 'idle',
+      shindenId: selectedEntry.id,
+      query
+    };
+  }
+
+  try {
+    const response = await fuzzyMatch(query, { limit: 50 }, selectedEntry.id);
+
+    return {
+      status: 'ready',
+      shindenId: selectedEntry.id,
+      query,
+      result: response.result
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      shindenId: selectedEntry.id,
+      query,
+      message: errorToMessage(error)
+    };
+  }
+}
+
+function getInitialSearchState(
+  selectedEntry: ShindenEntry,
+  initialSearch: MatchSelectorInitialSearch | null
+): MatchSearchState {
+  const query = selectedEntry.title.trim();
+
+  if (
+    initialSearch === null ||
+    initialSearch.shindenId !== selectedEntry.id ||
+    initialSearch.query !== query
+  ) {
+    return { status: 'idle' };
+  }
+
+  if (initialSearch.status === 'ready') {
+    return {
+      status: 'ready',
+      query,
+      result: initialSearch.result
+    };
+  }
+
+  if (initialSearch.status === 'error') {
+    return {
+      status: 'error',
+      query,
+      message: initialSearch.message
+    };
+  }
+
+  return { status: 'idle' };
 }
 
 function errorToMessage(error: unknown) {

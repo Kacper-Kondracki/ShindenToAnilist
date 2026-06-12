@@ -8,6 +8,10 @@ import type {
   ShindenMatchResult,
   WorkspaceState
 } from '../../domain/anime';
+import {
+  loadInitialMatchSelectorSearch,
+  type MatchSelectorInitialSearch
+} from './matchSelectorController.svelte';
 
 export type ExportState =
   | { status: 'idle' }
@@ -37,8 +41,11 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   let fetchDurationMs = $state<number | null>(null);
   let matchDurationMs = $state<number | null>(null);
   let selectedEntryId = $state<number | null>(null);
+  let initialMatchSearch = $state<MatchSelectorInitialSearch | null>(null);
   let manualOverrides = $state<Record<number, number>>({});
   let exportState = $state<ExportState>({ status: 'idle' });
+  let selectionRequestId = 0;
+  let pendingSelectionEntryId: number | null = null;
 
   let matchResultByEntryId = $derived.by(() => {
     const entriesById = new Map<number, ShindenMatchResult>();
@@ -58,7 +65,11 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
       return null;
     }
 
-    return winnerIdForEntry(selectedEntryId, selectedMatchEntry, manualOverrides);
+    return winnerIdForEntry(
+      selectedEntryId,
+      selectedMatchEntry,
+      manualOverrides
+    );
   });
   let selectedWinnerState = $derived.by((): SelectedWinnerState => {
     if (selectedEntryId === null) {
@@ -104,21 +115,51 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     matchErrorMessage = null;
     fetchDurationMs = next.fetchDurationMs;
     matchDurationMs = next.matchDurationMs;
+    selectionRequestId += 1;
+    pendingSelectionEntryId = null;
     selectedEntryId = null;
+    initialMatchSearch = null;
     manualOverrides = {};
     exportState = { status: 'idle' };
   }
 
-  function selectEntry(entryId: number) {
+  async function selectEntry(entryId: number) {
     if (state.status !== 'active') {
       return;
     }
 
-    if (!state.entryIdsByView.all.some((id) => id === entryId)) {
-      selectedEntryId = null;
+    if (entryId === selectedEntryId || entryId === pendingSelectionEntryId) {
       return;
     }
 
+    if (!state.entryIdsByView.all.some((id) => id === entryId)) {
+      selectionRequestId += 1;
+      pendingSelectionEntryId = null;
+      selectedEntryId = null;
+      initialMatchSearch = null;
+      return;
+    }
+
+    const selectedEntry = animeData.getShindenEntry(entryId);
+    if (selectedEntry === null) {
+      selectionRequestId += 1;
+      pendingSelectionEntryId = null;
+      initialMatchSearch = null;
+      selectedEntryId = entryId;
+      return;
+    }
+
+    const currentSelectionRequestId = ++selectionRequestId;
+    pendingSelectionEntryId = entryId;
+    const nextInitialMatchSearch =
+      await loadInitialMatchSelectorSearch(selectedEntry);
+
+    if (currentSelectionRequestId !== selectionRequestId) {
+      return;
+    }
+
+    pendingSelectionEntryId = null;
+    initialMatchSearch = nextInitialMatchSearch;
     selectedEntryId = entryId;
   }
 
@@ -128,7 +169,10 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
       selectedEntryId !== null &&
       !state.entryIdsByView.all.some((entryId) => entryId === selectedEntryId)
     ) {
+      selectionRequestId += 1;
+      pendingSelectionEntryId = null;
       selectedEntryId = null;
+      initialMatchSearch = null;
     }
   }
 
@@ -186,6 +230,9 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     },
     get selectedEntryId() {
       return selectedEntryId;
+    },
+    get initialMatchSearch() {
+      return initialMatchSearch;
     },
     get selectedWinnerState() {
       return selectedWinnerState;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
+  import type { MatchSelectorInitialSearch } from '../../features/workspace/matchSelectorController.svelte';
   import type { SelectedWinnerState } from '../../features/workspace/workspaceController.svelte';
   import DatabaseEntryPreview from './DatabaseEntryPreview.svelte';
   import MatchSelector from './MatchSelector.svelte';
@@ -10,12 +11,14 @@
     onSetManualOverride,
     onClearManualOverride,
     manualOverrides,
+    initialMatchSearch,
     selectedWinnerState
   }: {
     animeData: LoadedAnimeData;
     selectedEntryId: number | null;
     selectedWinnerState: SelectedWinnerState;
     manualOverrides: Record<number, number>;
+    initialMatchSearch: MatchSelectorInitialSearch | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
   } = $props();
@@ -57,6 +60,7 @@
               selectedEntry={selectedShindenEntry}
               {selectedDatabaseEntryId}
               {manualOverrideId}
+              initialSearch={initialMatchSearch}
               getDatabaseEntry={animeData.getDatabaseEntry}
               {onSetManualOverride}
               {onClearManualOverride}

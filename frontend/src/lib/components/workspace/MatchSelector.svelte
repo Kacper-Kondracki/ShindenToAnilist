@@ -1,12 +1,16 @@
 <script lang="ts">
   import type { DatabaseEntry, ShindenEntry } from '../../domain/anime';
-  import { createMatchSelectorController } from '../../features/workspace/matchSelectorController.svelte';
+  import {
+    createMatchSelectorController,
+    type MatchSelectorInitialSearch
+  } from '../../features/workspace/matchSelectorController.svelte';
   import DatabaseEntryRow from './DatabaseEntryRow.svelte';
 
   let {
     selectedEntry,
     selectedDatabaseEntryId,
     manualOverrideId,
+    initialSearch,
     getDatabaseEntry,
     onSetManualOverride,
     onClearManualOverride
@@ -14,6 +18,7 @@
     selectedEntry: ShindenEntry;
     selectedDatabaseEntryId: number | null;
     manualOverrideId: number | null;
+    initialSearch: MatchSelectorInitialSearch | null;
     getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
@@ -22,6 +27,7 @@
   const selector = createMatchSelectorController({
     getSelectedEntry: () => selectedEntry,
     getDatabaseEntry: (entryId) => getDatabaseEntry(entryId),
+    getInitialSearch: () => initialSearch,
     setManualOverride: (shindenId, databaseId) =>
       onSetManualOverride(shindenId, databaseId),
     clearManualOverride: (shindenId) => onClearManualOverride(shindenId)

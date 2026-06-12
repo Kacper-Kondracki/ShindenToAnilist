@@ -34,6 +34,7 @@
       selectedEntryId={workspace.selectedEntryId}
       selectedWinnerState={workspace.selectedWinnerState}
       manualOverrides={workspace.manualOverrides}
+      initialMatchSearch={workspace.initialMatchSearch}
       onSetManualOverride={workspace.setManualOverride}
       onClearManualOverride={workspace.clearManualOverride}
     />
