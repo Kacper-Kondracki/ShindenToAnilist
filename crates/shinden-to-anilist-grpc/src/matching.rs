@@ -76,7 +76,7 @@ impl MatchView for FuzzyMatchView<'_> {
 pub(crate) fn search_options(options: Option<SearchOptions>, mode: SearchMode) -> Search {
     let mut search = Search {
         mode,
-        ..Search::options().build()
+        ..Search::options().threshold(0.5).build()
     };
 
     if let Some(options) = options {
