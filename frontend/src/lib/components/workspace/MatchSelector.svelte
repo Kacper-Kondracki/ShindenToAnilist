@@ -55,7 +55,7 @@
     {:else if selector.results.length === 0}
       <p class="search-message text-sm font-medium text-muted">Brak wyników</p>
     {:else}
-      <ul class="match-results" aria-label="Wyniki dopasowania">
+      <ul class="match-results overflow-y-auto" aria-label="Wyniki dopasowania">
         {#each selector.results as result (result.id)}
           <li class="match-result">
             <div class="match-result__main">
@@ -87,6 +87,7 @@
 <style>
   .match-selector {
     display: flex;
+    height: 100%;
     min-height: 0;
     flex-direction: column;
     gap: calc(var(--spacing) * 3);
