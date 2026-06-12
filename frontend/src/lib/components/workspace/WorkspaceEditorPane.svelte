@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SelectedWinnerState } from '../../features/workspace/workspaceController.svelte';
   import DatabaseEntryPreview from './DatabaseEntryPreview.svelte';
+  import MatchSelector from './MatchSelector.svelte';
 
   let {
     selectedWinnerState
@@ -24,7 +25,12 @@
         Nie znaleziono wpisu w bazie
       </p>
     {:else}
-      <DatabaseEntryPreview entry={selectedWinnerState.entry} />
+      <div class="flex flex-col h-full">
+        <div class="flex-1">
+          <MatchSelector></MatchSelector>
+        </div>
+        <DatabaseEntryPreview entry={selectedWinnerState.entry} />
+      </div>
     {/if}
   </div>
 </section>
