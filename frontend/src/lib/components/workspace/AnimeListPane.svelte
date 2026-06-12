@@ -1,8 +1,13 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { VList } from 'virtua/svelte';
   import type { EntryStore } from '../../data/entryStore.svelte';
   import type { MatchListResult, ShindenListViews } from '../../domain/anime';
-  import { createAnimeListPaneController } from '../../features/workspace/animeListPaneController.svelte';
+  import {
+    animeListBufferSize,
+    animeListItemSize,
+    createAnimeListPaneController
+  } from '../../features/workspace/animeListPaneController.svelte';
   import AnimeListTabs from './AnimeListTabs.svelte';
   import AnimeRow from './AnimeRow.svelte';
 
@@ -27,6 +32,30 @@
     getMatchResult: () => matchResult,
     getSelectedEntryId: () => selectedEntryId
   });
+
+  let requestRevision = 0;
+
+  $effect(() => {
+    listPane.activeTab;
+    listPane.listRef;
+    listPane.visibleEntryIds;
+
+    const currentRevision = ++requestRevision;
+    void tick().then(() => {
+      if (currentRevision === requestRevision) {
+        requestBufferedShindenEntries();
+      }
+    });
+  });
+
+  function handleListScroll() {
+    listPane.handleScroll();
+    requestBufferedShindenEntries();
+  }
+
+  function requestBufferedShindenEntries() {
+    entryStore.requestShindenEntries(listPane.getBufferedVisibleEntryIds());
+  }
 </script>
 
 <section class="workspace-pane" aria-label={`Lista anime z ${providerLabel}`}>
@@ -41,11 +70,11 @@
       <VList
         bind:this={listPane.listRef}
         data={listPane.visibleEntryIds}
-        itemSize={72}
+        itemSize={animeListItemSize}
         class="anime-list size-full"
         getKey={(entryId) => entryId}
-        bufferSize={576}
-        onscroll={listPane.handleScroll}
+        bufferSize={0}
+        onscroll={handleListScroll}
       >
         {#snippet children(entryId)}
           <AnimeRow

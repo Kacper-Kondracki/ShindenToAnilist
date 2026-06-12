@@ -5,6 +5,9 @@ import type { MatchListResult, ShindenListViews } from '../../domain/anime';
 import type { AnimeMatchStatus } from '../../components/workspace/AnimeRow.svelte';
 import type { AnimeListTabId } from '../../components/workspace/tabs';
 
+export const animeListItemSize = 72;
+export const animeListBufferSize = animeListItemSize * 16;
+
 type PendingScrollRestore = {
   tabId: AnimeListTabId;
   selectedEntryId: number | null;
@@ -88,6 +91,28 @@ export function createAnimeListPaneController(
 
   function handleScroll() {
     rememberActiveTabScrollState();
+  }
+
+  function getBufferedVisibleEntryIds() {
+    if (visibleEntryIds.length === 0) {
+      return [];
+    }
+
+    if (listRef === null || listRef.getViewportSize() <= 0) {
+      return visibleEntryIds.slice(0, bufferedFallbackEntryCount());
+    }
+
+    const scrollOffset = listRef.getScrollOffset();
+    const scrollSize = listRef.getScrollSize();
+    const startOffset = Math.max(0, scrollOffset - animeListBufferSize);
+    const endOffset = Math.min(
+      Math.max(0, scrollSize - 1),
+      scrollOffset + listRef.getViewportSize() + animeListBufferSize
+    );
+    const startIndex = clampIndex(listRef.findItemIndex(startOffset));
+    const endIndex = clampIndex(listRef.findItemIndex(endOffset));
+
+    return visibleEntryIds.slice(startIndex, endIndex + 1);
   }
 
   function selectTab(nextTabId: AnimeListTabId) {
@@ -234,8 +259,21 @@ export function createAnimeListPaneController(
       return emptyListText;
     },
     handleScroll,
+    getBufferedVisibleEntryIds,
     selectTab
   };
+}
+
+function bufferedFallbackEntryCount() {
+  return Math.ceil(animeListBufferSize / animeListItemSize) * 2;
+}
+
+function clampIndex(index: number) {
+  if (index < 0) {
+    return 0;
+  }
+
+  return index;
 }
 
 function initialTabScrollOffsets(): Record<AnimeListTabId, number> {
