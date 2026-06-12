@@ -69,7 +69,7 @@ export function createMatchSelectorController(
       return;
     }
 
-    void fuzzyMatch(currentQuery, { limit: 20 }).then(
+    void fuzzyMatch(currentQuery, { limit: 50 }, input.getSelectedEntry().id).then(
       (response) => {
         if (currentRequestId !== requestId) {
           return;

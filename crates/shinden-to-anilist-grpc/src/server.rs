@@ -81,7 +81,7 @@ use crate::{
         sync_parent_dir,
     },
     matching::{
-        QueryMatchView,
+        FuzzyMatchView,
         search_options,
     },
     pb::{
@@ -623,17 +623,36 @@ impl ShindenToAnilistService for ShindenToAnilist {
     ) -> Result<Response<FuzzyMatchResponse>, Status> {
         let request = request.into_inner();
         let query_len = request.query.len();
-        info!(query_len, "running fuzzy match");
-        let guard = self.database.load();
+        info!(query_len, shinden_id = request.shinden_id, "running fuzzy match");
+        let database_guard = self.database.load();
 
-        let database_version = guard.version();
-        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
-        let query = QueryMatchView::new(request.query);
+        let database_version = database_guard.version();
+        let database = database_guard
+            .get()
+            .ok_or_else(|| database_not_loaded().into_status())?;
+        let shinden_guard = self.shinden_list.load();
+        let shinden_entry = request
+            .shinden_id
+            .and_then(|id| shinden_guard.get().and_then(|shinden| shinden.get(id)));
+        let query = FuzzyMatchView::new(request.query, shinden_entry);
         let options = search_options(request.options, SearchMode::Fuzzy);
-        let matcher = DefaultMatcher {
-            search_weight: 0.8,
-            season_weight: 0.2,
-            ..Default::default()
+        let matcher = if shinden_entry.is_some() {
+            DefaultMatcher {
+                search_weight: 0.8,
+                season_weight: 0.1,
+                year_weight: 0.03,
+                type_weight: 0.03,
+                status_weight: 0.015,
+                seasonal_weight: 0.015,
+                episodes_weight: 0.01,
+                ..Default::default()
+            }
+        } else {
+            DefaultMatcher {
+                search_weight: 0.8,
+                season_weight: 0.2,
+                ..Default::default()
+            }
         };
 
         let candidates = database

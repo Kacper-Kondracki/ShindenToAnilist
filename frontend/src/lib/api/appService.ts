@@ -233,12 +233,17 @@ export async function fuzzySearch(query: string, options: SearchOptions = {}) {
   });
 }
 
-export async function fuzzyMatch(query: string, options: SearchOptions = {}) {
+export async function fuzzyMatch(
+  query: string,
+  options: SearchOptions = {},
+  shindenId?: number
+) {
   return callRpc(async () => {
     const response = await client.fuzzyMatch(
       create(FuzzyMatchRequestSchema, {
         query,
-        options: createSearchOptions(options)
+        options: createSearchOptions(options),
+        shindenId: shindenId === undefined ? undefined : BigInt(shindenId)
       })
     );
     observeDatabaseVersion(response.databaseVersion);
