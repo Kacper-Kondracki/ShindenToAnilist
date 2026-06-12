@@ -7,7 +7,7 @@ import type {
 } from '../../domain/anime';
 
 type MatchSelectorControllerInput = {
-  getSelectedEntry: () => ShindenEntry | null;
+  getSelectedEntry: () => ShindenEntry;
   getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
   setManualOverride: (shindenId: number, databaseId: number) => void;
   clearManualOverride: (shindenId: number) => void;
@@ -21,17 +21,23 @@ export type MatchSelectorController = ReturnType<
   typeof createMatchSelectorController
 >;
 
+type MatchSearchState =
+  | { status: 'idle' }
+  | { status: 'ready'; query: string; result: MatchResult }
+  | { status: 'error'; query: string; message: string };
+
 export function createMatchSelectorController(
   input: MatchSelectorControllerInput
 ) {
-  let query = $state('');
-  let result = $state<MatchResult | null>(null);
-  let errorMessage = $state<string | null>(null);
-  let lastSelectedEntryId = $state<number | null>(null);
+  const initialSelectedEntry = input.getSelectedEntry();
+
+  let query = $state(initialSelectedEntry.title);
+  let searchState = $state<MatchSearchState>({ status: 'idle' });
   let requestId = 0;
 
   let results = $derived.by((): MatchSelectorResult[] => {
-    const items = result?.items ?? [];
+    const items =
+      searchState.status === 'ready' ? searchState.result.items : [];
     const resolvedItems: MatchSelectorResult[] = [];
 
     for (const item of items) {
@@ -43,27 +49,23 @@ export function createMatchSelectorController(
 
     return resolvedItems;
   });
+  let errorMessage = $derived(
+    searchState.status === 'error' ? searchState.message : null
+  );
 
-  $effect(() => {
-    const selectedEntry = input.getSelectedEntry();
-    const selectedEntryId = selectedEntry?.id ?? null;
+  search(query);
 
-    if (selectedEntryId === lastSelectedEntryId) {
-      return;
-    }
+  function updateQuery(nextQuery: string) {
+    query = nextQuery;
+    search(nextQuery);
+  }
 
-    lastSelectedEntryId = selectedEntryId;
-    query = selectedEntry?.title ?? '';
-  });
-
-  $effect(() => {
-    const currentQuery = query.trim();
+  function search(nextQuery: string) {
+    const currentQuery = nextQuery.trim();
     const currentRequestId = ++requestId;
 
-    errorMessage = null;
-
     if (currentQuery.length === 0) {
-      result = null;
+      searchState = { status: 'idle' };
       return;
     }
 
@@ -73,39 +75,32 @@ export function createMatchSelectorController(
           return;
         }
 
-        result = response.result;
+        searchState = {
+          status: 'ready',
+          query: currentQuery,
+          result: response.result
+        };
       },
       (error: unknown) => {
         if (currentRequestId !== requestId) {
           return;
         }
 
-        result = null;
-        errorMessage = errorToMessage(error);
+        searchState = {
+          status: 'error',
+          query: currentQuery,
+          message: errorToMessage(error)
+        };
       }
     );
-  });
-
-  function updateQuery(nextQuery: string) {
-    query = nextQuery;
   }
 
   function applyManualOverride(databaseId: number) {
-    const selectedEntry = input.getSelectedEntry();
-    if (selectedEntry === null) {
-      return;
-    }
-
-    input.setManualOverride(selectedEntry.id, databaseId);
+    input.setManualOverride(input.getSelectedEntry().id, databaseId);
   }
 
   function clearManualOverride() {
-    const selectedEntry = input.getSelectedEntry();
-    if (selectedEntry === null) {
-      return;
-    }
-
-    input.clearManualOverride(selectedEntry.id);
+    input.clearManualOverride(input.getSelectedEntry().id);
   }
 
   return {

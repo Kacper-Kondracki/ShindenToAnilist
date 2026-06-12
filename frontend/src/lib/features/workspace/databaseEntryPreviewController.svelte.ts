@@ -18,15 +18,25 @@ export type DatabaseEntryPreviewController = ReturnType<
   typeof createDatabaseEntryPreviewController
 >;
 
+type CoverLoadState =
+  | { status: 'idle' }
+  | { status: 'loaded'; url: string }
+  | { status: 'error'; url: string };
+
 export function createDatabaseEntryPreviewController(
   input: DatabaseEntryPreviewControllerInput
 ) {
-  let isCoverLoaded = $state(false);
-  let hasCoverError = $state(false);
+  let coverLoadState = $state<CoverLoadState>({ status: 'idle' });
   let detailsHeight = $state(fallbackCoverHeight);
 
   let coverUrl = $derived(
     input.getEntry().picture || input.getEntry().thumbnail
+  );
+  let isCoverLoaded = $derived(
+    coverLoadState.status === 'loaded' && coverLoadState.url === coverUrl
+  );
+  let hasCoverError = $derived(
+    coverLoadState.status === 'error' && coverLoadState.url === coverUrl
   );
   let coverHeight = $derived(`${detailsHeight}px`);
   let coverWidth = $derived(`${detailsHeight * 0.75}px`);
@@ -61,22 +71,16 @@ export function createDatabaseEntryPreviewController(
     ];
   });
 
-  $effect(() => {
-    coverUrl;
-    resetCoverState();
-  });
-
-  function resetCoverState() {
-    isCoverLoaded = false;
-    hasCoverError = false;
-  }
-
   function handleCoverLoad() {
-    isCoverLoaded = true;
+    if (coverUrl) {
+      coverLoadState = { status: 'loaded', url: coverUrl };
+    }
   }
 
   function handleCoverError() {
-    hasCoverError = true;
+    if (coverUrl) {
+      coverLoadState = { status: 'error', url: coverUrl };
+    }
   }
 
   return {

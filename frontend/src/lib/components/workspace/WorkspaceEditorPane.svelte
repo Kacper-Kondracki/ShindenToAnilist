@@ -36,12 +36,14 @@
     {:else}
       <div class="flex flex-col h-full">
         <div class="min-h-0 flex-1">
-          <MatchSelector
-            selectedEntry={selectedShindenEntry}
-            getDatabaseEntry={animeData.getDatabaseEntry}
-            onSetManualOverride={onSetManualOverride}
-            onClearManualOverride={onClearManualOverride}
-          />
+          {#key selectedShindenEntry.id}
+            <MatchSelector
+              selectedEntry={selectedShindenEntry}
+              getDatabaseEntry={animeData.getDatabaseEntry}
+              {onSetManualOverride}
+              {onClearManualOverride}
+            />
+          {/key}
         </div>
         {#if selectedWinnerState.status === 'ready'}
           <DatabaseEntryPreview entry={selectedWinnerState.entry} />

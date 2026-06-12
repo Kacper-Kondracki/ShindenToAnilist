@@ -53,9 +53,7 @@
         {selector.errorMessage}
       </p>
     {:else if selector.results.length === 0}
-      <p class="search-message text-sm font-medium text-muted">
-        Brak wyników
-      </p>
+      <p class="search-message text-sm font-medium text-muted">Brak wyników</p>
     {:else}
       <ul class="match-results" aria-label="Wyniki dopasowania">
         {#each selector.results as result (result.id)}
