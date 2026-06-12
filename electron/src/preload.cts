@@ -17,7 +17,9 @@ function rendererPaths(): RendererPaths {
     throw new Error('Missing ShindenToAnilist renderer paths');
   }
 
-  return JSON.parse(pathsArgument.slice(pathsArgumentPrefix.length)) as RendererPaths;
+  return JSON.parse(
+    pathsArgument.slice(pathsArgumentPrefix.length)
+  ) as RendererPaths;
 }
 
 contextBridge.exposeInMainWorld('shindenToAnilist', {

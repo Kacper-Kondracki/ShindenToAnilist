@@ -5,6 +5,8 @@ import type { MatchListResult, ShindenListViews } from '../../domain/anime';
 import type { AnimeMatchStatus } from '../../components/workspace/AnimeRow.svelte';
 import type { AnimeListTabId } from '../../components/workspace/tabs';
 
+export const animeListItemSize = 72;
+
 type PendingScrollRestore = {
   tabId: AnimeListTabId;
   selectedEntryId: number | null;

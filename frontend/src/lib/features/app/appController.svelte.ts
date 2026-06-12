@@ -1,10 +1,11 @@
 import {
   fetchShindenList,
+  getShindenFull,
   getShindenIds,
   matchShindenList
 } from '../../api/appService';
 import { providerById, providers, type Provider } from '../../config/providers';
-import { createEntryStore } from '../../data/entryStore.svelte';
+import { createLoadedAnimeData } from '../../data/loadedAnimeData.svelte';
 import type {
   DatabaseState,
   MatchListResult,
@@ -24,8 +25,8 @@ import { createWorkspaceController } from '../workspace/workspaceController.svel
 export type AppController = ReturnType<typeof createAppController>;
 
 export function createAppController() {
-  const entryStore = createEntryStore();
-  const workspace = createWorkspaceController(entryStore);
+  const animeData = createLoadedAnimeData();
+  const workspace = createWorkspaceController(animeData);
 
   let selectedProvider = $state<Provider>('shinden');
   let userQuery = $state('');
@@ -75,11 +76,9 @@ export function createAppController() {
   let canSubmit = $derived(
     Boolean(trimmedQuery) && !isUserListLoading && isProviderSupported
   );
-  const manualPrehydrateLimit = 100;
-
   async function initializeDatabase() {
     databaseState = { status: 'loading' };
-    databaseInitializationPromise = initializeDatabaseState();
+    databaseInitializationPromise = initializeDatabaseState(animeData);
     databaseState = await databaseInitializationPromise;
     return databaseState;
   }
@@ -131,7 +130,6 @@ export function createAppController() {
     try {
       const fetchStartedAt = performance.now();
       const fetchedList = await fetchShindenList(parsedShindenUserId);
-      const nextFetchDurationMs = performance.now() - fetchStartedAt;
 
       if (activeRequestId !== requestId) {
         return;
@@ -151,11 +149,16 @@ export function createAppController() {
         return;
       }
 
+      const shindenFull = await getShindenFull();
+      const nextFetchDurationMs = performance.now() - fetchStartedAt;
+
+      if (activeRequestId !== requestId) {
+        return;
+      }
+
       const matchStartedAt = performance.now();
-      const [nextMatchResult, allIds] = await Promise.all([
-        matchShindenList(),
-        getShindenIds()
-      ]);
+      const nextMatchResult = await matchShindenList();
+      const allIds = await getShindenIds();
       const nextMatchDurationMs = performance.now() - matchStartedAt;
 
       if (activeRequestId !== requestId) {
@@ -164,6 +167,7 @@ export function createAppController() {
 
       assertConsistentWorkspaceVersions(
         fetchedList.shindenVersion,
+        shindenFull.shindenVersion,
         readyDatabaseState.info.databaseVersion,
         nextMatchResult,
         allIds.shindenVersion
@@ -174,21 +178,7 @@ export function createAppController() {
         allIds.entryIds
       );
 
-      const isPrehydrated = await entryStore.resetAndPrehydrateShindenEntries(
-        entryIdsByView.manual.slice(0, manualPrehydrateLimit),
-        nextMatchResult.shindenVersion,
-        () => activeRequestId === requestId
-      );
-
-      if (activeRequestId !== requestId) {
-        return;
-      }
-
-      if (!isPrehydrated) {
-        throw new Error(
-          'Lista Shinden zmieniła się podczas przygotowywania widoku'
-        );
-      }
+      animeData.replaceShindenFull(shindenFull);
 
       userListRequestState = {
         status: 'loaded',
@@ -202,8 +192,7 @@ export function createAppController() {
         entryIdsByView,
         matchResult: nextMatchResult,
         fetchDurationMs: nextFetchDurationMs,
-        matchDurationMs: nextMatchDurationMs,
-        resetEntryStore: false
+        matchDurationMs: nextMatchDurationMs
       });
     } catch (error) {
       if (activeRequestId !== requestId) {
@@ -234,7 +223,7 @@ export function createAppController() {
 
   return {
     providers,
-    entryStore,
+    animeData,
     workspace,
     get selectedProvider() {
       return selectedProvider;
@@ -282,12 +271,14 @@ export function createAppController() {
 
 function assertConsistentWorkspaceVersions(
   fetchedShindenVersion: number,
+  fullShindenVersion: number,
   readyDatabaseVersion: number,
   matchResult: MatchListResult,
   shindenIdsVersion: number
 ) {
   if (
     fetchedShindenVersion !== matchResult.shindenVersion ||
+    fullShindenVersion !== matchResult.shindenVersion ||
     shindenIdsVersion !== matchResult.shindenVersion
   ) {
     throw new Error(

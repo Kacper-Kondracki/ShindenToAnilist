@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { EntryStore } from '../data/entryStore.svelte';
+  import type { LoadedAnimeData } from '../data/loadedAnimeData.svelte';
   import type { ShindenListViews } from '../domain/anime';
   import type { WorkspaceController } from '../features/workspace/workspaceController.svelte';
   import AnimeListPane from './workspace/AnimeListPane.svelte';
@@ -9,12 +9,12 @@
   let {
     providerLabel,
     entryIdsByView,
-    entryStore,
+    animeData,
     workspace
   }: {
     providerLabel: string;
     entryIdsByView: ShindenListViews;
-    entryStore: EntryStore;
+    animeData: LoadedAnimeData;
     workspace: WorkspaceController;
   } = $props();
 </script>
@@ -24,7 +24,7 @@
     <AnimeListPane
       {providerLabel}
       {entryIdsByView}
-      {entryStore}
+      {animeData}
       matchResult={workspace.matchResult}
       selectedEntryId={workspace.selectedEntryId}
       onSelectEntry={workspace.selectEntry}

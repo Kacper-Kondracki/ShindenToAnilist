@@ -1,32 +1,23 @@
 <script lang="ts">
-  import type {
-    EntryLoadState,
-    EntryStore
-  } from '../../data/entryStore.svelte';
   import type { ShindenEntry } from '../../domain/anime';
   import {
     formatPremiereYear,
     translateAnimeStatus,
     translateAnimeType
   } from '../../domain/animeView';
-  import { createAnimeRowController } from '../../features/workspace/animeRowController.svelte';
 
   export type AnimeMatchStatus = 'matched' | 'review' | 'unmatched';
 
   let {
-    entryId,
-    entryState,
+    entry,
     matchStatus,
     isSelected,
-    onSelect,
-    entryStore
+    onSelect
   }: {
-    entryId: number;
-    entryState: EntryLoadState<ShindenEntry>;
+    entry: ShindenEntry;
     matchStatus: AnimeMatchStatus;
     isSelected: boolean;
     onSelect: () => void;
-    entryStore: EntryStore;
   } = $props();
 
   const matchStatusLabels: Record<AnimeMatchStatus, string> = {
@@ -34,17 +25,6 @@
     review: 'Znaleziono kandydatów do sprawdzenia',
     unmatched: 'Nie znaleziono kandydatów'
   };
-
-  createAnimeRowController({
-    getEntryStore: () => entryStore,
-    getEntryId: () => entryId
-  });
-
-  function rowTitle() {
-    return entryState.status === 'ready'
-      ? entryState.entry.title
-      : `Wpis #${entryId}`;
-  }
 </script>
 
 <button
@@ -54,37 +34,22 @@
   class:anime-row--unmatched={matchStatus === 'unmatched'}
   class:anime-row--selected={isSelected}
   class="anime-row h-0"
-  aria-label={`${rowTitle()}: ${matchStatusLabels[matchStatus]}`}
+  aria-label={`${entry.title}: ${matchStatusLabels[matchStatus]}`}
   aria-pressed={isSelected}
-  title={rowTitle()}
+  title={entry.title}
   onclick={onSelect}
 >
-<div 
-  class="size-full flex pl-2 pr-2 justify-between items-center skeleton"
-  class:skeleton={entryState.status !== 'ready'}
->
-  <div class="min-w-0">
-    {#if entryState.status !== 'ready'}
-      <h2 class="truncate text-sm font-semibold">Wpis #{entryId}</h2>
+  <div class="size-full flex pl-2 pr-2 justify-between items-center">
+    <div class="min-w-0">
+      <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
       <p class="truncate text-xs text-muted">
-        {entryState.status === 'error'
-          ? 'Nie udało się wczytać danych'
-          : entryState.status === 'missing'
-            ? 'Nie znaleziono danych wpisu'
-            : 'Ładowanie danych wpisu'}
-      </p>
-    {:else}
-      <h2 class="truncate text-sm font-semibold">{entryState.entry.title}</h2>
-      <p class="truncate text-xs text-muted">
-        {formatPremiereYear(entryState.entry.premiereDate)} · {translateAnimeType(
-          entryState.entry.animeType
+        {formatPremiereYear(entry.premiereDate)} · {translateAnimeType(
+          entry.animeType
         )}
-        · {translateAnimeStatus(entryState.entry.animeStatus)}
+        · {translateAnimeStatus(entry.animeStatus)}
       </p>
-    {/if}
+    </div>
   </div>
-</div>
-
 </button>
 
 <style>
