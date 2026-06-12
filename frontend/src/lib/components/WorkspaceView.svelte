@@ -33,6 +33,7 @@
       {animeData}
       selectedEntryId={workspace.selectedEntryId}
       selectedWinnerState={workspace.selectedWinnerState}
+      manualOverrides={workspace.manualOverrides}
       onSetManualOverride={workspace.setManualOverride}
       onClearManualOverride={workspace.clearManualOverride}
     />

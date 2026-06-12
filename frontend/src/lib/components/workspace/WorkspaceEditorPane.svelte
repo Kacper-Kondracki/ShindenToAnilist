@@ -9,17 +9,33 @@
     selectedEntryId,
     onSetManualOverride,
     onClearManualOverride,
+    manualOverrides,
     selectedWinnerState
   }: {
     animeData: LoadedAnimeData;
     selectedEntryId: number | null;
     selectedWinnerState: SelectedWinnerState;
+    manualOverrides: Record<number, number>;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
   } = $props();
 
   let selectedShindenEntry = $derived(
     selectedEntryId === null ? null : animeData.getShindenEntry(selectedEntryId)
+  );
+  let selectedDatabaseEntryId = $derived.by(() => {
+    if (selectedWinnerState.status === 'ready') {
+      return selectedWinnerState.entry.id;
+    }
+
+    if (selectedWinnerState.status === 'missing') {
+      return selectedWinnerState.databaseEntryId;
+    }
+
+    return null;
+  });
+  let manualOverrideId = $derived(
+    selectedEntryId === null ? null : (manualOverrides[selectedEntryId] ?? null)
   );
 </script>
 
@@ -39,6 +55,8 @@
           {#key selectedShindenEntry.id}
             <MatchSelector
               selectedEntry={selectedShindenEntry}
+              {selectedDatabaseEntryId}
+              {manualOverrideId}
               getDatabaseEntry={animeData.getDatabaseEntry}
               {onSetManualOverride}
               {onClearManualOverride}

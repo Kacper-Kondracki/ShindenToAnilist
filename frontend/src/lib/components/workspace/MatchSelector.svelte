@@ -1,20 +1,19 @@
 <script lang="ts">
   import type { DatabaseEntry, ShindenEntry } from '../../domain/anime';
-  import {
-    formatEpisodeCount,
-    formatYear,
-    translateAnimeStatus,
-    translateAnimeType
-  } from '../../domain/animeView';
   import { createMatchSelectorController } from '../../features/workspace/matchSelectorController.svelte';
+  import DatabaseEntryRow from './DatabaseEntryRow.svelte';
 
   let {
     selectedEntry,
+    selectedDatabaseEntryId,
+    manualOverrideId,
     getDatabaseEntry,
     onSetManualOverride,
     onClearManualOverride
   }: {
     selectedEntry: ShindenEntry;
+    selectedDatabaseEntryId: number | null;
+    manualOverrideId: number | null;
     getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
@@ -46,6 +45,15 @@
       value={selector.query}
       oninput={handleQueryInput}
     />
+    {#if manualOverrideId !== null}
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm"
+        onclick={selector.clearManualOverride}
+      >
+        Wyczyść ręczny wybór
+      </button>
+    {/if}
   </div>
   <div class="search-content">
     {#if selector.errorMessage !== null}
@@ -58,25 +66,15 @@
       <ul class="match-results overflow-y-auto" aria-label="Wyniki dopasowania">
         {#each selector.results as result (result.id)}
           <li class="match-result">
-            <div class="match-result__main">
-              <h3 class="truncate text-sm font-semibold">
-                {result.entry.title}
-              </h3>
-              <p class="truncate text-xs text-muted">
-                {formatYear(result.entry.year)} · {translateAnimeType(
-                  result.entry.animeType
-                )}
-                · {translateAnimeStatus(result.entry.status)}
-              </p>
-            </div>
-            <div class="match-result__meta">
-              <span class="text-xs font-semibold">
-                {formatMatchScore(result.score)}
-              </span>
-              <span class="text-xs text-muted">
-                {formatEpisodeCount(result.entry.episodes)} odc.
-              </span>
-            </div>
+            <DatabaseEntryRow
+              entry={result.entry}
+              scoreLabel={formatMatchScore(result.score)}
+              isSelected={result.id === selectedDatabaseEntryId}
+              showIndicator={false}
+              rounded={true}
+              compact={true}
+              onSelect={() => selector.applyManualOverride(result.id)}
+            />
           </li>
         {/each}
       </ul>
@@ -94,10 +92,14 @@
     padding: calc(var(--spacing) * 3);
   }
   .search-input {
-    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
   }
   .search-box {
+    display: flex;
     flex: 0 0 auto;
+    align-items: center;
+    gap: calc(var(--spacing) * 2);
   }
   .search-content {
     min-height: 0;
@@ -117,26 +119,6 @@
   }
 
   .match-result {
-    display: flex;
     min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: calc(var(--spacing) * 3);
-    border-bottom: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 10%, transparent);
-    padding: calc(var(--spacing) * 3) calc(var(--spacing) * 1);
-  }
-
-  .match-result__main {
-    min-width: 0;
-  }
-
-  .match-result__meta {
-    display: flex;
-    flex: 0 0 auto;
-    min-width: 3.75rem;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: calc(var(--spacing) * 1);
   }
 </style>

@@ -1,7 +1,8 @@
 import {
   AnimeStatus,
   AnimeType,
-  Season
+  Season,
+  WatchStatus
 } from '../gen/shinden_to_anilist/v1/common_pb';
 import type { DatabaseState } from './anime';
 
@@ -34,6 +35,15 @@ const seasonLabels: Record<Season, string> = {
   [Season.UNKNOWN]: 'Nieznany sezon'
 };
 
+const watchStatusLabels: Record<WatchStatus, string> = {
+  [WatchStatus.UNSPECIFIED]: missingValueText,
+  [WatchStatus.DROPPED]: 'Porzucone',
+  [WatchStatus.COMPLETED]: 'Obejrzane',
+  [WatchStatus.WATCHING]: 'Oglądane',
+  [WatchStatus.ON_HOLD]: 'Wstrzymane',
+  [WatchStatus.PLAN_TO_WATCH]: 'W planach'
+};
+
 export function formatPremiereYear(premiereDate: string | null) {
   if (!premiereDate) {
     return 'Nieznany rok';
@@ -48,7 +58,7 @@ export function formatYear(year: number | null) {
 
 export function formatEpisodeCount(episodeCount: number | null) {
   if (episodeCount === null || episodeCount <= 0) {
-    return missingValueText;
+    return 'Brak';
   }
 
   return String(episodeCount);
@@ -72,6 +82,10 @@ export function translateAnimeStatus(animeStatus: AnimeStatus) {
 
 export function translateSeason(season: Season) {
   return seasonLabels[season] ?? missingValueText;
+}
+
+export function translateWatchStatus(watchStatus: WatchStatus) {
+  return watchStatusLabels[watchStatus] ?? missingValueText;
 }
 
 export function databaseStatusTitle(state: DatabaseState) {
