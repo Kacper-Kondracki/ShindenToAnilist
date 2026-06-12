@@ -45,12 +45,6 @@ importers:
       '@connectrpc/connect-web':
         specifier: ^2.1.1
         version: 2.1.1(@bufbuild/protobuf@2.12.0)(@connectrpc/connect@2.1.1(@bufbuild/protobuf@2.12.0))
-      '@tanstack/query-core':
-        specifier: ^5.101.0
-        version: 5.101.0
-      '@tanstack/svelte-query':
-        specifier: ^6.1.34
-        version: 6.1.34(svelte@5.56.2)
     devDependencies:
       '@bufbuild/buf':
         specifier: ^1.70.0
@@ -447,14 +441,6 @@ packages:
     resolution: {integrity: sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
-
-  '@tanstack/query-core@5.101.0':
-    resolution: {integrity: sha512-cQetA74EB+seWySv1TTKr828TnP0u39m6LykwDXIo84SNortpDkp30TMEjkqtYCNP9c40uT/iwl6MLiufEt0Ow==}
-
-  '@tanstack/svelte-query@6.1.34':
-    resolution: {integrity: sha512-b/j6OXHd285NLPTH31SqJ8+XfHKoDPV8+ZGxXjg4pSAWW2aVo/f5gbu5m32QjfdTSumib3+d1dJBv5Yupv7HKw==}
-    peerDependencies:
-      svelte: ^5.25.0
 
   '@tybys/wasm-util@0.10.2':
     resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
@@ -1348,13 +1334,6 @@ snapshots:
       '@tailwindcss/oxide': 4.3.0
       tailwindcss: 4.3.0
       vite: 8.0.16(@types/node@25.9.2)(jiti@2.7.0)
-
-  '@tanstack/query-core@5.101.0': {}
-
-  '@tanstack/svelte-query@6.1.34(svelte@5.56.2)':
-    dependencies:
-      '@tanstack/query-core': 5.101.0
-      svelte: 5.56.2
 
   '@tybys/wasm-util@0.10.2':
     dependencies:

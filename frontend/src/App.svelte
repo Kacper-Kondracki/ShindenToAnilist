@@ -52,7 +52,7 @@
           <WorkspaceView
             providerLabel={app.activeProviderDetails.label}
             entryIdsByView={app.workspace.state.entryIdsByView}
-            entryStore={app.entryStore}
+            animeData={app.animeData}
             workspace={app.workspace}
           />
         {/key}

@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { tick } from 'svelte';
   import { VList } from 'virtua/svelte';
-  import type { EntryStore } from '../../data/entryStore.svelte';
-  import type { MatchListResult, ShindenListViews } from '../../domain/anime';
+  import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
+  import type {
+    MatchListResult,
+    ShindenEntry,
+    ShindenListViews
+  } from '../../domain/anime';
   import {
-    animeListBufferSize,
     animeListItemSize,
     createAnimeListPaneController
   } from '../../features/workspace/animeListPaneController.svelte';
@@ -14,14 +16,14 @@
   let {
     providerLabel,
     entryIdsByView,
-    entryStore,
+    animeData,
     matchResult,
     selectedEntryId,
     onSelectEntry
   }: {
     providerLabel: string;
     entryIdsByView: ShindenListViews;
-    entryStore: EntryStore;
+    animeData: LoadedAnimeData;
     matchResult: MatchListResult | null;
     selectedEntryId: number | null;
     onSelectEntry: (entryId: number) => void;
@@ -33,28 +35,17 @@
     getSelectedEntryId: () => selectedEntryId
   });
 
-  let requestRevision = 0;
-
-  $effect(() => {
-    listPane.activeTab;
-    listPane.listRef;
-    listPane.visibleEntryIds;
-
-    const currentRevision = ++requestRevision;
-    void tick().then(() => {
-      if (currentRevision === requestRevision) {
-        requestBufferedShindenEntries();
-      }
-    });
-  });
-
   function handleListScroll() {
     listPane.handleScroll();
-    requestBufferedShindenEntries();
   }
 
-  function requestBufferedShindenEntries() {
-    entryStore.requestShindenEntries(listPane.getBufferedVisibleEntryIds());
+  function getLoadedShindenEntry(entryId: number): ShindenEntry {
+    const entry = animeData.getShindenEntry(entryId);
+    if (entry === null) {
+      throw new Error(`Brak wczytanego wpisu Shinden #${entryId}`);
+    }
+
+    return entry;
   }
 </script>
 
@@ -78,12 +69,10 @@
       >
         {#snippet children(entryId)}
           <AnimeRow
-            {entryId}
-            entryState={entryStore.getShindenEntryState(entryId)}
+            entry={getLoadedShindenEntry(entryId)}
             matchStatus={listPane.matchStatuses.get(entryId) ?? 'unmatched'}
             isSelected={entryId === selectedEntryId}
             onSelect={() => onSelectEntry(entryId)}
-            {entryStore}
           />
         {/snippet}
       </VList>

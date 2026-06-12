@@ -19,20 +19,9 @@
       <p class="workspace-empty text-sm font-medium text-muted">
         Brak automatycznego dopasowania
       </p>
-    {:else if selectedWinnerState.status === 'loading'}
-      <p class="workspace-empty text-sm font-medium text-muted">
-        Wczytywanie dopasowania
-      </p>
     {:else if selectedWinnerState.status === 'missing'}
       <p class="workspace-empty text-sm font-medium text-muted">
         Nie znaleziono wpisu w bazie
-      </p>
-    {:else if selectedWinnerState.status === 'error'}
-      <p
-        class="workspace-empty text-sm font-medium text-error"
-        title={selectedWinnerState.message}
-      >
-        Nie udało się wczytać dopasowania
       </p>
     {:else}
       <DatabaseEntryPreview entry={selectedWinnerState.entry} />

@@ -1,9 +1,12 @@
-import { ensureDatabase } from '../../api/appService';
+import { ensureDatabase, getDatabaseFull } from '../../api/appService';
+import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
 import type { DatabaseState } from '../../domain/anime';
 
 const databaseRetryDelays = [0, 500, 1500] as const;
 
-export async function initializeDatabaseState(): Promise<DatabaseState> {
+export async function initializeDatabaseState(
+  animeData: LoadedAnimeData
+): Promise<DatabaseState> {
   let lastError: unknown = null;
 
   for (const [attempt, delayMs] of databaseRetryDelays.entries()) {
@@ -13,6 +16,14 @@ export async function initializeDatabaseState(): Promise<DatabaseState> {
 
     try {
       const info = await ensureDatabase();
+      const databaseFull = await getDatabaseFull();
+      if (databaseFull.databaseVersion !== info.databaseVersion) {
+        throw new Error(
+          'Baza danych zmieniła się podczas wczytywania. Spróbuj ponownie.'
+        );
+      }
+
+      animeData.replaceDatabaseFull(databaseFull);
       return { status: 'ready', info };
     } catch (error) {
       lastError = error;

@@ -1,10 +1,11 @@
 import { exportXml } from '../../api/appService';
-import type { EntryStore } from '../../data/entryStore.svelte';
+import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
 import type {
   DatabaseEntry,
   LoadedUserList,
   MatchListResult,
   MatchSelection,
+  ShindenMatchResult,
   WorkspaceState
 } from '../../domain/anime';
 
@@ -19,25 +20,17 @@ export type WorkspaceActivation = LoadedUserList & {
   matchResult: MatchListResult;
   fetchDurationMs: number;
   matchDurationMs: number;
-  resetEntryStore?: boolean;
 };
 
 export type SelectedWinnerState =
   | { status: 'no-selection' }
   | { status: 'no-winner'; selectedEntryId: number }
-  | { status: 'loading'; selectedEntryId: number; databaseEntryId: number }
   | { status: 'ready'; selectedEntryId: number; entry: DatabaseEntry }
-  | { status: 'missing'; selectedEntryId: number; databaseEntryId: number }
-  | {
-      status: 'error';
-      selectedEntryId: number;
-      databaseEntryId: number;
-      message: string;
-    };
+  | { status: 'missing'; selectedEntryId: number; databaseEntryId: number };
 
 export type WorkspaceController = ReturnType<typeof createWorkspaceController>;
 
-export function createWorkspaceController(entryStore: EntryStore) {
+export function createWorkspaceController(animeData: LoadedAnimeData) {
   let state = $state<WorkspaceState>({ status: 'empty' });
   let matchResult = $state<MatchListResult | null>(null);
   let matchErrorMessage = $state<string | null>(null);
@@ -46,28 +39,26 @@ export function createWorkspaceController(entryStore: EntryStore) {
   let selectedEntryId = $state<number | null>(null);
   let manualOverrides = $state<Record<number, number>>({});
   let exportState = $state<ExportState>({ status: 'idle' });
-  let selectionRequestId = 0;
 
-  let selectedMatchEntry = $derived(
+  let matchResultByEntryId = $derived.by(() => {
+    const entriesById = new Map<number, ShindenMatchResult>();
+    for (const entry of matchResult?.entries ?? []) {
+      entriesById.set(entry.shindenId, entry);
+    }
+
+    return entriesById;
+  });
+  let selectedMatchEntry = $derived.by(() =>
     selectedEntryId === null
       ? null
-      : (matchResult?.entries.find(
-          (entry) => entry.shindenId === selectedEntryId
-        ) ?? null)
+      : (matchResultByEntryId.get(selectedEntryId) ?? null)
   );
   let selectedWinnerId = $derived.by(() => {
     if (selectedEntryId === null) {
       return null;
     }
 
-    return winnerIdForEntry(selectedEntryId, matchResult, manualOverrides);
-  });
-  let selectedCandidateIds = $derived.by(() => {
-    if (selectedEntryId === null) {
-      return [];
-    }
-
-    return candidateIdsForEntry(selectedEntryId, matchResult, manualOverrides);
+    return winnerIdForEntry(selectedEntryId, selectedMatchEntry, manualOverrides);
   });
   let selectedWinnerState = $derived.by((): SelectedWinnerState => {
     if (selectedEntryId === null) {
@@ -78,34 +69,17 @@ export function createWorkspaceController(entryStore: EntryStore) {
       return { status: 'no-winner', selectedEntryId };
     }
 
-    const entryState = entryStore.getDatabaseEntryState(selectedWinnerId);
-    if (entryState.status === 'ready') {
+    const entry = animeData.getDatabaseEntry(selectedWinnerId);
+    if (entry !== null) {
       return {
         status: 'ready',
         selectedEntryId,
-        entry: entryState.entry
-      };
-    }
-
-    if (entryState.status === 'error') {
-      return {
-        status: 'error',
-        selectedEntryId,
-        databaseEntryId: selectedWinnerId,
-        message: entryState.message
-      };
-    }
-
-    if (entryState.status === 'missing') {
-      return {
-        status: 'missing',
-        selectedEntryId,
-        databaseEntryId: selectedWinnerId
+        entry
       };
     }
 
     return {
-      status: 'loading',
+      status: 'missing',
       selectedEntryId,
       databaseEntryId: selectedWinnerId
     };
@@ -119,26 +93,7 @@ export function createWorkspaceController(entryStore: EntryStore) {
       exportState.status !== 'exporting'
   );
 
-  $effect(() => {
-    if (selectedEntryId === null) {
-      return;
-    }
-
-    const releaseShindenEntry = entryStore.retainShindenEntry(selectedEntryId);
-    const releaseDatabaseEntries =
-      entryStore.pinDatabaseEntries(selectedCandidateIds);
-
-    return () => {
-      releaseShindenEntry();
-      releaseDatabaseEntries();
-    };
-  });
-
   function activate(next: WorkspaceActivation) {
-    selectionRequestId += 1;
-    if (next.resetEntryStore ?? true) {
-      entryStore.reset();
-    }
     state = {
       status: 'active',
       provider: next.provider,
@@ -154,34 +109,13 @@ export function createWorkspaceController(entryStore: EntryStore) {
     exportState = { status: 'idle' };
   }
 
-  async function selectEntry(entryId: number) {
+  function selectEntry(entryId: number) {
     if (state.status !== 'active') {
       return;
     }
 
     if (!state.entryIdsByView.all.some((id) => id === entryId)) {
-      selectionRequestId += 1;
       selectedEntryId = null;
-      return;
-    }
-
-    const requestId = selectionRequestId + 1;
-    selectionRequestId = requestId;
-
-    const nextWinnerId = winnerIdForEntry(
-      entryId,
-      matchResult,
-      manualOverrides
-    );
-    if (nextWinnerId !== null) {
-      await entryStore.ensureReadyDatabaseEntry(nextWinnerId);
-    }
-
-    if (
-      selectionRequestId !== requestId ||
-      state.status !== 'active' ||
-      !state.entryIdsByView.all.some((id) => id === entryId)
-    ) {
       return;
     }
 
@@ -279,38 +213,10 @@ export function createWorkspaceController(entryStore: EntryStore) {
 
 function winnerIdForEntry(
   entryId: number,
-  matchResult: MatchListResult | null,
+  matchEntry: ShindenMatchResult | null,
   manualOverrides: Record<number, number>
 ) {
-  const matchEntry =
-    matchResult?.entries.find((entry) => entry.shindenId === entryId) ?? null;
-
   return manualOverrides[entryId] ?? matchEntry?.result.winner?.id ?? null;
-}
-
-function candidateIdsForEntry(
-  entryId: number,
-  matchResult: MatchListResult | null,
-  manualOverrides: Record<number, number>
-) {
-  const matchEntry =
-    matchResult?.entries.find((entry) => entry.shindenId === entryId) ?? null;
-
-  if (matchEntry === null) {
-    return [];
-  }
-
-  const candidateIds = new Set<number>();
-  for (const candidate of matchEntry.result.top) {
-    candidateIds.add(candidate.id);
-  }
-
-  const winnerId = manualOverrides[entryId] ?? matchEntry.result.winner?.id;
-  if (winnerId !== undefined) {
-    candidateIds.add(winnerId);
-  }
-
-  return [...candidateIds];
 }
 
 function buildEffectiveSelections(
