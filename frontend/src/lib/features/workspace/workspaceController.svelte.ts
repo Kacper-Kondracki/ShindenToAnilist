@@ -257,6 +257,12 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   }
 
   function setIgnored(shindenId: number) {
+    if (ignoredEntryIds[shindenId] === true) {
+      ignoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
+      exportState = { status: 'idle' };
+      return;
+    }
+
     manualOverrides = omitRecordKey(manualOverrides, shindenId);
     ignoredEntryIds = {
       ...ignoredEntryIds,
@@ -489,27 +495,20 @@ function buildEntryIdsByView(
   const ignoredIds = state.entryIdsByView.all.filter(
     (entryId) => ignoredEntryIds[entryId] === true
   );
-  const baseManualIds = state.entryIdsByView.manual.filter(
-    (entryId) => ignoredEntryIds[entryId] !== true
-  );
+  const baseManualIds = state.entryIdsByView.manual;
   const baseManualIdSet = new Set(baseManualIds);
   const automaticManualIds = state.entryIdsByView.automatic.filter(
     (entryId) =>
-      ignoredEntryIds[entryId] !== true &&
       (displacedAutomaticEntryIds[entryId] === true ||
         manualOverrides[entryId] !== undefined)
   );
-  const automaticManualIdSet = new Set(automaticManualIds);
 
   return {
     manual: [
       ...baseManualIds,
       ...automaticManualIds.filter((entryId) => !baseManualIdSet.has(entryId))
     ],
-    automatic: state.entryIdsByView.automatic.filter(
-      (entryId) =>
-        ignoredEntryIds[entryId] !== true && !automaticManualIdSet.has(entryId)
-    ),
+    automatic: state.entryIdsByView.automatic,
     ignored: ignoredIds,
     all: state.entryIdsByView.all
   };

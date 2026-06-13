@@ -94,8 +94,8 @@
       type="button"
       class:btn-active={isIgnored}
       class="btn btn-neutral btn-soft border-0 btn-square btn-sm ignore-entry-button"
-      aria-label="Ignoruj wpis"
-      title="Ignoruj wpis"
+      aria-label={isIgnored ? 'Przestań ignorować wpis' : 'Ignoruj wpis'}
+      title={isIgnored ? 'Przestań ignorować wpis' : 'Ignoruj wpis'}
       onclick={selector.applyIgnore}
     >
       <span aria-hidden="true" class="icon-[lucide--eye-off] size-4"></span>
