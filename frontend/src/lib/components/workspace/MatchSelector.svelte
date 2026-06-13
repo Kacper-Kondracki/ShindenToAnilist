@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DatabaseEntry, ShindenEntry } from '../../domain/anime';
+  import { formatPercentageFromRatio } from '../../domain/animeView';
   import {
     createMatchSelectorController,
     type MatchSelectorInitialSearch
@@ -38,7 +39,7 @@
   }
 
   function formatMatchScore(score: number) {
-    return `${Math.round(score * 100)}%`;
+    return formatPercentageFromRatio(score);
   }
 </script>
 
