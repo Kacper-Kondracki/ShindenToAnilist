@@ -9,6 +9,7 @@ import type {
 type MatchSelectorControllerInput = {
   getSelectedEntry: () => ShindenEntry;
   getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
+  getAutomaticMatchResult: () => MatchResult | null;
   getInitialSearch: () => MatchSelectorInitialSearch | null;
   setManualOverride: (shindenId: number, databaseId: number) => void;
   clearManualOverride: (shindenId: number) => void;
@@ -55,23 +56,44 @@ export function createMatchSelectorController(
   let searchState = $state<MatchSearchState>(initialSearchState);
   let requestId = 0;
 
-  let results = $derived.by((): MatchSelectorResult[] => {
-    const items =
+  let automaticResults = $derived.by((): MatchSelectorResult[] =>
+    resolveCandidates(automaticCandidates(input.getAutomaticMatchResult()))
+  );
+  let searchResults = $derived.by((): MatchSelectorResult[] => {
+    const excludedIds = new Set(automaticResults.map((item) => item.id));
+    const searchItems =
       searchState.status === 'ready' ? searchState.result.items : [];
-    const resolvedItems: MatchSelectorResult[] = [];
 
-    for (const item of items) {
+    return resolveCandidates(searchItems, excludedIds);
+  });
+  let hasResults = $derived(
+    automaticResults.length > 0 || searchResults.length > 0
+  );
+  let errorMessage = $derived(
+    searchState.status === 'error' ? searchState.message : null
+  );
+
+  function resolveCandidates(
+    candidates: ScoredCandidate[],
+    excludedIds = new Set<number>()
+  ) {
+    const resolvedItems: MatchSelectorResult[] = [];
+    const resolvedIds = new Set(excludedIds);
+
+    for (const item of candidates) {
+      if (resolvedIds.has(item.id)) {
+        continue;
+      }
+
       const entry = input.getDatabaseEntry(item.id);
       if (entry !== null) {
         resolvedItems.push({ ...item, entry });
+        resolvedIds.add(item.id);
       }
     }
 
     return resolvedItems;
-  });
-  let errorMessage = $derived(
-    searchState.status === 'error' ? searchState.message : null
-  );
+  }
 
   if (initialSearchState.status === 'idle') {
     search(query);
@@ -133,8 +155,14 @@ export function createMatchSelectorController(
     get query() {
       return query;
     },
-    get results() {
-      return results;
+    get automaticResults() {
+      return automaticResults;
+    },
+    get searchResults() {
+      return searchResults;
+    },
+    get hasResults() {
+      return hasResults;
     },
     get errorMessage() {
       return errorMessage;
@@ -208,6 +236,37 @@ function getInitialSearchState(
   }
 
   return { status: 'idle' };
+}
+
+function automaticCandidates(matchResult: MatchResult | null) {
+  if (matchResult === null) {
+    return [];
+  }
+
+  const candidates = [...matchResult.top];
+  const winner = matchResult.winner;
+  if (
+    winner !== null &&
+    !candidates.some((candidate) => candidate.id === winner.id)
+  ) {
+    candidates.unshift(winner);
+  }
+
+  return uniqueCandidates(candidates);
+}
+
+function uniqueCandidates(candidates: ScoredCandidate[]) {
+  const usedIds = new Set<number>();
+  const unique: ScoredCandidate[] = [];
+
+  for (const candidate of candidates) {
+    if (!usedIds.has(candidate.id)) {
+      usedIds.add(candidate.id);
+      unique.push(candidate);
+    }
+  }
+
+  return unique;
 }
 
 function errorToMessage(error: unknown) {

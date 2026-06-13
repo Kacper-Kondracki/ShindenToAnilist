@@ -32,6 +32,7 @@
     <WorkspaceEditorPane
       {animeData}
       selectedEntryId={workspace.selectedEntryId}
+      selectedMatchEntry={workspace.selectedMatchEntry}
       selectedWinnerState={workspace.selectedWinnerState}
       manualOverrides={workspace.manualOverrides}
       initialMatchSearch={workspace.initialMatchSearch}

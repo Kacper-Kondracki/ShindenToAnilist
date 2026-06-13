@@ -1,5 +1,9 @@
 <script lang="ts">
-  import type { DatabaseEntry, ShindenEntry } from '../../domain/anime';
+  import type {
+    DatabaseEntry,
+    MatchResult,
+    ShindenEntry
+  } from '../../domain/anime';
   import { formatPercentageFromRatio } from '../../domain/animeView';
   import {
     createMatchSelectorController,
@@ -11,6 +15,7 @@
     selectedEntry,
     selectedDatabaseEntryId,
     manualOverrideId,
+    automaticMatchResult,
     initialSearch,
     getDatabaseEntry,
     onSetManualOverride,
@@ -19,6 +24,7 @@
     selectedEntry: ShindenEntry;
     selectedDatabaseEntryId: number | null;
     manualOverrideId: number | null;
+    automaticMatchResult: MatchResult | null;
     initialSearch: MatchSelectorInitialSearch | null;
     getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
@@ -28,6 +34,7 @@
   const selector = createMatchSelectorController({
     getSelectedEntry: () => selectedEntry,
     getDatabaseEntry: (entryId) => getDatabaseEntry(entryId),
+    getAutomaticMatchResult: () => automaticMatchResult,
     getInitialSearch: () => initialSearch,
     setManualOverride: (shindenId, databaseId) =>
       onSetManualOverride(shindenId, databaseId),
@@ -64,15 +71,25 @@
     </button>
   </div>
   <div class="search-content">
-    {#if selector.errorMessage !== null}
-      <p class="search-message text-sm font-medium text-error">
-        {selector.errorMessage}
-      </p>
-    {:else if selector.results.length === 0}
-      <p class="search-message text-sm font-medium text-muted">Brak wyników</p>
-    {:else}
+    {#if selector.hasResults}
       <ul class="match-results" aria-label="Wyniki dopasowania">
-        {#each selector.results as result (result.id)}
+        {#each selector.automaticResults as result (result.id)}
+          <li class="match-result">
+            <DatabaseEntryRow
+              entry={result.entry}
+              scoreLabel={formatMatchScore(result.score)}
+              isSelected={result.id === selectedDatabaseEntryId}
+              showIndicator={true}
+              rounded={true}
+              compact={true}
+              onSelect={() => selector.applyManualOverride(result.id)}
+            />
+          </li>
+        {/each}
+        {#if selector.automaticResults.length > 0 && selector.searchResults.length > 0}
+          <li class="match-results-separator" aria-hidden="true"></li>
+        {/if}
+        {#each selector.searchResults as result (result.id)}
           <li class="match-result">
             <DatabaseEntryRow
               entry={result.entry}
@@ -86,6 +103,12 @@
           </li>
         {/each}
       </ul>
+    {:else if selector.errorMessage !== null}
+      <p class="search-message text-sm font-medium text-error">
+        {selector.errorMessage}
+      </p>
+    {:else}
+      <p class="search-message text-sm font-medium text-muted">Brak wyników</p>
     {/if}
   </div>
 </div>
@@ -107,7 +130,6 @@
     min-height: 0;
     overflow: hidden;
     flex-direction: column;
-    padding: calc(var(--spacing) * 3);
   }
   .search-input {
     min-width: 0;
@@ -158,5 +180,11 @@
 
   .match-result {
     min-width: 0;
+  }
+
+  .match-results-separator {
+    min-width: 0;
+    margin: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
+    border-top: var(--border) solid var(--match-selector-border-color);
   }
 </style>

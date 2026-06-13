@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
-  import type { DatabaseEntry } from '../../domain/anime';
+  import type { DatabaseEntry, ShindenMatchResult } from '../../domain/anime';
   import type { MatchSelectorInitialSearch } from '../../features/workspace/matchSelectorController.svelte';
   import type { SelectedWinnerState } from '../../features/workspace/workspaceController.svelte';
   import {
@@ -29,6 +29,7 @@
   let {
     animeData,
     selectedEntryId,
+    selectedMatchEntry,
     onSetManualOverride,
     onClearManualOverride,
     manualOverrides,
@@ -37,6 +38,7 @@
   }: {
     animeData: LoadedAnimeData;
     selectedEntryId: number | null;
+    selectedMatchEntry: ShindenMatchResult | null;
     selectedWinnerState: SelectedWinnerState;
     manualOverrides: Record<number, number>;
     initialMatchSearch: MatchSelectorInitialSearch | null;
@@ -61,6 +63,7 @@
   let manualOverrideId = $derived(
     selectedEntryId === null ? null : (manualOverrides[selectedEntryId] ?? null)
   );
+  let automaticMatchResult = $derived(selectedMatchEntry?.result ?? null);
   let previewEntry = $derived(
     selectedWinnerState.status === 'ready'
       ? selectedWinnerState.entry
@@ -87,6 +90,7 @@
               selectedEntry={selectedShindenEntry}
               {selectedDatabaseEntryId}
               {manualOverrideId}
+              {automaticMatchResult}
               initialSearch={initialMatchSearch}
               getDatabaseEntry={animeData.getDatabaseEntry}
               {onSetManualOverride}
@@ -124,12 +128,15 @@
 
   .editor-layout {
     display: grid;
+    box-sizing: border-box;
     width: 100%;
     max-width: 100%;
     height: 100%;
     min-width: 0;
     min-height: 0;
+    gap: calc(var(--spacing) * 3);
     overflow: hidden;
+    padding: calc(var(--spacing) * 3);
     grid-template-rows:
       minmax(0, 1fr)
       auto;

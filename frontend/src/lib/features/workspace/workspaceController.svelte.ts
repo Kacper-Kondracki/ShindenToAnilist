@@ -234,6 +234,9 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     get initialMatchSearch() {
       return initialMatchSearch;
     },
+    get selectedMatchEntry() {
+      return selectedMatchEntry;
+    },
     get selectedWinnerState() {
       return selectedWinnerState;
     },

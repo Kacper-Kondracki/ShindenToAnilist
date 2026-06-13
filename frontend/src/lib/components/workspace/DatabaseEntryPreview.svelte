@@ -76,7 +76,6 @@
     align-items: flex-start;
     flex-wrap: nowrap;
     gap: calc(var(--spacing) * 4);
-    padding: calc(var(--spacing) * 4);
     white-space: nowrap;
   }
 
