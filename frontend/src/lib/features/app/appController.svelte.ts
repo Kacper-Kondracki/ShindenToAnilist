@@ -318,6 +318,7 @@ function buildEntryIdsByView(
   return {
     manual: [...unmatchedIds, ...reviewIds],
     automatic: automaticIds,
+    ignored: [],
     all: [...unmatchedIds, ...reviewIds, ...automaticIds]
   };
 }

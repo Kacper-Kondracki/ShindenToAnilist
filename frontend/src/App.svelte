@@ -51,7 +51,6 @@
         {#key app.workspace.state}
           <WorkspaceView
             providerLabel={app.activeProviderDetails.label}
-            entryIdsByView={app.workspace.state.entryIdsByView}
             animeData={app.animeData}
             workspace={app.workspace}
           />

@@ -6,6 +6,7 @@ import type {
   MatchListResult,
   MatchSelection,
   ShindenMatchResult,
+  ShindenListViews,
   WorkspaceState
 } from '../../domain/anime';
 import {
@@ -43,6 +44,8 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   let selectedEntryId = $state<number | null>(null);
   let initialMatchSearch = $state<MatchSelectorInitialSearch | null>(null);
   let manualOverrides = $state<Record<number, number>>({});
+  let ignoredEntryIds = $state<Record<number, true>>({});
+  let displacedAutomaticEntryIds = $state<Record<number, true>>({});
   let exportState = $state<ExportState>({ status: 'idle' });
   let selectionRequestId = 0;
   let pendingSelectionEntryId: number | null = null;
@@ -68,7 +71,9 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     return winnerIdForEntry(
       selectedEntryId,
       selectedMatchEntry,
-      manualOverrides
+      manualOverrides,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
     );
   });
   let selectedWinnerState = $derived.by((): SelectedWinnerState => {
@@ -96,7 +101,28 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     };
   });
   let effectiveSelections = $derived.by(() =>
-    buildEffectiveSelections(matchResult, manualOverrides)
+    buildEffectiveSelections(
+      matchResult,
+      manualOverrides,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
+    )
+  );
+  let winnerClaimsByDatabaseId = $derived.by(() =>
+    buildWinnerClaimsByDatabaseId(
+      matchResult,
+      manualOverrides,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
+    )
+  );
+  let entryIdsByView = $derived.by(() =>
+    buildEntryIdsByView(
+      state,
+      manualOverrides,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
+    )
   );
   let canExport = $derived(
     state.status === 'active' &&
@@ -120,6 +146,8 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     selectedEntryId = null;
     initialMatchSearch = null;
     manualOverrides = {};
+    ignoredEntryIds = {};
+    displacedAutomaticEntryIds = {};
     exportState = { status: 'idle' };
   }
 
@@ -177,16 +205,105 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   }
 
   function setManualOverride(shindenId: number, databaseId: number) {
-    manualOverrides = {
+    if (databaseId === automaticWinnerIdForEntry(shindenId, matchResult)) {
+      restoreAutomaticWinner(shindenId);
+      return;
+    }
+
+    const duplicateOwnerIds = activeWinnerOwnerIdsForDatabase(
+      databaseId,
+      shindenId,
+      matchResult,
+      manualOverrides,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
+    );
+    const nextOverrides = {
       ...manualOverrides,
       [shindenId]: databaseId
     };
+    const nextIgnoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
+    const nextDisplacedAutomaticEntryIds = {
+      ...displacedAutomaticEntryIds
+    };
+
+    for (const ownerId of duplicateOwnerIds) {
+      if (nextOverrides[ownerId] === databaseId) {
+        delete nextOverrides[ownerId];
+      }
+
+      if (automaticWinnerIdForEntry(ownerId, matchResult) === databaseId) {
+        nextDisplacedAutomaticEntryIds[ownerId] = true;
+      }
+    }
+
+    manualOverrides = {
+      ...nextOverrides
+    };
+    ignoredEntryIds = nextIgnoredEntryIds;
+    displacedAutomaticEntryIds = nextDisplacedAutomaticEntryIds;
     exportState = { status: 'idle' };
   }
 
   function clearManualOverride(shindenId: number) {
-    const { [shindenId]: _removed, ...nextOverrides } = manualOverrides;
-    manualOverrides = nextOverrides;
+    if (automaticWinnerIdForEntry(shindenId, matchResult) !== null) {
+      restoreAutomaticWinner(shindenId);
+      return;
+    }
+
+    manualOverrides = omitRecordKey(manualOverrides, shindenId);
+    ignoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
+    exportState = { status: 'idle' };
+  }
+
+  function setIgnored(shindenId: number) {
+    manualOverrides = omitRecordKey(manualOverrides, shindenId);
+    ignoredEntryIds = {
+      ...ignoredEntryIds,
+      [shindenId]: true
+    };
+    exportState = { status: 'idle' };
+  }
+
+  function restoreAutomaticWinner(shindenId: number) {
+    const automaticWinnerId = automaticWinnerIdForEntry(shindenId, matchResult);
+
+    if (automaticWinnerId === null) {
+      return;
+    }
+
+    const duplicateOwnerIds = activeWinnerOwnerIdsForDatabase(
+      automaticWinnerId,
+      shindenId,
+      matchResult,
+      manualOverrides,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
+    );
+    const nextOverrides = omitRecordKey(manualOverrides, shindenId);
+    const nextIgnoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
+    const nextDisplacedAutomaticEntryIds = omitRecordKey(
+      displacedAutomaticEntryIds,
+      shindenId
+    );
+
+    for (const ownerId of duplicateOwnerIds) {
+      if (nextOverrides[ownerId] === automaticWinnerId) {
+        delete nextOverrides[ownerId];
+      }
+
+      if (
+        automaticWinnerIdForEntry(ownerId, matchResult) === automaticWinnerId
+      ) {
+        nextDisplacedAutomaticEntryIds[ownerId] = true;
+      }
+    }
+
+    manualOverrides = {
+      ...nextOverrides
+    };
+    ignoredEntryIds = nextIgnoredEntryIds;
+    displacedAutomaticEntryIds = nextDisplacedAutomaticEntryIds;
     exportState = { status: 'idle' };
   }
 
@@ -240,8 +357,20 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     get selectedWinnerState() {
       return selectedWinnerState;
     },
+    get entryIdsByView() {
+      return entryIdsByView;
+    },
     get manualOverrides() {
       return manualOverrides;
+    },
+    get ignoredEntryIds() {
+      return ignoredEntryIds;
+    },
+    get displacedAutomaticEntryIds() {
+      return displacedAutomaticEntryIds;
+    },
+    get winnerClaimsByDatabaseId() {
+      return winnerClaimsByDatabaseId;
     },
     get exportState() {
       return exportState;
@@ -256,6 +385,7 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     selectEntry,
     clearSelectionIfMissing,
     setManualOverride,
+    setIgnored,
     clearManualOverride,
     exportCurrentSelections
   };
@@ -264,20 +394,41 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
 function winnerIdForEntry(
   entryId: number,
   matchEntry: ShindenMatchResult | null,
-  manualOverrides: Record<number, number>
+  manualOverrides: Record<number, number>,
+  ignoredEntryIds: Record<number, true>,
+  displacedAutomaticEntryIds: Record<number, true>
 ) {
-  return manualOverrides[entryId] ?? matchEntry?.result.winner?.id ?? null;
+  if (ignoredEntryIds[entryId] === true) {
+    return null;
+  }
+
+  if (manualOverrides[entryId] !== undefined) {
+    return manualOverrides[entryId];
+  }
+
+  if (displacedAutomaticEntryIds[entryId] === true) {
+    return null;
+  }
+
+  return matchEntry?.result.winner?.id ?? null;
 }
 
 function buildEffectiveSelections(
   matchResult: MatchListResult | null,
-  manualOverrides: Record<number, number>
+  manualOverrides: Record<number, number>,
+  ignoredEntryIds: Record<number, true>,
+  displacedAutomaticEntryIds: Record<number, true>
 ): MatchSelection[] {
   const selections: MatchSelection[] = [];
 
   for (const entry of matchResult?.entries ?? []) {
-    const databaseId =
-      manualOverrides[entry.shindenId] ?? entry.result.winner?.id ?? null;
+    const databaseId = winnerIdForEntry(
+      entry.shindenId,
+      entry,
+      manualOverrides,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
+    );
 
     if (databaseId !== null) {
       selections.push({
@@ -288,6 +439,127 @@ function buildEffectiveSelections(
   }
 
   return selections;
+}
+
+function buildWinnerClaimsByDatabaseId(
+  matchResult: MatchListResult | null,
+  manualOverrides: Record<number, number>,
+  ignoredEntryIds: Record<number, true>,
+  displacedAutomaticEntryIds: Record<number, true>
+) {
+  const claims = new Map<number, number[]>();
+
+  for (const entry of matchResult?.entries ?? []) {
+    const databaseId = winnerIdForEntry(
+      entry.shindenId,
+      entry,
+      manualOverrides,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
+    );
+
+    if (databaseId === null) {
+      continue;
+    }
+
+    claims.set(databaseId, [
+      ...(claims.get(databaseId) ?? []),
+      entry.shindenId
+    ]);
+  }
+
+  return claims;
+}
+
+function buildEntryIdsByView(
+  state: WorkspaceState,
+  manualOverrides: Record<number, number>,
+  ignoredEntryIds: Record<number, true>,
+  displacedAutomaticEntryIds: Record<number, true>
+): ShindenListViews {
+  if (state.status !== 'active') {
+    return {
+      manual: [],
+      automatic: [],
+      ignored: [],
+      all: []
+    };
+  }
+
+  const ignoredIds = state.entryIdsByView.all.filter(
+    (entryId) => ignoredEntryIds[entryId] === true
+  );
+  const baseManualIds = state.entryIdsByView.manual.filter(
+    (entryId) => ignoredEntryIds[entryId] !== true
+  );
+  const baseManualIdSet = new Set(baseManualIds);
+  const automaticManualIds = state.entryIdsByView.automatic.filter(
+    (entryId) =>
+      ignoredEntryIds[entryId] !== true &&
+      (displacedAutomaticEntryIds[entryId] === true ||
+        manualOverrides[entryId] !== undefined)
+  );
+  const automaticManualIdSet = new Set(automaticManualIds);
+
+  return {
+    manual: [
+      ...baseManualIds,
+      ...automaticManualIds.filter((entryId) => !baseManualIdSet.has(entryId))
+    ],
+    automatic: state.entryIdsByView.automatic.filter(
+      (entryId) =>
+        ignoredEntryIds[entryId] !== true && !automaticManualIdSet.has(entryId)
+    ),
+    ignored: ignoredIds,
+    all: state.entryIdsByView.all
+  };
+}
+
+function activeWinnerOwnerIdsForDatabase(
+  databaseId: number,
+  excludedShindenId: number,
+  matchResult: MatchListResult | null,
+  manualOverrides: Record<number, number>,
+  ignoredEntryIds: Record<number, true>,
+  displacedAutomaticEntryIds: Record<number, true>
+) {
+  const ownerIds: number[] = [];
+
+  for (const entry of matchResult?.entries ?? []) {
+    if (entry.shindenId === excludedShindenId) {
+      continue;
+    }
+
+    const winnerId = winnerIdForEntry(
+      entry.shindenId,
+      entry,
+      manualOverrides,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
+    );
+
+    if (winnerId === databaseId) {
+      ownerIds.push(entry.shindenId);
+    }
+  }
+
+  return ownerIds;
+}
+
+function automaticWinnerIdForEntry(
+  shindenId: number,
+  matchResult: MatchListResult | null
+) {
+  return (
+    matchResult?.entries.find((entry) => entry.shindenId === shindenId)?.result
+      .winner?.id ?? null
+  );
+}
+
+function omitRecordKey<T>(record: Record<number, T>, key: number) {
+  const { [key]: _removed, ...nextRecord } = record;
+
+  return nextRecord;
 }
 
 function errorMessage(error: unknown) {

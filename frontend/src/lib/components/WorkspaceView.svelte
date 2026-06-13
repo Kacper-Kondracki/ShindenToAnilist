@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { LoadedAnimeData } from '../data/loadedAnimeData.svelte';
-  import type { ShindenListViews } from '../domain/anime';
   import type { WorkspaceController } from '../features/workspace/workspaceController.svelte';
   import AnimeListPane from './workspace/AnimeListPane.svelte';
   import WorkspaceEditorPane from './workspace/WorkspaceEditorPane.svelte';
@@ -8,12 +7,10 @@
 
   let {
     providerLabel,
-    entryIdsByView,
     animeData,
     workspace
   }: {
     providerLabel: string;
-    entryIdsByView: ShindenListViews;
     animeData: LoadedAnimeData;
     workspace: WorkspaceController;
   } = $props();
@@ -23,9 +20,12 @@
   <div class="workspace-layout">
     <AnimeListPane
       {providerLabel}
-      {entryIdsByView}
+      entryIdsByView={workspace.entryIdsByView}
       {animeData}
       matchResult={workspace.matchResult}
+      manualOverrides={workspace.manualOverrides}
+      ignoredEntryIds={workspace.ignoredEntryIds}
+      displacedAutomaticEntryIds={workspace.displacedAutomaticEntryIds}
       selectedEntryId={workspace.selectedEntryId}
       onSelectEntry={workspace.selectEntry}
     />
@@ -35,21 +35,27 @@
       selectedMatchEntry={workspace.selectedMatchEntry}
       selectedWinnerState={workspace.selectedWinnerState}
       manualOverrides={workspace.manualOverrides}
+      ignoredEntryIds={workspace.ignoredEntryIds}
+      displacedAutomaticEntryIds={workspace.displacedAutomaticEntryIds}
+      winnerClaimsByDatabaseId={workspace.winnerClaimsByDatabaseId}
       initialMatchSearch={workspace.initialMatchSearch}
       onSetManualOverride={workspace.setManualOverride}
+      onSetIgnored={workspace.setIgnored}
       onClearManualOverride={workspace.clearManualOverride}
     />
   </div>
 </section>
 
 <WorkspaceStatusBar
-  entryIds={entryIdsByView.all}
+  entryIds={workspace.entryIdsByView.all}
   matchResult={workspace.matchResult}
   matchErrorMessage={workspace.matchErrorMessage}
   isMatching={false}
   fetchDurationMs={workspace.fetchDurationMs}
   matchDurationMs={workspace.matchDurationMs}
   manualSelections={workspace.manualOverrides}
+  ignoredEntryIds={workspace.ignoredEntryIds}
+  displacedAutomaticEntryIds={workspace.displacedAutomaticEntryIds}
   exportState={workspace.exportState}
   canExport={workspace.canExport}
   onExport={workspace.exportCurrentSelections}

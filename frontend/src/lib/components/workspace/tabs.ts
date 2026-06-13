@@ -8,6 +8,10 @@ export const animeListTabs = [
     label: 'Automatyczne'
   },
   {
+    id: 'ignored',
+    label: 'Ignorowane'
+  },
+  {
     id: 'all',
     label: 'Wszystko'
   }

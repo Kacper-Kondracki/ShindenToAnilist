@@ -31,8 +31,12 @@
     selectedEntryId,
     selectedMatchEntry,
     onSetManualOverride,
+    onSetIgnored,
     onClearManualOverride,
     manualOverrides,
+    ignoredEntryIds,
+    displacedAutomaticEntryIds,
+    winnerClaimsByDatabaseId,
     initialMatchSearch,
     selectedWinnerState
   }: {
@@ -41,8 +45,12 @@
     selectedMatchEntry: ShindenMatchResult | null;
     selectedWinnerState: SelectedWinnerState;
     manualOverrides: Record<number, number>;
+    ignoredEntryIds: Record<number, true>;
+    displacedAutomaticEntryIds: Record<number, true>;
+    winnerClaimsByDatabaseId: ReadonlyMap<number, readonly number[]>;
     initialMatchSearch: MatchSelectorInitialSearch | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
+    onSetIgnored: (shindenId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
   } = $props();
 
@@ -62,6 +70,13 @@
   });
   let manualOverrideId = $derived(
     selectedEntryId === null ? null : (manualOverrides[selectedEntryId] ?? null)
+  );
+  let isIgnored = $derived(
+    selectedEntryId !== null && ignoredEntryIds[selectedEntryId] === true
+  );
+  let isAutomaticWinnerSuppressed = $derived(
+    selectedEntryId !== null &&
+      displacedAutomaticEntryIds[selectedEntryId] === true
   );
   let automaticMatchResult = $derived(selectedMatchEntry?.result ?? null);
   let previewEntry = $derived(
@@ -90,10 +105,14 @@
               selectedEntry={selectedShindenEntry}
               {selectedDatabaseEntryId}
               {manualOverrideId}
+              {isIgnored}
+              {isAutomaticWinnerSuppressed}
               {automaticMatchResult}
               initialSearch={initialMatchSearch}
+              {winnerClaimsByDatabaseId}
               getDatabaseEntry={animeData.getDatabaseEntry}
               {onSetManualOverride}
+              {onSetIgnored}
               {onClearManualOverride}
             />
           {/key}

@@ -9,9 +9,16 @@
   } from '../../domain/animeView';
   import EntryRow from './EntryRow.svelte';
   import RowMetadataBadges from './RowMetadataBadges.svelte';
+  import type { EntryRowTone } from './EntryRow.svelte';
   import type { RowMetadataBadge } from './RowMetadataBadges.svelte';
 
-  export type AnimeMatchStatus = 'matched' | 'review' | 'unmatched';
+  export type AnimeMatchStatus =
+    | 'matched'
+    | 'review'
+    | 'unmatched'
+    | 'manual'
+    | 'suppressed'
+    | 'ignored';
 
   let {
     entry,
@@ -34,8 +41,14 @@
   const matchStatusLabels: Record<AnimeMatchStatus, string> = {
     matched: 'Dobrano automatycznie',
     review: 'Znaleziono kandydatów do sprawdzenia',
-    unmatched: 'Nie znaleziono kandydatów'
+    unmatched: 'Nie znaleziono kandydatów',
+    manual: 'Dobrano ręcznie',
+    suppressed: 'Automatyczne dopasowanie zostało zastąpione',
+    ignored: 'Ignorowany'
   };
+  let rowTone = $derived<EntryRowTone>(
+    matchStatus === 'manual' ? 'info' : matchStatus
+  );
 
   let episodeCountText = $derived(formatEpisodeCount(entry.episodes));
   let episodeProgressText = $derived(
@@ -55,7 +68,7 @@
 </script>
 
 <EntryRow
-  tone={matchStatus}
+  tone={rowTone}
   {isSelected}
   ariaLabel={`${entry.title}: ${matchStatusLabels[matchStatus]}`}
   title={entry.title}

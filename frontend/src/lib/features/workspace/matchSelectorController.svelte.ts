@@ -11,7 +11,9 @@ type MatchSelectorControllerInput = {
   getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
   getAutomaticMatchResult: () => MatchResult | null;
   getInitialSearch: () => MatchSelectorInitialSearch | null;
+  getWinnerClaimsByDatabaseId: () => ReadonlyMap<number, readonly number[]>;
   setManualOverride: (shindenId: number, databaseId: number) => void;
+  setIgnored: (shindenId: number) => void;
   clearManualOverride: (shindenId: number) => void;
 };
 
@@ -69,6 +71,21 @@ export function createMatchSelectorController(
   let hasResults = $derived(
     automaticResults.length > 0 || searchResults.length > 0
   );
+  let conflictingWinnerIds = $derived.by(() => {
+    const selectedEntryId = input.getSelectedEntry().id;
+    const conflicts = new Set<number>();
+
+    for (const [
+      databaseId,
+      shindenIds
+    ] of input.getWinnerClaimsByDatabaseId()) {
+      if (shindenIds.some((shindenId) => shindenId !== selectedEntryId)) {
+        conflicts.add(databaseId);
+      }
+    }
+
+    return conflicts;
+  });
   let errorMessage = $derived(
     searchState.status === 'error' ? searchState.message : null
   );
@@ -151,6 +168,10 @@ export function createMatchSelectorController(
     input.clearManualOverride(input.getSelectedEntry().id);
   }
 
+  function applyIgnore() {
+    input.setIgnored(input.getSelectedEntry().id);
+  }
+
   return {
     get query() {
       return query;
@@ -164,11 +185,15 @@ export function createMatchSelectorController(
     get hasResults() {
       return hasResults;
     },
+    get conflictingWinnerIds() {
+      return conflictingWinnerIds;
+    },
     get errorMessage() {
       return errorMessage;
     },
     updateQuery,
     applyManualOverride,
+    applyIgnore,
     clearManualOverride
   };
 }

@@ -13,33 +13,44 @@ export type WorkspaceStatusSummary = {
 export function buildWorkspaceStatusSummary(
   entryIds: number[],
   matchResult: MatchListResult | null,
-  manualSelections: Record<number, number>
+  manualSelections: Record<number, number>,
+  ignoredEntryIds: Record<number, true>,
+  displacedAutomaticEntryIds: Record<number, true>
 ): WorkspaceStatusSummary {
-  const automaticWinnerIds = new Set<number>();
+  const automaticallySelectedEntryIds = new Set<number>();
+  const resolvedEntryIds = new Set<number>();
 
   for (const entry of matchResult?.entries ?? []) {
-    if (entry.result.winner !== null) {
-      automaticWinnerIds.add(entry.shindenId);
+    if (ignoredEntryIds[entry.shindenId] === true) {
+      resolvedEntryIds.add(entry.shindenId);
+      continue;
+    }
+
+    if (manualSelections[entry.shindenId] !== undefined) {
+      resolvedEntryIds.add(entry.shindenId);
+      continue;
+    }
+
+    if (
+      displacedAutomaticEntryIds[entry.shindenId] !== true &&
+      entry.result.winner !== null
+    ) {
+      automaticallySelectedEntryIds.add(entry.shindenId);
+      resolvedEntryIds.add(entry.shindenId);
     }
   }
 
   let manuallySelectedCount = 0;
 
   for (const entryId of entryIds) {
-    if (
-      !automaticWinnerIds.has(entryId) &&
-      manualSelections[entryId] !== undefined
-    ) {
+    if (manualSelections[entryId] !== undefined) {
       manuallySelectedCount += 1;
     }
   }
 
   const totalCount = entryIds.length;
-  const automaticallyMatchedCount = automaticWinnerIds.size;
-  const reviewCount = Math.max(
-    0,
-    totalCount - automaticallyMatchedCount - manuallySelectedCount
-  );
+  const automaticallyMatchedCount = automaticallySelectedEntryIds.size;
+  const reviewCount = Math.max(0, totalCount - resolvedEntryIds.size);
 
   return {
     totalCount,
@@ -48,7 +59,9 @@ export function buildWorkspaceStatusSummary(
     reviewCount,
     matchedPercentage:
       totalCount > 0
-        ? percentageFromRatio(automaticallyMatchedCount / totalCount)
+        ? percentageFromRatio(
+            (automaticallyMatchedCount + manuallySelectedCount) / totalCount
+          )
         : 0
   };
 }

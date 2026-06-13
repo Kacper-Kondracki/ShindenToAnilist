@@ -50,7 +50,7 @@ export type ShindenListIndex = {
   shindenVersion: number;
 };
 
-export type ShindenListView = 'manual' | 'automatic' | 'all';
+export type ShindenListView = 'manual' | 'automatic' | 'ignored' | 'all';
 
 export type ShindenListViews = Record<ShindenListView, number[]>;
 

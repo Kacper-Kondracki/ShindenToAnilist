@@ -18,6 +18,9 @@
     entryIdsByView,
     animeData,
     matchResult,
+    manualOverrides,
+    ignoredEntryIds,
+    displacedAutomaticEntryIds,
     selectedEntryId,
     onSelectEntry
   }: {
@@ -25,6 +28,9 @@
     entryIdsByView: ShindenListViews;
     animeData: LoadedAnimeData;
     matchResult: MatchListResult | null;
+    manualOverrides: Record<number, number>;
+    ignoredEntryIds: Record<number, true>;
+    displacedAutomaticEntryIds: Record<number, true>;
     selectedEntryId: number | null;
     onSelectEntry: (entryId: number) => void | Promise<void>;
   } = $props();
@@ -32,6 +38,9 @@
   const listPane = createAnimeListPaneController({
     getEntryIdsByView: () => entryIdsByView,
     getMatchResult: () => matchResult,
+    getManualOverrides: () => manualOverrides,
+    getIgnoredEntryIds: () => ignoredEntryIds,
+    getDisplacedAutomaticEntryIds: () => displacedAutomaticEntryIds,
     getSelectedEntryId: () => selectedEntryId
   });
 
