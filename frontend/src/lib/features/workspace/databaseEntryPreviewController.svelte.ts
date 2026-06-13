@@ -7,6 +7,7 @@ import {
   translateAnimeType,
   translateSeason
 } from '../../domain/animeView';
+import { AnimeStatus } from '../../gen/shinden_to_anilist/v1/common_pb';
 
 const fallbackCoverHeight = 172;
 
@@ -22,6 +23,23 @@ type CoverLoadState =
   | { status: 'idle' }
   | { status: 'loaded'; url: string }
   | { status: 'error'; url: string };
+
+type MetadataTone =
+  | 'year'
+  | 'anime-type'
+  | 'status-finished'
+  | 'status-ongoing'
+  | 'status-upcoming'
+  | 'status-unknown'
+  | 'season'
+  | 'episodes'
+  | 'duration';
+
+type MetadataItem = {
+  label: string;
+  value: string;
+  tone: MetadataTone;
+};
 
 export function createDatabaseEntryPreviewController(
   input: DatabaseEntryPreviewControllerInput
@@ -46,29 +64,35 @@ export function createDatabaseEntryPreviewController(
     return [
       {
         label: 'Rok',
-        value: formatYear(entry.year)
+        value: formatYear(entry.year),
+        tone: 'year'
       },
       {
         label: 'Typ',
-        value: translateAnimeType(entry.animeType)
+        value: translateAnimeType(entry.animeType),
+        tone: 'anime-type'
       },
       {
         label: 'Status',
-        value: translateAnimeStatus(entry.status)
+        value: translateAnimeStatus(entry.status),
+        tone: statusTone(entry.status)
       },
       {
         label: 'Sezon',
-        value: translateSeason(entry.season)
+        value: translateSeason(entry.season),
+        tone: 'season'
       },
       {
         label: 'Liczba odcinków',
-        value: formatEpisodeCount(entry.episodes)
+        value: formatEpisodeCount(entry.episodes),
+        tone: 'episodes'
       },
       {
         label: 'Czas odcinka',
-        value: formatEpisodeDuration(entry.duration)
+        value: formatEpisodeDuration(entry.duration),
+        tone: 'duration'
       }
-    ];
+    ] satisfies MetadataItem[];
   });
 
   function handleCoverLoad() {
@@ -111,4 +135,17 @@ export function createDatabaseEntryPreviewController(
     handleCoverLoad,
     handleCoverError
   };
+}
+
+function statusTone(status: AnimeStatus): MetadataTone {
+  switch (status) {
+    case AnimeStatus.FINISHED:
+      return 'status-finished';
+    case AnimeStatus.ONGOING:
+      return 'status-ongoing';
+    case AnimeStatus.UPCOMING:
+      return 'status-upcoming';
+    default:
+      return 'status-unknown';
+  }
 }

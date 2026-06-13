@@ -48,9 +48,11 @@
 
     <dl class="database-entry-metadata">
       {#each preview.metadataItems as item}
-        <div class="database-entry-metadata__item">
-          <dt class="text-xs font-medium text-muted">{item.label}</dt>
-          <dd class="text-sm font-semibold">{item.value}</dd>
+        <div
+          class={`database-entry-metadata__item database-entry-metadata__item--${item.tone}`}
+        >
+          <dt>{item.label}</dt>
+          <dd>{item.value}</dd>
         </div>
       {/each}
     </dl>
@@ -168,18 +170,75 @@
   .database-entry-metadata {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: calc(var(--spacing) * 3);
+    gap: calc(var(--spacing) * 1.5);
   }
 
   .database-entry-metadata__item {
+    --database-entry-metadata-accent: var(--color-base-content);
+    --database-entry-metadata-glow: color-mix(
+      in oklab,
+      var(--database-entry-metadata-accent) 18%,
+      transparent
+    );
+
     min-width: 0;
-    border-top: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 10%, transparent);
-    padding-top: calc(var(--spacing) * 2);
+    position: relative;
+    overflow: hidden;
+    border: var(--border) solid
+      color-mix(
+        in oklab,
+        var(--database-entry-metadata-accent) 26%,
+        transparent
+      );
+    border-radius: var(--radius-field);
+    background:
+      linear-gradient(
+        90deg,
+        color-mix(
+            in oklab,
+            var(--database-entry-metadata-accent) 18%,
+            transparent
+          )
+          0%,
+        color-mix(
+            in oklab,
+            var(--database-entry-metadata-accent) 13%,
+            transparent
+          )
+          18%,
+        color-mix(
+            in oklab,
+            var(--database-entry-metadata-accent) 7%,
+            transparent
+          )
+          44%,
+        transparent 82%
+      ),
+      color-mix(in oklab, var(--color-base-content) 4%, transparent);
+    box-shadow: 0 0.5rem 1rem -1rem var(--database-entry-metadata-glow);
+    padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2)
+      calc(var(--spacing) * 1.5) calc(var(--spacing) * 2.5);
+  }
+
+  .database-entry-metadata__item::before {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: 0.25rem;
+    background-color: var(--database-entry-metadata-accent);
+    content: '';
   }
 
   .database-entry-metadata__item dd {
     margin: 0;
+    color: color-mix(
+      in oklab,
+      var(--database-entry-metadata-accent) 72%,
+      white 28%
+    );
+    font-size: 0.8125rem;
+    font-weight: 750;
+    line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -187,8 +246,52 @@
 
   .database-entry-metadata__item dt {
     margin: 0;
+    color: color-mix(
+      in oklab,
+      var(--database-entry-metadata-accent) 46%,
+      var(--color-base-content) 54%
+    );
+    font-size: 0.65625rem;
+    font-weight: 650;
+    line-height: 1.1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .database-entry-metadata__item--year {
+    --database-entry-metadata-accent: var(--ctp-mocha-blue);
+  }
+
+  .database-entry-metadata__item--anime-type {
+    --database-entry-metadata-accent: var(--ctp-mocha-mauve);
+  }
+
+  .database-entry-metadata__item--status-finished {
+    --database-entry-metadata-accent: var(--color-success);
+  }
+
+  .database-entry-metadata__item--status-ongoing {
+    --database-entry-metadata-accent: var(--color-warning);
+  }
+
+  .database-entry-metadata__item--status-upcoming {
+    --database-entry-metadata-accent: var(--color-info);
+  }
+
+  .database-entry-metadata__item--status-unknown {
+    --database-entry-metadata-accent: var(--color-base-content);
+  }
+
+  .database-entry-metadata__item--season {
+    --database-entry-metadata-accent: var(--ctp-mocha-sky);
+  }
+
+  .database-entry-metadata__item--episodes {
+    --database-entry-metadata-accent: var(--ctp-mocha-maroon);
+  }
+
+  .database-entry-metadata__item--duration {
+    --database-entry-metadata-accent: var(--ctp-mocha-flamingo);
   }
 </style>
