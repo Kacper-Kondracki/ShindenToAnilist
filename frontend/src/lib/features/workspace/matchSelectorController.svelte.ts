@@ -76,6 +76,15 @@ export function createMatchSelectorController(
   let hasResults = $derived(
     automaticResults.length > 0 || searchResults.length > 0
   );
+  let isSearchCurrent = $derived.by(() => {
+    const currentQuery = resolveSearchQuery(query);
+
+    if (searchState.status === 'idle') {
+      return currentQuery.length === 0;
+    }
+
+    return searchState.query === currentQuery;
+  });
   let conflictingWinnerIds = $derived.by(() => {
     const selectedEntryId = input.getSelectedEntry().id;
     const conflicts = new Set<number>();
@@ -217,6 +226,9 @@ export function createMatchSelectorController(
     },
     get hasResults() {
       return hasResults;
+    },
+    get isSearchCurrent() {
+      return isSearchCurrent;
     },
     get conflictingWinnerIds() {
       return conflictingWinnerIds;

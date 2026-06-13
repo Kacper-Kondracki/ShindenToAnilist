@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { flushSync, untrack } from 'svelte';
   import type {
     DatabaseEntry,
     MatchResult,
@@ -71,17 +71,22 @@
   $effect(() => {
     const pendingQuery = pendingSearchAlignmentQuery;
     const currentQuery = selector.query;
-    const resultSignature = getResultSignature();
+    const isSearchCurrent = selector.isSearchCurrent;
 
     if (
       pendingQuery === null ||
       pendingQuery !== currentQuery ||
+      !isSearchCurrent ||
       matchResultsElement === null
     ) {
       return;
     }
 
-    void alignSearchResultsAfterQueryInput(currentQuery, resultSignature);
+    const resultSignature = getResultSignature();
+
+    untrack(() =>
+      alignSearchResultsAfterQueryInput(currentQuery, resultSignature)
+    );
   });
 
   function handleQueryInput(event: Event) {
@@ -113,12 +118,10 @@
     return databaseId === selectedDatabaseEntryId ? 'matched' : 'neutral';
   }
 
-  async function alignSearchResultsAfterQueryInput(
+  function alignSearchResultsAfterQueryInput(
     query: string,
     resultSignature: string
   ) {
-    await tick();
-
     if (
       pendingSearchAlignmentQuery !== query ||
       selector.query !== query ||
@@ -129,18 +132,8 @@
     }
 
     if (selector.automaticResults.length === 0) {
-      searchAlignmentSpacerHeight = 0;
-      await tick();
-
-      if (
-        pendingSearchAlignmentQuery === query &&
-        selector.query === query &&
-        getResultSignature() === resultSignature &&
-        matchResultsElement !== null
-      ) {
-        matchResultsElement.scrollTop = 0;
-      }
-
+      setSearchAlignmentSpacerHeight(0);
+      matchResultsElement.scrollTop = 0;
       return;
     }
 
@@ -148,33 +141,20 @@
       return;
     }
 
-    searchAlignmentSpacerHeight = 0;
-    await tick();
-
-    if (
-      pendingSearchAlignmentQuery !== query ||
-      selector.query !== query ||
-      getResultSignature() !== resultSignature ||
-      matchResultsElement === null ||
-      searchResultsAnchorElement === null
-    ) {
-      return;
-    }
-
+    const currentSpacerHeight = searchAlignmentSpacerHeight;
     const targetScrollTop = getElementScrollTop(
       matchResultsElement,
       searchResultsAnchorElement
     );
-    const maximumScrollTop =
-      matchResultsElement.scrollHeight - matchResultsElement.clientHeight;
+    const maximumScrollTopWithoutSpacer =
+      matchResultsElement.scrollHeight -
+      currentSpacerHeight -
+      matchResultsElement.clientHeight;
     const nextSpacerHeight = Math.ceil(
-      Math.max(0, targetScrollTop - maximumScrollTop)
+      Math.max(0, targetScrollTop - maximumScrollTopWithoutSpacer)
     );
 
-    if (searchAlignmentSpacerHeight !== nextSpacerHeight) {
-      searchAlignmentSpacerHeight = nextSpacerHeight;
-      await tick();
-    }
+    setSearchAlignmentSpacerHeight(nextSpacerHeight);
 
     if (
       pendingSearchAlignmentQuery === query &&
@@ -188,6 +168,16 @@
         searchResultsAnchorElement
       );
     }
+  }
+
+  function setSearchAlignmentSpacerHeight(nextSpacerHeight: number) {
+    if (searchAlignmentSpacerHeight === nextSpacerHeight) {
+      return;
+    }
+
+    flushSync(() => {
+      searchAlignmentSpacerHeight = nextSpacerHeight;
+    });
   }
 
   function getElementScrollTop(container: HTMLElement, element: HTMLElement) {
