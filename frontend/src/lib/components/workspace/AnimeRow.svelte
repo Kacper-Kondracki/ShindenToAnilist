@@ -8,6 +8,8 @@
     translateWatchStatus
   } from '../../domain/animeView';
   import EntryRow from './EntryRow.svelte';
+  import RowMetadataBadges from './RowMetadataBadges.svelte';
+  import type { RowMetadataBadge } from './RowMetadataBadges.svelte';
 
   export type AnimeMatchStatus = 'matched' | 'review' | 'unmatched';
 
@@ -41,6 +43,15 @@
       ? 'Brak odc.'
       : `${entry.watchedEpisodes} / ${episodeCountText} odc.`
   );
+  let metadataItems = $derived<RowMetadataBadge[]>([
+    { label: formatPremiereYear(entry.premiereDate), tone: 'year' },
+    { label: translateAnimeType(entry.animeType), tone: 'anime-type' },
+    {
+      label: translateAnimeStatus(entry.animeStatus),
+      tone: 'status',
+      animeStatus: entry.animeStatus
+    }
+  ]);
 </script>
 
 <EntryRow
@@ -55,12 +66,7 @@
   {onSelect}
 >
   <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
-  <p class="truncate text-xs text-muted">
-    {formatPremiereYear(entry.premiereDate)} · {translateAnimeType(
-      entry.animeType
-    )}
-    · {translateAnimeStatus(entry.animeStatus)}
-  </p>
+  <RowMetadataBadges items={metadataItems} />
 
   {#snippet meta()}
     <span class="text-xs font-semibold">

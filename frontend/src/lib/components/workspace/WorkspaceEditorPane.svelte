@@ -1,21 +1,47 @@
 <script lang="ts">
   import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
+  import type { DatabaseEntry, ShindenMatchResult } from '../../domain/anime';
+  import type { MatchSelectorInitialSearch } from '../../features/workspace/matchSelectorController.svelte';
   import type { SelectedWinnerState } from '../../features/workspace/workspaceController.svelte';
+  import {
+    AnimeStatus,
+    AnimeType,
+    Season
+  } from '../../gen/shinden_to_anilist/v1/common_pb';
   import DatabaseEntryPreview from './DatabaseEntryPreview.svelte';
   import MatchSelector from './MatchSelector.svelte';
+
+  const placeholderDatabaseEntry = {
+    id: 0,
+    sources: [],
+    title: 'Placeholder database entry',
+    animeType: AnimeType.UNSPECIFIED,
+    episodes: 0,
+    status: AnimeStatus.UNSPECIFIED,
+    season: Season.UNSPECIFIED,
+    year: null,
+    picture: '',
+    thumbnail: '',
+    duration: null,
+    synonyms: []
+  } satisfies DatabaseEntry;
 
   let {
     animeData,
     selectedEntryId,
+    selectedMatchEntry,
     onSetManualOverride,
     onClearManualOverride,
     manualOverrides,
+    initialMatchSearch,
     selectedWinnerState
   }: {
     animeData: LoadedAnimeData;
     selectedEntryId: number | null;
+    selectedMatchEntry: ShindenMatchResult | null;
     selectedWinnerState: SelectedWinnerState;
     manualOverrides: Record<number, number>;
+    initialMatchSearch: MatchSelectorInitialSearch | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
   } = $props();
@@ -37,6 +63,13 @@
   let manualOverrideId = $derived(
     selectedEntryId === null ? null : (manualOverrides[selectedEntryId] ?? null)
   );
+  let automaticMatchResult = $derived(selectedMatchEntry?.result ?? null);
+  let previewEntry = $derived(
+    selectedWinnerState.status === 'ready'
+      ? selectedWinnerState.entry
+      : placeholderDatabaseEntry
+  );
+  let isPreviewPlaceholder = $derived(selectedWinnerState.status !== 'ready');
 </script>
 
 <section class="workspace-pane" aria-label="Editor">
@@ -50,22 +83,27 @@
         Nie znaleziono wpisu Shinden
       </p>
     {:else}
-      <div class="flex flex-col h-full">
-        <div class="min-h-0 flex-1">
+      <div class="editor-layout">
+        <div class="editor-layout__selector">
           {#key selectedShindenEntry.id}
             <MatchSelector
               selectedEntry={selectedShindenEntry}
               {selectedDatabaseEntryId}
               {manualOverrideId}
+              {automaticMatchResult}
+              initialSearch={initialMatchSearch}
               getDatabaseEntry={animeData.getDatabaseEntry}
               {onSetManualOverride}
               {onClearManualOverride}
             />
           {/key}
         </div>
-        {#if selectedWinnerState.status === 'ready'}
-          <DatabaseEntryPreview entry={selectedWinnerState.entry} />
-        {/if}
+        <div class="editor-layout__preview" aria-hidden={isPreviewPlaceholder}>
+          <DatabaseEntryPreview
+            entry={previewEntry}
+            placeholder={isPreviewPlaceholder}
+          />
+        </div>
       </div>
     {/if}
   </div>
@@ -84,8 +122,35 @@
     display: block;
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
     padding: 0;
+  }
+
+  .editor-layout {
+    display: grid;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    gap: calc(var(--spacing) * 3);
+    overflow: hidden;
+    padding: calc(var(--spacing) * 3);
+    grid-template-rows:
+      minmax(0, 1fr)
+      auto;
+  }
+
+  .editor-layout__selector {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .editor-layout__preview {
+    min-width: 0;
+    overflow: hidden;
   }
 
   .workspace-empty {

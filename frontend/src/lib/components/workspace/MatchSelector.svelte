@@ -1,12 +1,22 @@
 <script lang="ts">
-  import type { DatabaseEntry, ShindenEntry } from '../../domain/anime';
-  import { createMatchSelectorController } from '../../features/workspace/matchSelectorController.svelte';
+  import type {
+    DatabaseEntry,
+    MatchResult,
+    ShindenEntry
+  } from '../../domain/anime';
+  import { formatPercentageFromRatio } from '../../domain/animeView';
+  import {
+    createMatchSelectorController,
+    type MatchSelectorInitialSearch
+  } from '../../features/workspace/matchSelectorController.svelte';
   import DatabaseEntryRow from './DatabaseEntryRow.svelte';
 
   let {
     selectedEntry,
     selectedDatabaseEntryId,
     manualOverrideId,
+    automaticMatchResult,
+    initialSearch,
     getDatabaseEntry,
     onSetManualOverride,
     onClearManualOverride
@@ -14,6 +24,8 @@
     selectedEntry: ShindenEntry;
     selectedDatabaseEntryId: number | null;
     manualOverrideId: number | null;
+    automaticMatchResult: MatchResult | null;
+    initialSearch: MatchSelectorInitialSearch | null;
     getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
@@ -22,6 +34,8 @@
   const selector = createMatchSelectorController({
     getSelectedEntry: () => selectedEntry,
     getDatabaseEntry: (entryId) => getDatabaseEntry(entryId),
+    getAutomaticMatchResult: () => automaticMatchResult,
+    getInitialSearch: () => initialSearch,
     setManualOverride: (shindenId, databaseId) =>
       onSetManualOverride(shindenId, databaseId),
     clearManualOverride: (shindenId) => onClearManualOverride(shindenId)
@@ -32,7 +46,7 @@
   }
 
   function formatMatchScore(score: number) {
-    return `${Math.round(score * 100)}%`;
+    return formatPercentageFromRatio(score);
   }
 </script>
 
@@ -45,26 +59,37 @@
       value={selector.query}
       oninput={handleQueryInput}
     />
-    {#if manualOverrideId !== null}
-      <button
-        type="button"
-        class="btn btn-ghost btn-sm"
-        onclick={selector.clearManualOverride}
-      >
-        Wyczyść ręczny wybór
-      </button>
-    {/if}
+    <button
+      type="button"
+      class="btn btn-primary btn-soft border-0 btn-square btn-sm clear-manual-override-button"
+      aria-label="Wyczyść ręczny wybór"
+      title="Wyczyść ręczny wybór"
+      disabled={manualOverrideId === null}
+      onclick={selector.clearManualOverride}
+    >
+      <span aria-hidden="true" class="icon-[lucide--rotate-ccw] size-4"></span>
+    </button>
   </div>
   <div class="search-content">
-    {#if selector.errorMessage !== null}
-      <p class="search-message text-sm font-medium text-error">
-        {selector.errorMessage}
-      </p>
-    {:else if selector.results.length === 0}
-      <p class="search-message text-sm font-medium text-muted">Brak wyników</p>
-    {:else}
-      <ul class="match-results overflow-y-auto" aria-label="Wyniki dopasowania">
-        {#each selector.results as result (result.id)}
+    {#if selector.hasResults}
+      <ul class="match-results" aria-label="Wyniki dopasowania">
+        {#each selector.automaticResults as result (result.id)}
+          <li class="match-result">
+            <DatabaseEntryRow
+              entry={result.entry}
+              scoreLabel={formatMatchScore(result.score)}
+              isSelected={result.id === selectedDatabaseEntryId}
+              showIndicator={true}
+              rounded={true}
+              compact={true}
+              onSelect={() => selector.applyManualOverride(result.id)}
+            />
+          </li>
+        {/each}
+        {#if selector.automaticResults.length > 0 && selector.searchResults.length > 0}
+          <li class="match-results-separator" aria-hidden="true"></li>
+        {/if}
+        {#each selector.searchResults as result (result.id)}
           <li class="match-result">
             <DatabaseEntryRow
               entry={result.entry}
@@ -78,18 +103,33 @@
           </li>
         {/each}
       </ul>
+    {:else if selector.errorMessage !== null}
+      <p class="search-message text-sm font-medium text-error">
+        {selector.errorMessage}
+      </p>
+    {:else}
+      <p class="search-message text-sm font-medium text-muted">Brak wyników</p>
     {/if}
   </div>
 </div>
 
 <style>
   .match-selector {
+    --match-selector-panel-bg: var(--color-base-200);
+    --match-selector-border-color: color-mix(
+      in oklab,
+      var(--color-base-content) 12%,
+      transparent
+    );
+
     display: flex;
+    width: 100%;
+    max-width: 100%;
     height: 100%;
+    min-width: 0;
     min-height: 0;
+    overflow: hidden;
     flex-direction: column;
-    gap: calc(var(--spacing) * 3);
-    padding: calc(var(--spacing) * 3);
   }
   .search-input {
     min-width: 0;
@@ -97,28 +137,54 @@
   }
   .search-box {
     display: flex;
+    min-width: 0;
     flex: 0 0 auto;
     align-items: center;
     gap: calc(var(--spacing) * 2);
+    border: var(--border) solid var(--match-selector-border-color);
+    border-bottom: 0;
+    border-radius: var(--radius-box) var(--radius-box) 0 0;
+    background-color: var(--match-selector-panel-bg);
+    padding: calc(var(--spacing) * 2);
+  }
+
+  .clear-manual-override-button {
+    flex: 0 0 auto;
   }
   .search-content {
+    flex: 1 1 auto;
+    min-width: 0;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
+    border: var(--border) solid var(--match-selector-border-color);
+    border-radius: 0 0 var(--radius-box) var(--radius-box);
+    background-color: var(--match-selector-panel-bg);
   }
 
   .search-message {
-    padding: calc(var(--spacing) * 2) calc(var(--spacing) * 1);
+    padding: calc(var(--spacing) * 3);
   }
 
   .match-results {
     display: flex;
+    box-sizing: border-box;
+    height: 100%;
+    min-width: 0;
     flex-direction: column;
     margin: 0;
-    padding: 0;
+    padding: calc(var(--spacing) * 1);
+    overflow-y: auto;
     list-style: none;
+    scrollbar-color: var(--color-primary) var(--match-selector-panel-bg);
   }
 
   .match-result {
     min-width: 0;
+  }
+
+  .match-results-separator {
+    min-width: 0;
+    margin: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
+    border-top: var(--border) solid var(--match-selector-border-color);
   }
 </style>

@@ -126,6 +126,7 @@ message FuzzySearchResponse {
 message FuzzyMatchRequest {
   string query = 1;
   SearchOptions options = 2;
+  optional uint64 shinden_id = 3;
 }
 message FuzzyMatchResponse {
   uint64 database_version = 1;

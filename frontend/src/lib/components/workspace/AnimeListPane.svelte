@@ -26,7 +26,7 @@
     animeData: LoadedAnimeData;
     matchResult: MatchListResult | null;
     selectedEntryId: number | null;
-    onSelectEntry: (entryId: number) => void;
+    onSelectEntry: (entryId: number) => void | Promise<void>;
   } = $props();
 
   const listPane = createAnimeListPaneController({
@@ -37,6 +37,10 @@
 
   function handleListScroll() {
     listPane.handleScroll();
+  }
+
+  function handleSelectEntry(entryId: number) {
+    void onSelectEntry(entryId);
   }
 
   function getLoadedShindenEntry(entryId: number): ShindenEntry {
@@ -72,7 +76,7 @@
             entry={getLoadedShindenEntry(entryId)}
             matchStatus={listPane.matchStatuses.get(entryId) ?? 'unmatched'}
             isSelected={entryId === selectedEntryId}
-            onSelect={() => onSelectEntry(entryId)}
+            onSelect={() => handleSelectEntry(entryId)}
           />
         {/snippet}
       </VList>

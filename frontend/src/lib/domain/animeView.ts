@@ -69,7 +69,23 @@ export function formatEpisodeDuration(duration: number | null) {
     return missingValueText;
   }
 
-  return `${duration / 60} min`;
+  return `${Math.ceil(duration / 60)} min`;
+}
+
+export function percentageFromRatio(ratio: number) {
+  if (!Number.isFinite(ratio) || ratio <= 0) {
+    return 0;
+  }
+
+  if (ratio >= 1) {
+    return 100;
+  }
+
+  return Math.min(99, Math.round(ratio * 100));
+}
+
+export function formatPercentageFromRatio(ratio: number) {
+  return `${percentageFromRatio(ratio)}%`;
 }
 
 export function translateAnimeType(animeType: AnimeType) {

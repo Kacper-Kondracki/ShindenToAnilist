@@ -1,4 +1,5 @@
 import type { MatchListResult } from '../../domain/anime';
+import { percentageFromRatio } from '../../domain/animeView';
 import type { ExportState } from './workspaceController.svelte';
 
 export type WorkspaceStatusSummary = {
@@ -47,7 +48,7 @@ export function buildWorkspaceStatusSummary(
     reviewCount,
     matchedPercentage:
       totalCount > 0
-        ? Math.round((automaticallyMatchedCount / totalCount) * 100)
+        ? percentageFromRatio(automaticallyMatchedCount / totalCount)
         : 0
   };
 }

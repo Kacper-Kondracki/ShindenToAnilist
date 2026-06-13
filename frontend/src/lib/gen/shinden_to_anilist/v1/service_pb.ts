@@ -22,7 +22,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shinden_to_anilist/v1/service.proto.
  */
 export const file_shinden_to_anilist_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("CiNzaGluZGVuX3RvX2FuaWxpc3QvdjEvc2VydmljZS5wcm90bxIVc2hpbmRlbl90b19hbmlsaXN0LnYxIiUKF0ZldGNoU2hpbmRlbkxpc3RSZXF1ZXN0EgoKAmlkGAEgASgEIjMKGEZldGNoU2hpbmRlbkxpc3RSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQiUwoUR2V0U2hpbmRlbklkc1JlcXVlc3QSOwoJc29ydGVkX2J5GAEgASgOMiguc2hpbmRlbl90b19hbmlsaXN0LnYxLkFuaW1lTGlzdFNvcnRlZEJ5Ij0KFUdldFNoaW5kZW5JZHNSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSCwoDaWRzGAIgAygEIicKGEdldFNoaW5kZW5FbnRyaWVzUmVxdWVzdBILCgNpZHMYASADKAQiagoZR2V0U2hpbmRlbkVudHJpZXNSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSNAoHZW50cmllcxgCIAMoCzIjLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TaGluZGVuRW50cnkiFwoVR2V0U2hpbmRlbkZ1bGxSZXF1ZXN0ImcKFkdldFNoaW5kZW5GdWxsUmVzcG9uc2USFwoPc2hpbmRlbl92ZXJzaW9uGAEgASgEEjQKB2VudHJpZXMYAiADKAsyIy5zaGluZGVuX3RvX2FuaWxpc3QudjEuU2hpbmRlbkVudHJ5IioKGkNoZWNrRGF0YWJhc2VVcGRhdGVSZXF1ZXN0EgwKBHBhdGgYASABKAkiWQobQ2hlY2tEYXRhYmFzZVVwZGF0ZVJlc3BvbnNlEjoKBnN0YXR1cxgBIAEoCzIqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5EYXRhYmFzZVVwZGF0ZUNoZWNrIicKF0Rvd25sb2FkRGF0YWJhc2VSZXF1ZXN0EgwKBHBhdGgYASABKAkiVgoYRG93bmxvYWREYXRhYmFzZVJlc3BvbnNlEjoKBnN0YXR1cxgBIAEoCzIqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5EYXRhYmFzZVJlbGVhc2VJbmZvIiMKE0xvYWREYXRhYmFzZVJlcXVlc3QSDAoEcGF0aBgBIAEoCSIwChRMb2FkRGF0YWJhc2VSZXNwb25zZRIYChBkYXRhYmFzZV92ZXJzaW9uGAEgASgEIioKGkdldERhdGFiYXNlTWV0YWRhdGFSZXF1ZXN0EgwKBHBhdGgYASABKAkiWAobR2V0RGF0YWJhc2VNZXRhZGF0YVJlc3BvbnNlEjkKCG1ldGFkYXRhGAEgASgLMicuc2hpbmRlbl90b19hbmlsaXN0LnYxLkRhdGFiYXNlTWV0YWRhdGEiKAoZR2V0RGF0YWJhc2VFbnRyaWVzUmVxdWVzdBILCgNpZHMYASADKAQibQoaR2V0RGF0YWJhc2VFbnRyaWVzUmVzcG9uc2USGAoQZGF0YWJhc2VfdmVyc2lvbhgBIAEoBBI1CgdlbnRyaWVzGAIgAygLMiQuc2hpbmRlbl90b19hbmlsaXN0LnYxLkRhdGFiYXNlRW50cnkiGAoWR2V0RGF0YWJhc2VGdWxsUmVxdWVzdCJqChdHZXREYXRhYmFzZUZ1bGxSZXNwb25zZRIYChBkYXRhYmFzZV92ZXJzaW9uGAEgASgEEjUKB2VudHJpZXMYAiADKAsyJC5zaGluZGVuX3RvX2FuaWxpc3QudjEuRGF0YWJhc2VFbnRyeSJaChJGdXp6eVNlYXJjaFJlcXVlc3QSDQoFcXVlcnkYASABKAkSNQoHb3B0aW9ucxgCIAEoCzIkLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TZWFyY2hPcHRpb25zImUKE0Z1enp5U2VhcmNoUmVzcG9uc2USGAoQZGF0YWJhc2VfdmVyc2lvbhgBIAEoBBI0CgdyZXN1bHRzGAIgAygLMiMuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNlYXJjaFJlc3VsdCJZChFGdXp6eU1hdGNoUmVxdWVzdBINCgVxdWVyeRgBIAEoCRI1CgdvcHRpb25zGAIgASgLMiQuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNlYXJjaE9wdGlvbnMiYwoSRnV6enlNYXRjaFJlc3BvbnNlEhgKEGRhdGFiYXNlX3ZlcnNpb24YASABKAQSMwoHcmVzdWx0cxgCIAMoCzIiLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFJlc3VsdCJQChdNYXRjaFNoaW5kZW5MaXN0UmVxdWVzdBI1CgdvcHRpb25zGAEgASgLMiQuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNlYXJjaE9wdGlvbnMiiQEKGE1hdGNoU2hpbmRlbkxpc3RSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSGAoQZGF0YWJhc2VfdmVyc2lvbhgCIAEoBBI6CgdyZXN1bHRzGAMgAygLMikuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNoaW5kZW5NYXRjaFJlc3VsdCJVChBFeHBvcnRYbWxSZXF1ZXN0EjMKB21hdGNoZXMYASADKAsyIi5zaGluZGVuX3RvX2FuaWxpc3QudjEuQW5pbWVJZFBhaXISDAoEcGF0aBgCIAEoCSI6ChFFeHBvcnRYbWxSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSDAoEcGF0aBgCIAEoCTLMDAoXU2hpbmRlblRvQW5pbGlzdFNlcnZpY2UScwoQRmV0Y2hTaGluZGVuTGlzdBIuLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GZXRjaFNoaW5kZW5MaXN0UmVxdWVzdBovLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GZXRjaFNoaW5kZW5MaXN0UmVzcG9uc2USagoNR2V0U2hpbmRlbklkcxIrLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTaGluZGVuSWRzUmVxdWVzdBosLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTaGluZGVuSWRzUmVzcG9uc2USdgoRR2V0U2hpbmRlbkVudHJpZXMSLy5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U2hpbmRlbkVudHJpZXNSZXF1ZXN0GjAuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNoaW5kZW5FbnRyaWVzUmVzcG9uc2USbwoOR2V0U2hpbmRlbkZ1bGwSLC5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U2hpbmRlbkZ1bGxSZXF1ZXN0Gi0uc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNoaW5kZW5GdWxsUmVzcG9uc2UwARJ8ChNDaGVja0RhdGFiYXNlVXBkYXRlEjEuc2hpbmRlbl90b19hbmlsaXN0LnYxLkNoZWNrRGF0YWJhc2VVcGRhdGVSZXF1ZXN0GjIuc2hpbmRlbl90b19hbmlsaXN0LnYxLkNoZWNrRGF0YWJhc2VVcGRhdGVSZXNwb25zZRJzChBEb3dubG9hZERhdGFiYXNlEi4uc2hpbmRlbl90b19hbmlsaXN0LnYxLkRvd25sb2FkRGF0YWJhc2VSZXF1ZXN0Gi8uc2hpbmRlbl90b19hbmlsaXN0LnYxLkRvd25sb2FkRGF0YWJhc2VSZXNwb25zZRJnCgxMb2FkRGF0YWJhc2USKi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTG9hZERhdGFiYXNlUmVxdWVzdBorLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5Mb2FkRGF0YWJhc2VSZXNwb25zZRJ8ChNHZXREYXRhYmFzZU1ldGFkYXRhEjEuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldERhdGFiYXNlTWV0YWRhdGFSZXF1ZXN0GjIuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldERhdGFiYXNlTWV0YWRhdGFSZXNwb25zZRJ5ChJHZXREYXRhYmFzZUVudHJpZXMSMC5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VFbnRyaWVzUmVxdWVzdBoxLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUVudHJpZXNSZXNwb25zZRJyCg9HZXREYXRhYmFzZUZ1bGwSLS5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VGdWxsUmVxdWVzdBouLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUZ1bGxSZXNwb25zZTABEmQKC0Z1enp5U2VhcmNoEikuc2hpbmRlbl90b19hbmlsaXN0LnYxLkZ1enp5U2VhcmNoUmVxdWVzdBoqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GdXp6eVNlYXJjaFJlc3BvbnNlEmEKCkZ1enp5TWF0Y2gSKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuRnV6enlNYXRjaFJlcXVlc3QaKS5zaGluZGVuX3RvX2FuaWxpc3QudjEuRnV6enlNYXRjaFJlc3BvbnNlEnUKEE1hdGNoU2hpbmRlbkxpc3QSLi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTWF0Y2hTaGluZGVuTGlzdFJlcXVlc3QaLy5zaGluZGVuX3RvX2FuaWxpc3QudjEuTWF0Y2hTaGluZGVuTGlzdFJlc3BvbnNlMAESXgoJRXhwb3J0WG1sEicuc2hpbmRlbl90b19hbmlsaXN0LnYxLkV4cG9ydFhtbFJlcXVlc3QaKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuRXhwb3J0WG1sUmVzcG9uc2ViBnByb3RvMw", [file_shinden_to_anilist_v1_common, file_shinden_to_anilist_v1_database, file_shinden_to_anilist_v1_export, file_shinden_to_anilist_v1_matching, file_shinden_to_anilist_v1_search, file_shinden_to_anilist_v1_shinden]);
+  fileDesc("CiNzaGluZGVuX3RvX2FuaWxpc3QvdjEvc2VydmljZS5wcm90bxIVc2hpbmRlbl90b19hbmlsaXN0LnYxIiUKF0ZldGNoU2hpbmRlbkxpc3RSZXF1ZXN0EgoKAmlkGAEgASgEIjMKGEZldGNoU2hpbmRlbkxpc3RSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQiUwoUR2V0U2hpbmRlbklkc1JlcXVlc3QSOwoJc29ydGVkX2J5GAEgASgOMiguc2hpbmRlbl90b19hbmlsaXN0LnYxLkFuaW1lTGlzdFNvcnRlZEJ5Ij0KFUdldFNoaW5kZW5JZHNSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSCwoDaWRzGAIgAygEIicKGEdldFNoaW5kZW5FbnRyaWVzUmVxdWVzdBILCgNpZHMYASADKAQiagoZR2V0U2hpbmRlbkVudHJpZXNSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSNAoHZW50cmllcxgCIAMoCzIjLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TaGluZGVuRW50cnkiFwoVR2V0U2hpbmRlbkZ1bGxSZXF1ZXN0ImcKFkdldFNoaW5kZW5GdWxsUmVzcG9uc2USFwoPc2hpbmRlbl92ZXJzaW9uGAEgASgEEjQKB2VudHJpZXMYAiADKAsyIy5zaGluZGVuX3RvX2FuaWxpc3QudjEuU2hpbmRlbkVudHJ5IioKGkNoZWNrRGF0YWJhc2VVcGRhdGVSZXF1ZXN0EgwKBHBhdGgYASABKAkiWQobQ2hlY2tEYXRhYmFzZVVwZGF0ZVJlc3BvbnNlEjoKBnN0YXR1cxgBIAEoCzIqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5EYXRhYmFzZVVwZGF0ZUNoZWNrIicKF0Rvd25sb2FkRGF0YWJhc2VSZXF1ZXN0EgwKBHBhdGgYASABKAkiVgoYRG93bmxvYWREYXRhYmFzZVJlc3BvbnNlEjoKBnN0YXR1cxgBIAEoCzIqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5EYXRhYmFzZVJlbGVhc2VJbmZvIiMKE0xvYWREYXRhYmFzZVJlcXVlc3QSDAoEcGF0aBgBIAEoCSIwChRMb2FkRGF0YWJhc2VSZXNwb25zZRIYChBkYXRhYmFzZV92ZXJzaW9uGAEgASgEIioKGkdldERhdGFiYXNlTWV0YWRhdGFSZXF1ZXN0EgwKBHBhdGgYASABKAkiWAobR2V0RGF0YWJhc2VNZXRhZGF0YVJlc3BvbnNlEjkKCG1ldGFkYXRhGAEgASgLMicuc2hpbmRlbl90b19hbmlsaXN0LnYxLkRhdGFiYXNlTWV0YWRhdGEiVAoVR2V0RGF0YWJhc2VJZHNSZXF1ZXN0EjsKCXNvcnRlZF9ieRgBIAEoDjIoLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5BbmltZUxpc3RTb3J0ZWRCeSI/ChZHZXREYXRhYmFzZUlkc1Jlc3BvbnNlEhgKEGRhdGFiYXNlX3ZlcnNpb24YASABKAQSCwoDaWRzGAIgAygEIigKGUdldERhdGFiYXNlRW50cmllc1JlcXVlc3QSCwoDaWRzGAEgAygEIm0KGkdldERhdGFiYXNlRW50cmllc1Jlc3BvbnNlEhgKEGRhdGFiYXNlX3ZlcnNpb24YASABKAQSNQoHZW50cmllcxgCIAMoCzIkLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5EYXRhYmFzZUVudHJ5IhgKFkdldERhdGFiYXNlRnVsbFJlcXVlc3QiagoXR2V0RGF0YWJhc2VGdWxsUmVzcG9uc2USGAoQZGF0YWJhc2VfdmVyc2lvbhgBIAEoBBI1CgdlbnRyaWVzGAIgAygLMiQuc2hpbmRlbl90b19hbmlsaXN0LnYxLkRhdGFiYXNlRW50cnkiWgoSRnV6enlTZWFyY2hSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEjUKB29wdGlvbnMYAiABKAsyJC5zaGluZGVuX3RvX2FuaWxpc3QudjEuU2VhcmNoT3B0aW9ucyJlChNGdXp6eVNlYXJjaFJlc3BvbnNlEhgKEGRhdGFiYXNlX3ZlcnNpb24YASABKAQSNAoHcmVzdWx0cxgCIAMoCzIjLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TZWFyY2hSZXN1bHQigQEKEUZ1enp5TWF0Y2hSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEjUKB29wdGlvbnMYAiABKAsyJC5zaGluZGVuX3RvX2FuaWxpc3QudjEuU2VhcmNoT3B0aW9ucxIXCgpzaGluZGVuX2lkGAMgASgESACIAQFCDQoLX3NoaW5kZW5faWQiYwoSRnV6enlNYXRjaFJlc3BvbnNlEhgKEGRhdGFiYXNlX3ZlcnNpb24YASABKAQSMwoHcmVzdWx0cxgCIAMoCzIiLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFJlc3VsdCJQChdNYXRjaFNoaW5kZW5MaXN0UmVxdWVzdBI1CgdvcHRpb25zGAEgASgLMiQuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNlYXJjaE9wdGlvbnMiiQEKGE1hdGNoU2hpbmRlbkxpc3RSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSGAoQZGF0YWJhc2VfdmVyc2lvbhgCIAEoBBI6CgdyZXN1bHRzGAMgAygLMikuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNoaW5kZW5NYXRjaFJlc3VsdCJVChBFeHBvcnRYbWxSZXF1ZXN0EjMKB21hdGNoZXMYASADKAsyIi5zaGluZGVuX3RvX2FuaWxpc3QudjEuQW5pbWVJZFBhaXISDAoEcGF0aBgCIAEoCSI6ChFFeHBvcnRYbWxSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSDAoEcGF0aBgCIAEoCTK7DQoXU2hpbmRlblRvQW5pbGlzdFNlcnZpY2UScwoQRmV0Y2hTaGluZGVuTGlzdBIuLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GZXRjaFNoaW5kZW5MaXN0UmVxdWVzdBovLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GZXRjaFNoaW5kZW5MaXN0UmVzcG9uc2USagoNR2V0U2hpbmRlbklkcxIrLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTaGluZGVuSWRzUmVxdWVzdBosLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTaGluZGVuSWRzUmVzcG9uc2USdgoRR2V0U2hpbmRlbkVudHJpZXMSLy5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U2hpbmRlbkVudHJpZXNSZXF1ZXN0GjAuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNoaW5kZW5FbnRyaWVzUmVzcG9uc2USbwoOR2V0U2hpbmRlbkZ1bGwSLC5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U2hpbmRlbkZ1bGxSZXF1ZXN0Gi0uc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNoaW5kZW5GdWxsUmVzcG9uc2UwARJ8ChNDaGVja0RhdGFiYXNlVXBkYXRlEjEuc2hpbmRlbl90b19hbmlsaXN0LnYxLkNoZWNrRGF0YWJhc2VVcGRhdGVSZXF1ZXN0GjIuc2hpbmRlbl90b19hbmlsaXN0LnYxLkNoZWNrRGF0YWJhc2VVcGRhdGVSZXNwb25zZRJzChBEb3dubG9hZERhdGFiYXNlEi4uc2hpbmRlbl90b19hbmlsaXN0LnYxLkRvd25sb2FkRGF0YWJhc2VSZXF1ZXN0Gi8uc2hpbmRlbl90b19hbmlsaXN0LnYxLkRvd25sb2FkRGF0YWJhc2VSZXNwb25zZRJnCgxMb2FkRGF0YWJhc2USKi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTG9hZERhdGFiYXNlUmVxdWVzdBorLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5Mb2FkRGF0YWJhc2VSZXNwb25zZRJ8ChNHZXREYXRhYmFzZU1ldGFkYXRhEjEuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldERhdGFiYXNlTWV0YWRhdGFSZXF1ZXN0GjIuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldERhdGFiYXNlTWV0YWRhdGFSZXNwb25zZRJtCg5HZXREYXRhYmFzZUlkcxIsLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUlkc1JlcXVlc3QaLS5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VJZHNSZXNwb25zZRJ5ChJHZXREYXRhYmFzZUVudHJpZXMSMC5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VFbnRyaWVzUmVxdWVzdBoxLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUVudHJpZXNSZXNwb25zZRJyCg9HZXREYXRhYmFzZUZ1bGwSLS5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VGdWxsUmVxdWVzdBouLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUZ1bGxSZXNwb25zZTABEmQKC0Z1enp5U2VhcmNoEikuc2hpbmRlbl90b19hbmlsaXN0LnYxLkZ1enp5U2VhcmNoUmVxdWVzdBoqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GdXp6eVNlYXJjaFJlc3BvbnNlEmEKCkZ1enp5TWF0Y2gSKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuRnV6enlNYXRjaFJlcXVlc3QaKS5zaGluZGVuX3RvX2FuaWxpc3QudjEuRnV6enlNYXRjaFJlc3BvbnNlEnUKEE1hdGNoU2hpbmRlbkxpc3QSLi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTWF0Y2hTaGluZGVuTGlzdFJlcXVlc3QaLy5zaGluZGVuX3RvX2FuaWxpc3QudjEuTWF0Y2hTaGluZGVuTGlzdFJlc3BvbnNlMAESXgoJRXhwb3J0WG1sEicuc2hpbmRlbl90b19hbmlsaXN0LnYxLkV4cG9ydFhtbFJlcXVlc3QaKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuRXhwb3J0WG1sUmVzcG9uc2ViBnByb3RvMw", [file_shinden_to_anilist_v1_common, file_shinden_to_anilist_v1_database, file_shinden_to_anilist_v1_export, file_shinden_to_anilist_v1_matching, file_shinden_to_anilist_v1_search, file_shinden_to_anilist_v1_shinden]);
 
 /**
  * @generated from message shinden_to_anilist.v1.FetchShindenListRequest
@@ -308,6 +308,45 @@ export const GetDatabaseMetadataResponseSchema: GenMessage<GetDatabaseMetadataRe
   messageDesc(file_shinden_to_anilist_v1_service, 15);
 
 /**
+ * @generated from message shinden_to_anilist.v1.GetDatabaseIdsRequest
+ */
+export type GetDatabaseIdsRequest = Message<"shinden_to_anilist.v1.GetDatabaseIdsRequest"> & {
+  /**
+   * @generated from field: shinden_to_anilist.v1.AnimeListSortedBy sorted_by = 1;
+   */
+  sortedBy: AnimeListSortedBy;
+};
+
+/**
+ * Describes the message shinden_to_anilist.v1.GetDatabaseIdsRequest.
+ * Use `create(GetDatabaseIdsRequestSchema)` to create a new message.
+ */
+export const GetDatabaseIdsRequestSchema: GenMessage<GetDatabaseIdsRequest> = /*@__PURE__*/
+  messageDesc(file_shinden_to_anilist_v1_service, 16);
+
+/**
+ * @generated from message shinden_to_anilist.v1.GetDatabaseIdsResponse
+ */
+export type GetDatabaseIdsResponse = Message<"shinden_to_anilist.v1.GetDatabaseIdsResponse"> & {
+  /**
+   * @generated from field: uint64 database_version = 1;
+   */
+  databaseVersion: bigint;
+
+  /**
+   * @generated from field: repeated uint64 ids = 2;
+   */
+  ids: bigint[];
+};
+
+/**
+ * Describes the message shinden_to_anilist.v1.GetDatabaseIdsResponse.
+ * Use `create(GetDatabaseIdsResponseSchema)` to create a new message.
+ */
+export const GetDatabaseIdsResponseSchema: GenMessage<GetDatabaseIdsResponse> = /*@__PURE__*/
+  messageDesc(file_shinden_to_anilist_v1_service, 17);
+
+/**
  * @generated from message shinden_to_anilist.v1.GetDatabaseEntriesRequest
  */
 export type GetDatabaseEntriesRequest = Message<"shinden_to_anilist.v1.GetDatabaseEntriesRequest"> & {
@@ -322,7 +361,7 @@ export type GetDatabaseEntriesRequest = Message<"shinden_to_anilist.v1.GetDataba
  * Use `create(GetDatabaseEntriesRequestSchema)` to create a new message.
  */
 export const GetDatabaseEntriesRequestSchema: GenMessage<GetDatabaseEntriesRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 16);
+  messageDesc(file_shinden_to_anilist_v1_service, 18);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseEntriesResponse
@@ -344,7 +383,7 @@ export type GetDatabaseEntriesResponse = Message<"shinden_to_anilist.v1.GetDatab
  * Use `create(GetDatabaseEntriesResponseSchema)` to create a new message.
  */
 export const GetDatabaseEntriesResponseSchema: GenMessage<GetDatabaseEntriesResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 17);
+  messageDesc(file_shinden_to_anilist_v1_service, 19);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseFullRequest
@@ -357,7 +396,7 @@ export type GetDatabaseFullRequest = Message<"shinden_to_anilist.v1.GetDatabaseF
  * Use `create(GetDatabaseFullRequestSchema)` to create a new message.
  */
 export const GetDatabaseFullRequestSchema: GenMessage<GetDatabaseFullRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 18);
+  messageDesc(file_shinden_to_anilist_v1_service, 20);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseFullResponse
@@ -379,7 +418,7 @@ export type GetDatabaseFullResponse = Message<"shinden_to_anilist.v1.GetDatabase
  * Use `create(GetDatabaseFullResponseSchema)` to create a new message.
  */
 export const GetDatabaseFullResponseSchema: GenMessage<GetDatabaseFullResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 19);
+  messageDesc(file_shinden_to_anilist_v1_service, 21);
 
 /**
  * @generated from message shinden_to_anilist.v1.FuzzySearchRequest
@@ -401,7 +440,7 @@ export type FuzzySearchRequest = Message<"shinden_to_anilist.v1.FuzzySearchReque
  * Use `create(FuzzySearchRequestSchema)` to create a new message.
  */
 export const FuzzySearchRequestSchema: GenMessage<FuzzySearchRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 20);
+  messageDesc(file_shinden_to_anilist_v1_service, 22);
 
 /**
  * @generated from message shinden_to_anilist.v1.FuzzySearchResponse
@@ -423,7 +462,7 @@ export type FuzzySearchResponse = Message<"shinden_to_anilist.v1.FuzzySearchResp
  * Use `create(FuzzySearchResponseSchema)` to create a new message.
  */
 export const FuzzySearchResponseSchema: GenMessage<FuzzySearchResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 21);
+  messageDesc(file_shinden_to_anilist_v1_service, 23);
 
 /**
  * @generated from message shinden_to_anilist.v1.FuzzyMatchRequest
@@ -438,6 +477,11 @@ export type FuzzyMatchRequest = Message<"shinden_to_anilist.v1.FuzzyMatchRequest
    * @generated from field: shinden_to_anilist.v1.SearchOptions options = 2;
    */
   options?: SearchOptions | undefined;
+
+  /**
+   * @generated from field: optional uint64 shinden_id = 3;
+   */
+  shindenId?: bigint | undefined;
 };
 
 /**
@@ -445,7 +489,7 @@ export type FuzzyMatchRequest = Message<"shinden_to_anilist.v1.FuzzyMatchRequest
  * Use `create(FuzzyMatchRequestSchema)` to create a new message.
  */
 export const FuzzyMatchRequestSchema: GenMessage<FuzzyMatchRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 22);
+  messageDesc(file_shinden_to_anilist_v1_service, 24);
 
 /**
  * @generated from message shinden_to_anilist.v1.FuzzyMatchResponse
@@ -467,7 +511,7 @@ export type FuzzyMatchResponse = Message<"shinden_to_anilist.v1.FuzzyMatchRespon
  * Use `create(FuzzyMatchResponseSchema)` to create a new message.
  */
 export const FuzzyMatchResponseSchema: GenMessage<FuzzyMatchResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 23);
+  messageDesc(file_shinden_to_anilist_v1_service, 25);
 
 /**
  * @generated from message shinden_to_anilist.v1.MatchShindenListRequest
@@ -484,7 +528,7 @@ export type MatchShindenListRequest = Message<"shinden_to_anilist.v1.MatchShinde
  * Use `create(MatchShindenListRequestSchema)` to create a new message.
  */
 export const MatchShindenListRequestSchema: GenMessage<MatchShindenListRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 24);
+  messageDesc(file_shinden_to_anilist_v1_service, 26);
 
 /**
  * @generated from message shinden_to_anilist.v1.MatchShindenListResponse
@@ -511,7 +555,7 @@ export type MatchShindenListResponse = Message<"shinden_to_anilist.v1.MatchShind
  * Use `create(MatchShindenListResponseSchema)` to create a new message.
  */
 export const MatchShindenListResponseSchema: GenMessage<MatchShindenListResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 25);
+  messageDesc(file_shinden_to_anilist_v1_service, 27);
 
 /**
  * @generated from message shinden_to_anilist.v1.ExportXmlRequest
@@ -533,7 +577,7 @@ export type ExportXmlRequest = Message<"shinden_to_anilist.v1.ExportXmlRequest">
  * Use `create(ExportXmlRequestSchema)` to create a new message.
  */
 export const ExportXmlRequestSchema: GenMessage<ExportXmlRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 26);
+  messageDesc(file_shinden_to_anilist_v1_service, 28);
 
 /**
  * @generated from message shinden_to_anilist.v1.ExportXmlResponse
@@ -555,7 +599,7 @@ export type ExportXmlResponse = Message<"shinden_to_anilist.v1.ExportXmlResponse
  * Use `create(ExportXmlResponseSchema)` to create a new message.
  */
 export const ExportXmlResponseSchema: GenMessage<ExportXmlResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 27);
+  messageDesc(file_shinden_to_anilist_v1_service, 29);
 
 /**
  * @generated from service shinden_to_anilist.v1.ShindenToAnilistService
@@ -624,6 +668,14 @@ export const ShindenToAnilistService: GenService<{
     methodKind: "unary";
     input: typeof GetDatabaseMetadataRequestSchema;
     output: typeof GetDatabaseMetadataResponseSchema;
+  },
+  /**
+   * @generated from rpc shinden_to_anilist.v1.ShindenToAnilistService.GetDatabaseIds
+   */
+  getDatabaseIds: {
+    methodKind: "unary";
+    input: typeof GetDatabaseIdsRequestSchema;
+    output: typeof GetDatabaseIdsResponseSchema;
   },
   /**
    * @generated from rpc shinden_to_anilist.v1.ShindenToAnilistService.GetDatabaseEntries

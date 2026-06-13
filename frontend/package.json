@@ -22,6 +22,8 @@
     "@bufbuild/buf": "^1.70.0",
     "@bufbuild/protoc-gen-es": "^2.12.0",
     "@catppuccin/daisyui": "^2.1.1",
+    "@iconify-json/lucide": "^1.2.111",
+    "@iconify/tailwind4": "^1.2.3",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tailwindcss/vite": "^4.3.0",
     "daisyui": "^5.5.20",
