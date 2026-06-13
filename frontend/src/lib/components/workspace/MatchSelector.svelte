@@ -18,19 +18,23 @@
     manualOverrideId,
     isIgnored,
     isAutomaticWinnerSuppressed,
+    rememberedQuery,
     automaticMatchResult,
     initialSearch,
     winnerClaimsByDatabaseId,
     getDatabaseEntry,
     onSetManualOverride,
     onSetIgnored,
-    onClearManualOverride
+    onClearManualOverride,
+    onSetMatchSelectorQuery,
+    onResetMatchSelectorQuery
   }: {
     selectedEntry: ShindenEntry;
     selectedDatabaseEntryId: number | null;
     manualOverrideId: number | null;
     isIgnored: boolean;
     isAutomaticWinnerSuppressed: boolean;
+    rememberedQuery: string;
     automaticMatchResult: MatchResult | null;
     initialSearch: MatchSelectorInitialSearch | null;
     winnerClaimsByDatabaseId: ReadonlyMap<number, readonly number[]>;
@@ -38,14 +42,20 @@
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
     onSetIgnored: (shindenId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
+    onSetMatchSelectorQuery: (shindenId: number, query: string) => void;
+    onResetMatchSelectorQuery: (shindenId: number) => void;
   } = $props();
 
   const selector = createMatchSelectorController({
     getSelectedEntry: () => selectedEntry,
+    getRememberedQuery: () => rememberedQuery,
     getDatabaseEntry: (entryId) => getDatabaseEntry(entryId),
     getAutomaticMatchResult: () => automaticMatchResult,
     getInitialSearch: () => initialSearch,
     getWinnerClaimsByDatabaseId: () => winnerClaimsByDatabaseId,
+    setRememberedQuery: (shindenId, query) =>
+      onSetMatchSelectorQuery(shindenId, query),
+    resetRememberedQuery: (shindenId) => onResetMatchSelectorQuery(shindenId),
     setManualOverride: (shindenId, databaseId) =>
       onSetManualOverride(shindenId, databaseId),
     setIgnored: (shindenId) => onSetIgnored(shindenId),
@@ -54,6 +64,14 @@
 
   function handleQueryInput(event: Event) {
     selector.updateQuery((event.currentTarget as HTMLInputElement).value);
+  }
+
+  function handleReset() {
+    selector.resetQuery();
+
+    if (manualOverrideId !== null || isIgnored || isAutomaticWinnerSuppressed) {
+      selector.clearManualOverride();
+    }
   }
 
   function formatMatchScore(score: number) {
@@ -67,13 +85,20 @@
 
     return databaseId === selectedDatabaseEntryId ? 'matched' : 'neutral';
   }
+
+  let canReset = $derived(
+    selector.hasRememberedQuery ||
+      manualOverrideId !== null ||
+      isIgnored ||
+      isAutomaticWinnerSuppressed
+  );
 </script>
 
 <div class="match-selector">
   <div class="search-box">
     <input
       type="text"
-      placeholder="Wyszukaj tytuł"
+      placeholder={selectedEntry.title || 'Wyszukaj tytuł'}
       class="input search-input"
       value={selector.query}
       oninput={handleQueryInput}
@@ -81,12 +106,10 @@
     <button
       type="button"
       class="btn btn-primary btn-soft border-0 btn-square btn-sm clear-manual-override-button"
-      aria-label="Wyczyść ręczną decyzję"
-      title="Wyczyść ręczną decyzję"
-      disabled={manualOverrideId === null &&
-        !isIgnored &&
-        !isAutomaticWinnerSuppressed}
-      onclick={selector.clearManualOverride}
+      aria-label="Resetuj wpis"
+      title="Resetuj wpis"
+      disabled={!canReset}
+      onclick={handleReset}
     >
       <span aria-hidden="true" class="icon-[lucide--rotate-ccw] size-4"></span>
     </button>

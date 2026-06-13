@@ -37,11 +37,14 @@
       manualOverrides={workspace.manualOverrides}
       ignoredEntryIds={workspace.ignoredEntryIds}
       displacedAutomaticEntryIds={workspace.displacedAutomaticEntryIds}
+      matchSelectorQueries={workspace.matchSelectorQueries}
       winnerClaimsByDatabaseId={workspace.winnerClaimsByDatabaseId}
       initialMatchSearch={workspace.initialMatchSearch}
       onSetManualOverride={workspace.setManualOverride}
       onSetIgnored={workspace.setIgnored}
       onClearManualOverride={workspace.clearManualOverride}
+      onSetMatchSelectorQuery={workspace.setMatchSelectorQuery}
+      onResetMatchSelectorQuery={workspace.resetMatchSelectorQuery}
     />
   </div>
 </section>

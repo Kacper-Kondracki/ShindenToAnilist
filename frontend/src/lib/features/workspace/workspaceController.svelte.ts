@@ -46,6 +46,7 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   let manualOverrides = $state<Record<number, number>>({});
   let ignoredEntryIds = $state<Record<number, true>>({});
   let displacedAutomaticEntryIds = $state<Record<number, true>>({});
+  let matchSelectorQueries = $state<Record<number, string>>({});
   let exportState = $state<ExportState>({ status: 'idle' });
   let selectionRequestId = 0;
   let pendingSelectionEntryId: number | null = null;
@@ -148,6 +149,7 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     manualOverrides = {};
     ignoredEntryIds = {};
     displacedAutomaticEntryIds = {};
+    matchSelectorQueries = {};
     exportState = { status: 'idle' };
   }
 
@@ -271,6 +273,22 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     exportState = { status: 'idle' };
   }
 
+  function setMatchSelectorQuery(shindenId: number, query: string) {
+    if (query.length === 0) {
+      resetMatchSelectorQuery(shindenId);
+      return;
+    }
+
+    matchSelectorQueries = {
+      ...matchSelectorQueries,
+      [shindenId]: query
+    };
+  }
+
+  function resetMatchSelectorQuery(shindenId: number) {
+    matchSelectorQueries = omitRecordKey(matchSelectorQueries, shindenId);
+  }
+
   function restoreAutomaticWinner(shindenId: number) {
     const automaticWinnerId = automaticWinnerIdForEntry(shindenId, matchResult);
 
@@ -375,6 +393,9 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     get displacedAutomaticEntryIds() {
       return displacedAutomaticEntryIds;
     },
+    get matchSelectorQueries() {
+      return matchSelectorQueries;
+    },
     get winnerClaimsByDatabaseId() {
       return winnerClaimsByDatabaseId;
     },
@@ -393,6 +414,8 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     setManualOverride,
     setIgnored,
     clearManualOverride,
+    setMatchSelectorQuery,
+    resetMatchSelectorQuery,
     exportCurrentSelections
   };
 }
@@ -499,8 +522,8 @@ function buildEntryIdsByView(
   const baseManualIdSet = new Set(baseManualIds);
   const automaticManualIds = state.entryIdsByView.automatic.filter(
     (entryId) =>
-      (displacedAutomaticEntryIds[entryId] === true ||
-        manualOverrides[entryId] !== undefined)
+      displacedAutomaticEntryIds[entryId] === true ||
+      manualOverrides[entryId] !== undefined
   );
 
   return {
