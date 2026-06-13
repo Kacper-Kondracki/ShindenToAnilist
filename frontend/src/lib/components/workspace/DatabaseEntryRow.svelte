@@ -8,6 +8,8 @@
     translateSeason
   } from '../../domain/animeView';
   import EntryRow from './EntryRow.svelte';
+  import RowMetadataBadges from './RowMetadataBadges.svelte';
+  import type { RowMetadataBadge } from './RowMetadataBadges.svelte';
   import type { EntryRowTone } from './EntryRow.svelte';
 
   let {
@@ -29,6 +31,16 @@
   } = $props();
 
   let tone = $derived<EntryRowTone>(isSelected ? 'matched' : 'neutral');
+  let metadataItems = $derived<RowMetadataBadge[]>([
+    { label: formatYear(entry.year), tone: 'year' },
+    { label: translateSeason(entry.season), tone: 'season' },
+    { label: translateAnimeType(entry.animeType), tone: 'anime-type' },
+    {
+      label: translateAnimeStatus(entry.status),
+      tone: 'status',
+      animeStatus: entry.status
+    }
+  ]);
 </script>
 
 <EntryRow
@@ -42,12 +54,7 @@
   {onSelect}
 >
   <h3 class="truncate text-sm font-semibold">{entry.title}</h3>
-  <p class="truncate text-xs text-muted">
-    {formatYear(entry.year)} · {translateSeason(entry.season)} · {translateAnimeType(
-      entry.animeType
-    )}
-    · {translateAnimeStatus(entry.status)}
-  </p>
+  <RowMetadataBadges items={metadataItems} />
 
   {#snippet meta()}
     <span class="text-xs font-semibold">{scoreLabel}</span>
