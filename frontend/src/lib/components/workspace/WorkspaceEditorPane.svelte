@@ -94,10 +94,7 @@
             />
           {/key}
         </div>
-        <div
-          class="editor-layout__preview"
-          aria-hidden={isPreviewPlaceholder}
-        >
+        <div class="editor-layout__preview" aria-hidden={isPreviewPlaceholder}>
           <DatabaseEntryPreview
             entry={previewEntry}
             placeholder={isPreviewPlaceholder}
