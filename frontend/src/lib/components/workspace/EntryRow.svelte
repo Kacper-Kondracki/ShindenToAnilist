@@ -72,6 +72,8 @@
     display: flex;
     position: relative;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: 4.5rem;
     align-items: center;
     justify-content: space-between;

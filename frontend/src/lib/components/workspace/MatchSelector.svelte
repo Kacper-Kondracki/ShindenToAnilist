@@ -92,8 +92,12 @@
 <style>
   .match-selector {
     display: flex;
+    width: 100%;
+    max-width: 100%;
     height: 100%;
+    min-width: 0;
     min-height: 0;
+    overflow: hidden;
     flex-direction: column;
     gap: calc(var(--spacing) * 3);
     padding: calc(var(--spacing) * 3);
@@ -104,11 +108,13 @@
   }
   .search-box {
     display: flex;
+    min-width: 0;
     flex: 0 0 auto;
     align-items: center;
     gap: calc(var(--spacing) * 2);
   }
   .search-content {
+    min-width: 0;
     min-height: 0;
     overflow: auto;
   }
@@ -119,6 +125,7 @@
 
   .match-results {
     display: flex;
+    min-width: 0;
     flex-direction: column;
     margin: 0;
     padding: 0;

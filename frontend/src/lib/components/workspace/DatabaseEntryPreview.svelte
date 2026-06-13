@@ -2,14 +2,24 @@
   import type { DatabaseEntry } from '../../domain/anime';
   import { createDatabaseEntryPreviewController } from '../../features/workspace/databaseEntryPreviewController.svelte';
 
-  let { entry }: { entry: DatabaseEntry } = $props();
+  let {
+    entry,
+    placeholder = false
+  }: {
+    entry: DatabaseEntry;
+    placeholder?: boolean;
+  } = $props();
 
   const preview = createDatabaseEntryPreviewController({
     getEntry: () => entry
   });
 </script>
 
-<div class="database-entry-preview">
+<div
+  class:database-entry-preview--placeholder={placeholder}
+  class="database-entry-preview"
+  aria-hidden={placeholder}
+>
   <div
     class="database-entry-cover"
     style:--database-entry-cover-height={preview.coverHeight}
@@ -68,6 +78,11 @@
     gap: calc(var(--spacing) * 4);
     padding: calc(var(--spacing) * 4);
     white-space: nowrap;
+  }
+
+  .database-entry-preview--placeholder {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .database-entry-cover {
