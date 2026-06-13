@@ -1,39 +1,26 @@
 <script lang="ts">
   import { VList } from 'virtua/svelte';
   import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
-  import type {
-    MatchListResult,
-    ShindenEntry,
-    ShindenListViews
-  } from '../../domain/anime';
+  import type { ShindenEntry } from '../../domain/anime';
   import {
     animeListItemSize,
-    createAnimeListPaneController
+    type AnimeListPaneController
   } from '../../features/workspace/animeListPaneController.svelte';
-  import AnimeListTabs from './AnimeListTabs.svelte';
   import AnimeRow from './AnimeRow.svelte';
 
   let {
     providerLabel,
-    entryIdsByView,
     animeData,
-    matchResult,
+    listPane,
     selectedEntryId,
     onSelectEntry
   }: {
     providerLabel: string;
-    entryIdsByView: ShindenListViews;
     animeData: LoadedAnimeData;
-    matchResult: MatchListResult | null;
+    listPane: AnimeListPaneController;
     selectedEntryId: number | null;
     onSelectEntry: (entryId: number) => void | Promise<void>;
   } = $props();
-
-  const listPane = createAnimeListPaneController({
-    getEntryIdsByView: () => entryIdsByView,
-    getMatchResult: () => matchResult,
-    getSelectedEntryId: () => selectedEntryId
-  });
 
   function handleListScroll() {
     listPane.handleScroll();
@@ -54,12 +41,6 @@
 </script>
 
 <section class="workspace-pane" aria-label={`Lista anime z ${providerLabel}`}>
-  <div class="workspace-pane__header">
-    <AnimeListTabs
-      activeTab={listPane.activeTab}
-      onSelectTab={listPane.selectTab}
-    />
-  </div>
   <div id="anime-list-tab-panel" role="tabpanel" class="workspace-pane__body">
     {#if listPane.visibleEntryIds.length > 0}
       <VList
@@ -95,12 +76,6 @@
     flex-direction: column;
     overflow: hidden;
     background-color: var(--color-base-300);
-  }
-
-  .workspace-pane__header {
-    border-bottom: calc(var(--border) * 2) solid
-      color-mix(in oklab, var(--color-base-content) 10%, transparent);
-    padding-top: calc(var(--spacing) * 1);
   }
 
   .workspace-pane__body {

@@ -31,8 +31,15 @@
     selectedEntryId,
     selectedMatchEntry,
     onSetManualOverride,
+    onSetIgnored,
     onClearManualOverride,
+    onSetMatchSelectorQuery,
+    onResetMatchSelectorQuery,
     manualOverrides,
+    ignoredEntryIds,
+    displacedAutomaticEntryIds,
+    matchSelectorQueries,
+    winnerClaimsByDatabaseId,
     initialMatchSearch,
     selectedWinnerState
   }: {
@@ -41,9 +48,16 @@
     selectedMatchEntry: ShindenMatchResult | null;
     selectedWinnerState: SelectedWinnerState;
     manualOverrides: Record<number, number>;
+    ignoredEntryIds: Record<number, true>;
+    displacedAutomaticEntryIds: Record<number, true>;
+    matchSelectorQueries: Record<number, string>;
+    winnerClaimsByDatabaseId: ReadonlyMap<number, readonly number[]>;
     initialMatchSearch: MatchSelectorInitialSearch | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
+    onSetIgnored: (shindenId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
+    onSetMatchSelectorQuery: (shindenId: number, query: string) => void;
+    onResetMatchSelectorQuery: (shindenId: number) => void;
   } = $props();
 
   let selectedShindenEntry = $derived(
@@ -62,6 +76,18 @@
   });
   let manualOverrideId = $derived(
     selectedEntryId === null ? null : (manualOverrides[selectedEntryId] ?? null)
+  );
+  let isIgnored = $derived(
+    selectedEntryId !== null && ignoredEntryIds[selectedEntryId] === true
+  );
+  let isAutomaticWinnerSuppressed = $derived(
+    selectedEntryId !== null &&
+      displacedAutomaticEntryIds[selectedEntryId] === true
+  );
+  let matchSelectorQuery = $derived(
+    selectedEntryId === null
+      ? ''
+      : (matchSelectorQueries[selectedEntryId] ?? '')
   );
   let automaticMatchResult = $derived(selectedMatchEntry?.result ?? null);
   let previewEntry = $derived(
@@ -90,11 +116,18 @@
               selectedEntry={selectedShindenEntry}
               {selectedDatabaseEntryId}
               {manualOverrideId}
+              {isIgnored}
+              {isAutomaticWinnerSuppressed}
+              rememberedQuery={matchSelectorQuery}
               {automaticMatchResult}
               initialSearch={initialMatchSearch}
+              {winnerClaimsByDatabaseId}
               getDatabaseEntry={animeData.getDatabaseEntry}
               {onSetManualOverride}
+              {onSetIgnored}
               {onClearManualOverride}
+              {onSetMatchSelectorQuery}
+              {onResetMatchSelectorQuery}
             />
           {/key}
         </div>

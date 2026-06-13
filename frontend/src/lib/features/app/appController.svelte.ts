@@ -112,8 +112,9 @@ export function createAppController() {
 
     const provider = selectedProvider;
     const query = trimmedQuery;
+    const shindenUserId = parsedShindenUserId;
 
-    if (provider !== 'shinden' || parsedShindenUserId === null) {
+    if (provider !== 'shinden' || shindenUserId === null) {
       userListRequestState = {
         status: 'error',
         provider,
@@ -129,7 +130,7 @@ export function createAppController() {
 
     try {
       const fetchStartedAt = performance.now();
-      const fetchedList = await fetchShindenList(parsedShindenUserId);
+      const fetchedList = await fetchShindenList(shindenUserId);
 
       if (activeRequestId !== requestId) {
         return;
@@ -192,7 +193,8 @@ export function createAppController() {
         entryIdsByView,
         matchResult: nextMatchResult,
         fetchDurationMs: nextFetchDurationMs,
-        matchDurationMs: nextMatchDurationMs
+        matchDurationMs: nextMatchDurationMs,
+        manualOverrideScopeKey: `${provider}:${shindenUserId}`
       });
     } catch (error) {
       if (activeRequestId !== requestId) {
@@ -318,6 +320,7 @@ function buildEntryIdsByView(
   return {
     manual: [...unmatchedIds, ...reviewIds],
     automatic: automaticIds,
+    ignored: [],
     all: [...unmatchedIds, ...reviewIds, ...automaticIds]
   };
 }

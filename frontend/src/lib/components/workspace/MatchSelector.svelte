@@ -4,6 +4,7 @@
     MatchResult,
     ShindenEntry
   } from '../../domain/anime';
+  import type { EntryRowTone } from './EntryRow.svelte';
   import { formatPercentageFromRatio } from '../../domain/animeView';
   import {
     createMatchSelectorController,
@@ -15,29 +16,49 @@
     selectedEntry,
     selectedDatabaseEntryId,
     manualOverrideId,
+    isIgnored,
+    isAutomaticWinnerSuppressed,
+    rememberedQuery,
     automaticMatchResult,
     initialSearch,
+    winnerClaimsByDatabaseId,
     getDatabaseEntry,
     onSetManualOverride,
-    onClearManualOverride
+    onSetIgnored,
+    onClearManualOverride,
+    onSetMatchSelectorQuery,
+    onResetMatchSelectorQuery
   }: {
     selectedEntry: ShindenEntry;
     selectedDatabaseEntryId: number | null;
     manualOverrideId: number | null;
+    isIgnored: boolean;
+    isAutomaticWinnerSuppressed: boolean;
+    rememberedQuery: string;
     automaticMatchResult: MatchResult | null;
     initialSearch: MatchSelectorInitialSearch | null;
+    winnerClaimsByDatabaseId: ReadonlyMap<number, readonly number[]>;
     getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
+    onSetIgnored: (shindenId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
+    onSetMatchSelectorQuery: (shindenId: number, query: string) => void;
+    onResetMatchSelectorQuery: (shindenId: number) => void;
   } = $props();
 
   const selector = createMatchSelectorController({
     getSelectedEntry: () => selectedEntry,
+    getRememberedQuery: () => rememberedQuery,
     getDatabaseEntry: (entryId) => getDatabaseEntry(entryId),
     getAutomaticMatchResult: () => automaticMatchResult,
     getInitialSearch: () => initialSearch,
+    getWinnerClaimsByDatabaseId: () => winnerClaimsByDatabaseId,
+    setRememberedQuery: (shindenId, query) =>
+      onSetMatchSelectorQuery(shindenId, query),
+    resetRememberedQuery: (shindenId) => onResetMatchSelectorQuery(shindenId),
     setManualOverride: (shindenId, databaseId) =>
       onSetManualOverride(shindenId, databaseId),
+    setIgnored: (shindenId) => onSetIgnored(shindenId),
     clearManualOverride: (shindenId) => onClearManualOverride(shindenId)
   });
 
@@ -45,16 +66,39 @@
     selector.updateQuery((event.currentTarget as HTMLInputElement).value);
   }
 
+  function handleReset() {
+    selector.resetQuery();
+
+    if (manualOverrideId !== null || isIgnored || isAutomaticWinnerSuppressed) {
+      selector.clearManualOverride();
+    }
+  }
+
   function formatMatchScore(score: number) {
     return formatPercentageFromRatio(score);
   }
+
+  function resultTone(databaseId: number): EntryRowTone {
+    if (databaseId === selectedDatabaseEntryId && manualOverrideId !== null) {
+      return 'info';
+    }
+
+    return databaseId === selectedDatabaseEntryId ? 'matched' : 'neutral';
+  }
+
+  let canReset = $derived(
+    selector.hasRememberedQuery ||
+      manualOverrideId !== null ||
+      isIgnored ||
+      isAutomaticWinnerSuppressed
+  );
 </script>
 
 <div class="match-selector">
   <div class="search-box">
     <input
       type="text"
-      placeholder="Wyszukaj tytuł"
+      placeholder={selectedEntry.title || 'Wyszukaj tytuł'}
       class="input search-input"
       value={selector.query}
       oninput={handleQueryInput}
@@ -62,12 +106,22 @@
     <button
       type="button"
       class="btn btn-primary btn-soft border-0 btn-square btn-sm clear-manual-override-button"
-      aria-label="Wyczyść ręczny wybór"
-      title="Wyczyść ręczny wybór"
-      disabled={manualOverrideId === null}
-      onclick={selector.clearManualOverride}
+      aria-label="Resetuj wpis"
+      title="Resetuj wpis"
+      disabled={!canReset}
+      onclick={handleReset}
     >
       <span aria-hidden="true" class="icon-[lucide--rotate-ccw] size-4"></span>
+    </button>
+    <button
+      type="button"
+      class:btn-active={isIgnored}
+      class="btn btn-neutral btn-soft border-0 btn-square btn-sm ignore-entry-button"
+      aria-label={isIgnored ? 'Przestań ignorować wpis' : 'Ignoruj wpis'}
+      title={isIgnored ? 'Przestań ignorować wpis' : 'Ignoruj wpis'}
+      onclick={selector.applyIgnore}
+    >
+      <span aria-hidden="true" class="icon-[lucide--eye-off] size-4"></span>
     </button>
   </div>
   <div class="search-content">
@@ -79,6 +133,8 @@
               entry={result.entry}
               scoreLabel={formatMatchScore(result.score)}
               isSelected={result.id === selectedDatabaseEntryId}
+              tone={resultTone(result.id)}
+              softWarning={selector.conflictingWinnerIds.has(result.id)}
               showIndicator={true}
               rounded={true}
               compact={true}
@@ -95,6 +151,8 @@
               entry={result.entry}
               scoreLabel={formatMatchScore(result.score)}
               isSelected={result.id === selectedDatabaseEntryId}
+              tone={resultTone(result.id)}
+              softWarning={selector.conflictingWinnerIds.has(result.id)}
               showIndicator={false}
               rounded={true}
               compact={true}
@@ -148,7 +206,8 @@
     padding: calc(var(--spacing) * 2);
   }
 
-  .clear-manual-override-button {
+  .clear-manual-override-button,
+  .ignore-entry-button {
     flex: 0 0 auto;
   }
   .search-content {

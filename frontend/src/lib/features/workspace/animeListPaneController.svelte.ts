@@ -21,6 +21,9 @@ type SelectedScrollAnchor = {
 type AnimeListPaneControllerInput = {
   getEntryIdsByView: () => ShindenListViews;
   getMatchResult: () => MatchListResult | null;
+  getManualOverrides: () => Record<number, number>;
+  getIgnoredEntryIds: () => Record<number, true>;
+  getDisplacedAutomaticEntryIds: () => Record<number, true>;
   getSelectedEntryId: () => number | null;
 };
 
@@ -43,9 +46,18 @@ export function createAnimeListPaneController(
 
   let matchStatuses = $derived.by(() => {
     const statuses = new Map<number, AnimeMatchStatus>();
+    const manualOverrides = input.getManualOverrides();
+    const ignoredEntryIds = input.getIgnoredEntryIds();
+    const displacedAutomaticEntryIds = input.getDisplacedAutomaticEntryIds();
 
     for (const matchEntry of input.getMatchResult()?.entries ?? []) {
-      if (matchEntry.result.winner !== null) {
+      if (ignoredEntryIds[matchEntry.shindenId] === true) {
+        statuses.set(matchEntry.shindenId, 'ignored');
+      } else if (manualOverrides[matchEntry.shindenId] !== undefined) {
+        statuses.set(matchEntry.shindenId, 'manual');
+      } else if (displacedAutomaticEntryIds[matchEntry.shindenId] === true) {
+        statuses.set(matchEntry.shindenId, 'suppressed');
+      } else if (matchEntry.result.winner !== null) {
         statuses.set(matchEntry.shindenId, 'matched');
       } else if (matchEntry.result.top.length > 0) {
         statuses.set(matchEntry.shindenId, 'review');
@@ -68,6 +80,10 @@ export function createAnimeListPaneController(
 
     if (activeTab === 'manual') {
       return 'Brak wpisów wymagających ręcznej interwencji';
+    }
+
+    if (activeTab === 'ignored') {
+      return 'Brak ignorowanych wpisów';
     }
 
     return 'Brak wpisów do wyświetlenia';
@@ -193,10 +209,13 @@ export function createAnimeListPaneController(
     }
 
     const nextTabAnchor = selectedScrollAnchors[nextTabId];
+    const nextTabEntryIds = input.getEntryIdsByView()[nextTabId];
 
     return nextTabAnchor?.entryId === selectedEntryId
       ? nextTabAnchor.viewportOffset
-      : null;
+      : nextTabEntryIds.some((entryId) => entryId === selectedEntryId)
+        ? 0
+        : null;
   }
 
   function getSelectedViewportOffset(
@@ -244,6 +263,7 @@ function initialTabScrollOffsets(): Record<AnimeListTabId, number> {
   return {
     manual: 0,
     automatic: 0,
+    ignored: 0,
     all: 0
   };
 }
@@ -255,6 +275,7 @@ function initialSelectedScrollAnchors(): Record<
   return {
     manual: null,
     automatic: null,
+    ignored: null,
     all: null
   };
 }

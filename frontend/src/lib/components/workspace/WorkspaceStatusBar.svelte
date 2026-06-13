@@ -16,6 +16,8 @@
     fetchDurationMs,
     matchDurationMs,
     manualSelections,
+    ignoredEntryIds,
+    displacedAutomaticEntryIds,
     exportState,
     canExport,
     onExport
@@ -27,13 +29,21 @@
     fetchDurationMs: number | null;
     matchDurationMs: number | null;
     manualSelections: Record<number, number>;
+    ignoredEntryIds: Record<number, true>;
+    displacedAutomaticEntryIds: Record<number, true>;
     exportState: ExportState;
     canExport: boolean;
     onExport: () => void;
   } = $props();
 
   let summary = $derived(
-    buildWorkspaceStatusSummary(entryIds, matchResult, manualSelections)
+    buildWorkspaceStatusSummary(
+      entryIds,
+      matchResult,
+      manualSelections,
+      ignoredEntryIds,
+      displacedAutomaticEntryIds
+    )
   );
   let matchTimeText = $derived(
     isMatching ? '...' : formatDuration(matchDurationMs)

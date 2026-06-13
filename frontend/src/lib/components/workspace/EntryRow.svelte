@@ -1,7 +1,14 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
-  export type EntryRowTone = 'matched' | 'review' | 'unmatched' | 'neutral';
+  export type EntryRowTone =
+    | 'matched'
+    | 'review'
+    | 'unmatched'
+    | 'neutral'
+    | 'info'
+    | 'suppressed'
+    | 'ignored';
 
   let {
     tone = 'neutral',
@@ -12,6 +19,7 @@
     showIndicator = true,
     rounded = false,
     compact = false,
+    softWarning = false,
     children,
     meta,
     class: className = ''
@@ -24,6 +32,7 @@
     showIndicator?: boolean;
     rounded?: boolean;
     compact?: boolean;
+    softWarning?: boolean;
     children?: Snippet;
     meta?: Snippet;
     class?: string;
@@ -36,6 +45,10 @@
   class:entry-row--review={tone === 'review'}
   class:entry-row--unmatched={tone === 'unmatched'}
   class:entry-row--neutral={tone === 'neutral'}
+  class:entry-row--info={tone === 'info'}
+  class:entry-row--suppressed={tone === 'suppressed'}
+  class:entry-row--ignored={tone === 'ignored'}
+  class:entry-row--soft-warning={softWarning}
   class:entry-row--selected={isSelected}
   class:entry-row--without-indicator={!showIndicator}
   class:entry-row--rounded={rounded}
@@ -174,6 +187,29 @@
     --entry-row-indicator-color: var(--color-primary);
   }
 
+  .entry-row--info {
+    --entry-row-indicator-color: var(--color-info);
+  }
+
+  .entry-row--suppressed {
+    --entry-row-indicator-color: var(--ctp-mocha-pink);
+  }
+
+  .entry-row--soft-warning {
+    background-color: color-mix(in oklab, var(--color-error) 20%, transparent);
+  }
+
+  .entry-row--ignored {
+    --entry-row-indicator-color: color-mix(
+      in oklab,
+      var(--color-base-content) 42%,
+      transparent
+    );
+
+    background-color: color-mix(in oklab, black 16%, transparent);
+    color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  }
+
   .entry-row__content {
     display: flex;
     width: 100%;
@@ -206,6 +242,14 @@
       var(--color-base-content) 5%,
       transparent
     );
+  }
+
+  .entry-row--soft-warning:hover {
+    background-color: color-mix(in oklab, var(--color-error) 25%, transparent);
+  }
+
+  .entry-row--ignored:hover {
+    background-color: color-mix(in oklab, black 20%, transparent);
   }
 
   .entry-row:focus-visible {

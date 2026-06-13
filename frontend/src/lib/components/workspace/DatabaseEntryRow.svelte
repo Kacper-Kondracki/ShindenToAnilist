@@ -19,7 +19,9 @@
     onSelect,
     showIndicator = true,
     rounded = false,
-    compact = false
+    compact = false,
+    softWarning = false,
+    tone: explicitTone = null
   }: {
     entry: DatabaseEntry;
     scoreLabel: string;
@@ -28,9 +30,13 @@
     showIndicator?: boolean;
     rounded?: boolean;
     compact?: boolean;
+    softWarning?: boolean;
+    tone?: EntryRowTone | null;
   } = $props();
 
-  let tone = $derived<EntryRowTone>(isSelected ? 'matched' : 'neutral');
+  let tone = $derived<EntryRowTone>(
+    explicitTone ?? (isSelected ? 'matched' : 'neutral')
+  );
   let metadataItems = $derived<RowMetadataBadge[]>([
     { label: formatYear(entry.year), tone: 'year' },
     { label: translateSeason(entry.season), tone: 'season' },
@@ -51,6 +57,7 @@
   {showIndicator}
   {rounded}
   {compact}
+  {softWarning}
   {onSelect}
 >
   <h3 class="truncate text-sm font-semibold">{entry.title}</h3>

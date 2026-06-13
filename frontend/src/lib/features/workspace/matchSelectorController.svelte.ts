@@ -8,10 +8,15 @@ import type {
 
 type MatchSelectorControllerInput = {
   getSelectedEntry: () => ShindenEntry;
+  getRememberedQuery: () => string;
   getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
   getAutomaticMatchResult: () => MatchResult | null;
   getInitialSearch: () => MatchSelectorInitialSearch | null;
+  getWinnerClaimsByDatabaseId: () => ReadonlyMap<number, readonly number[]>;
+  setRememberedQuery: (shindenId: number, query: string) => void;
+  resetRememberedQuery: (shindenId: number) => void;
   setManualOverride: (shindenId: number, databaseId: number) => void;
+  setIgnored: (shindenId: number) => void;
   clearManualOverride: (shindenId: number) => void;
 };
 
@@ -47,12 +52,14 @@ export function createMatchSelectorController(
   input: MatchSelectorControllerInput
 ) {
   const initialSelectedEntry = input.getSelectedEntry();
+  const initialQuery = input.getRememberedQuery();
   const initialSearchState = getInitialSearchState(
     initialSelectedEntry,
+    initialQuery,
     input.getInitialSearch()
   );
 
-  let query = $state(initialSelectedEntry.title);
+  let query = $state(initialQuery);
   let searchState = $state<MatchSearchState>(initialSearchState);
   let requestId = 0;
 
@@ -69,6 +76,21 @@ export function createMatchSelectorController(
   let hasResults = $derived(
     automaticResults.length > 0 || searchResults.length > 0
   );
+  let conflictingWinnerIds = $derived.by(() => {
+    const selectedEntryId = input.getSelectedEntry().id;
+    const conflicts = new Set<number>();
+
+    for (const [
+      databaseId,
+      shindenIds
+    ] of input.getWinnerClaimsByDatabaseId()) {
+      if (shindenIds.some((shindenId) => shindenId !== selectedEntryId)) {
+        conflicts.add(databaseId);
+      }
+    }
+
+    return conflicts;
+  });
   let errorMessage = $derived(
     searchState.status === 'error' ? searchState.message : null
   );
@@ -96,12 +118,37 @@ export function createMatchSelectorController(
   }
 
   if (initialSearchState.status === 'idle') {
-    search(query);
+    search(resolveSearchQuery(query));
+  }
+
+  function resolveSearchQuery(inputQuery: string) {
+    return resolveSearchQueryForEntry(input.getSelectedEntry(), inputQuery);
   }
 
   function updateQuery(nextQuery: string) {
+    const selectedEntryId = input.getSelectedEntry().id;
+
     query = nextQuery;
-    search(nextQuery);
+    input.setRememberedQuery(selectedEntryId, nextQuery);
+    search(resolveSearchQuery(nextQuery));
+  }
+
+  function resetQuery() {
+    const selectedEntry = input.getSelectedEntry();
+    const nextSearchState = getInitialSearchState(
+      selectedEntry,
+      '',
+      input.getInitialSearch()
+    );
+
+    query = '';
+    input.resetRememberedQuery(selectedEntry.id);
+    requestId += 1;
+    searchState = nextSearchState;
+
+    if (nextSearchState.status === 'idle') {
+      search(resolveSearchQuery(''));
+    }
   }
 
   function search(nextQuery: string) {
@@ -151,9 +198,16 @@ export function createMatchSelectorController(
     input.clearManualOverride(input.getSelectedEntry().id);
   }
 
+  function applyIgnore() {
+    input.setIgnored(input.getSelectedEntry().id);
+  }
+
   return {
     get query() {
       return query;
+    },
+    get hasRememberedQuery() {
+      return query.length > 0;
     },
     get automaticResults() {
       return automaticResults;
@@ -164,11 +218,16 @@ export function createMatchSelectorController(
     get hasResults() {
       return hasResults;
     },
+    get conflictingWinnerIds() {
+      return conflictingWinnerIds;
+    },
     get errorMessage() {
       return errorMessage;
     },
     updateQuery,
+    resetQuery,
     applyManualOverride,
+    applyIgnore,
     clearManualOverride
   };
 }
@@ -207,9 +266,10 @@ export async function loadInitialMatchSelectorSearch(
 
 function getInitialSearchState(
   selectedEntry: ShindenEntry,
+  inputQuery: string,
   initialSearch: MatchSelectorInitialSearch | null
 ): MatchSearchState {
-  const query = selectedEntry.title.trim();
+  const query = resolveSearchQueryForEntry(selectedEntry, inputQuery);
 
   if (
     initialSearch === null ||
@@ -236,6 +296,15 @@ function getInitialSearchState(
   }
 
   return { status: 'idle' };
+}
+
+function resolveSearchQueryForEntry(
+  selectedEntry: ShindenEntry,
+  inputQuery: string
+) {
+  const explicitQuery = inputQuery.trim();
+
+  return explicitQuery.length > 0 ? explicitQuery : selectedEntry.title.trim();
 }
 
 function automaticCandidates(matchResult: MatchResult | null) {
