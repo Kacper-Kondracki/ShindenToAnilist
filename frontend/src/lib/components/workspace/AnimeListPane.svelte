@@ -1,82 +1,26 @@
 <script lang="ts">
   import { VList } from 'virtua/svelte';
   import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
-  import type {
-    MatchListResult,
-    ShindenEntry,
-    ShindenListViews
-  } from '../../domain/anime';
+  import type { ShindenEntry } from '../../domain/anime';
   import {
     animeListItemSize,
-    createAnimeListPaneController
+    type AnimeListPaneController
   } from '../../features/workspace/animeListPaneController.svelte';
-  import AnimeListTabs from './AnimeListTabs.svelte';
   import AnimeRow from './AnimeRow.svelte';
-  import type { AnimeListTabId } from './tabs';
-
-  const specificTabIds = [
-    'ignored',
-    'manual',
-    'automatic'
-  ] as const satisfies readonly AnimeListTabId[];
 
   let {
     providerLabel,
-    entryIdsByView,
     animeData,
-    matchResult,
-    manualOverrides,
-    ignoredEntryIds,
-    displacedAutomaticEntryIds,
+    listPane,
     selectedEntryId,
     onSelectEntry
   }: {
     providerLabel: string;
-    entryIdsByView: ShindenListViews;
     animeData: LoadedAnimeData;
-    matchResult: MatchListResult | null;
-    manualOverrides: Record<number, number>;
-    ignoredEntryIds: Record<number, true>;
-    displacedAutomaticEntryIds: Record<number, true>;
+    listPane: AnimeListPaneController;
     selectedEntryId: number | null;
     onSelectEntry: (entryId: number) => void | Promise<void>;
   } = $props();
-
-  const listPane = createAnimeListPaneController({
-    getEntryIdsByView: () => entryIdsByView,
-    getMatchResult: () => matchResult,
-    getManualOverrides: () => manualOverrides,
-    getIgnoredEntryIds: () => ignoredEntryIds,
-    getDisplacedAutomaticEntryIds: () => displacedAutomaticEntryIds,
-    getSelectedEntryId: () => selectedEntryId
-  });
-  let selectedEntryTabIds = $derived.by((): ReadonlySet<AnimeListTabId> => {
-    if (selectedEntryId === null) {
-      return new Set<AnimeListTabId>();
-    }
-
-    const containingSpecificTabs = specificTabIds.filter((tabId) =>
-      entryIdsByView[tabId].some((entryId) => entryId === selectedEntryId)
-    );
-
-    if (listPane.activeTab === 'all') {
-      return new Set<AnimeListTabId>(containingSpecificTabs);
-    }
-
-    if (listPane.visibleEntryIds.some((entryId) => entryId === selectedEntryId)) {
-      return new Set<AnimeListTabId>();
-    }
-
-    const priorityTabId = containingSpecificTabs[0];
-    const containingTabIds: AnimeListTabId[] =
-      priorityTabId !== undefined
-        ? [priorityTabId]
-        : entryIdsByView.all.some((entryId) => entryId === selectedEntryId)
-          ? ['all']
-          : [];
-
-    return new Set<AnimeListTabId>(containingTabIds);
-  });
 
   function handleListScroll() {
     listPane.handleScroll();
@@ -97,13 +41,6 @@
 </script>
 
 <section class="workspace-pane" aria-label={`Lista anime z ${providerLabel}`}>
-  <div class="workspace-pane__header">
-    <AnimeListTabs
-      activeTab={listPane.activeTab}
-      {selectedEntryTabIds}
-      onSelectTab={listPane.selectTab}
-    />
-  </div>
   <div id="anime-list-tab-panel" role="tabpanel" class="workspace-pane__body">
     {#if listPane.visibleEntryIds.length > 0}
       <VList
@@ -139,12 +76,6 @@
     flex-direction: column;
     overflow: hidden;
     background-color: var(--color-base-300);
-  }
-
-  .workspace-pane__header {
-    border-bottom: calc(var(--border) * 2) solid
-      color-mix(in oklab, var(--color-base-content) 10%, transparent);
-    padding-top: calc(var(--spacing) * 1);
   }
 
   .workspace-pane__body {

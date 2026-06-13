@@ -25,6 +25,7 @@ export type WorkspaceActivation = LoadedUserList & {
   matchResult: MatchListResult;
   fetchDurationMs: number;
   matchDurationMs: number;
+  manualOverrideScopeKey: string;
 };
 
 export type SelectedWinnerState =
@@ -43,6 +44,8 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   let matchDurationMs = $state<number | null>(null);
   let selectedEntryId = $state<number | null>(null);
   let initialMatchSearch = $state<MatchSelectorInitialSearch | null>(null);
+  let manualOverrideStorageKey = $state<string | null>(null);
+  let manualOverridesHydrated = $state(false);
   let manualOverrides = $state<Record<number, number>>({});
   let ignoredEntryIds = $state<Record<number, true>>({});
   let displacedAutomaticEntryIds = $state<Record<number, true>>({});
@@ -131,7 +134,50 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
       exportState.status !== 'exporting'
   );
 
+  $effect(() => {
+    if (!manualOverridesHydrated || manualOverrideStorageKey === null) {
+      return;
+    }
+
+    writeManualOverrides(manualOverrideStorageKey, manualOverrides);
+  });
+
+  $effect(() => {
+    const activeState = state;
+    const databaseVersion = animeData.databaseVersion;
+
+    if (activeState.status !== 'active') {
+      return;
+    }
+
+    databaseVersion;
+    const nextManualOverrides = pruneUnavailableManualOverrides(
+      manualOverrides,
+      activeState.entryIdsByView.all,
+      (databaseId) => animeData.getDatabaseEntry(databaseId) !== null
+    );
+
+    if (nextManualOverrides === manualOverrides) {
+      return;
+    }
+
+    replaceManualState(nextManualOverrides, ignoredEntryIds);
+  });
+
   function activate(next: WorkspaceActivation) {
+    const nextManualOverrideStorageKey = storageKeyForManualOverrides(
+      next.manualOverrideScopeKey
+    );
+    const storedManualOverrides =
+      nextManualOverrideStorageKey === manualOverrideStorageKey
+        ? manualOverrides
+        : readManualOverrides(nextManualOverrideStorageKey);
+    const nextManualOverrides = pruneUnavailableManualOverrides(
+      storedManualOverrides,
+      next.entryIdsByView.all,
+      (databaseId) => animeData.getDatabaseEntry(databaseId) !== null
+    );
+
     state = {
       status: 'active',
       provider: next.provider,
@@ -146,9 +192,9 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     pendingSelectionEntryId = null;
     selectedEntryId = null;
     initialMatchSearch = null;
-    manualOverrides = {};
-    ignoredEntryIds = {};
-    displacedAutomaticEntryIds = {};
+    manualOverrideStorageKey = nextManualOverrideStorageKey;
+    manualOverridesHydrated = true;
+    replaceManualState(nextManualOverrides, {}, false);
     matchSelectorQueries = {};
     exportState = { status: 'idle' };
   }
@@ -225,26 +271,14 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
       [shindenId]: databaseId
     };
     const nextIgnoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
-    const nextDisplacedAutomaticEntryIds = {
-      ...displacedAutomaticEntryIds
-    };
 
     for (const ownerId of duplicateOwnerIds) {
       if (nextOverrides[ownerId] === databaseId) {
         delete nextOverrides[ownerId];
       }
-
-      if (automaticWinnerIdForEntry(ownerId, matchResult) === databaseId) {
-        nextDisplacedAutomaticEntryIds[ownerId] = true;
-      }
     }
 
-    manualOverrides = {
-      ...nextOverrides
-    };
-    ignoredEntryIds = nextIgnoredEntryIds;
-    displacedAutomaticEntryIds = nextDisplacedAutomaticEntryIds;
-    exportState = { status: 'idle' };
+    replaceManualState({ ...nextOverrides }, nextIgnoredEntryIds);
   }
 
   function clearManualOverride(shindenId: number) {
@@ -253,24 +287,25 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
       return;
     }
 
-    manualOverrides = omitRecordKey(manualOverrides, shindenId);
-    ignoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
-    exportState = { status: 'idle' };
+    replaceManualState(
+      omitRecordKey(manualOverrides, shindenId),
+      omitRecordKey(ignoredEntryIds, shindenId)
+    );
   }
 
   function setIgnored(shindenId: number) {
     if (ignoredEntryIds[shindenId] === true) {
-      ignoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
-      exportState = { status: 'idle' };
+      replaceManualState(
+        manualOverrides,
+        omitRecordKey(ignoredEntryIds, shindenId)
+      );
       return;
     }
 
-    manualOverrides = omitRecordKey(manualOverrides, shindenId);
-    ignoredEntryIds = {
+    replaceManualState(omitRecordKey(manualOverrides, shindenId), {
       ...ignoredEntryIds,
       [shindenId]: true
-    };
-    exportState = { status: 'idle' };
+    });
   }
 
   function setMatchSelectorQuery(shindenId: number, query: string) {
@@ -306,29 +341,43 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     );
     const nextOverrides = omitRecordKey(manualOverrides, shindenId);
     const nextIgnoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
-    const nextDisplacedAutomaticEntryIds = omitRecordKey(
-      displacedAutomaticEntryIds,
-      shindenId
-    );
 
     for (const ownerId of duplicateOwnerIds) {
       if (nextOverrides[ownerId] === automaticWinnerId) {
         delete nextOverrides[ownerId];
       }
-
-      if (
-        automaticWinnerIdForEntry(ownerId, matchResult) === automaticWinnerId
-      ) {
-        nextDisplacedAutomaticEntryIds[ownerId] = true;
-      }
     }
 
-    manualOverrides = {
-      ...nextOverrides
-    };
+    replaceManualState({ ...nextOverrides }, nextIgnoredEntryIds);
+  }
+
+  function clearManualOverrides() {
+    replaceManualState({}, ignoredEntryIds);
+  }
+
+  function replaceManualState(
+    nextManualOverrides: Record<number, number>,
+    nextIgnoredEntryIds: Record<number, true>,
+    resetExportState = true
+  ) {
+    const nextDisplacedAutomaticEntryIds = buildDisplacedAutomaticEntryIds(
+      matchResult,
+      nextManualOverrides,
+      nextIgnoredEntryIds
+    );
+
+    manualOverrides = nextManualOverrides;
     ignoredEntryIds = nextIgnoredEntryIds;
-    displacedAutomaticEntryIds = nextDisplacedAutomaticEntryIds;
-    exportState = { status: 'idle' };
+
+    if (
+      !recordsEqual(displacedAutomaticEntryIds, nextDisplacedAutomaticEntryIds)
+    ) {
+      displacedAutomaticEntryIds = nextDisplacedAutomaticEntryIds;
+    }
+
+    if (resetExportState) {
+      exportState = { status: 'idle' };
+    }
   }
 
   async function exportCurrentSelections() {
@@ -414,6 +463,7 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     setManualOverride,
     setIgnored,
     clearManualOverride,
+    clearManualOverrides,
     setMatchSelectorQuery,
     resetMatchSelectorQuery,
     exportCurrentSelections
@@ -568,6 +618,33 @@ function activeWinnerOwnerIdsForDatabase(
   return ownerIds;
 }
 
+function buildDisplacedAutomaticEntryIds(
+  matchResult: MatchListResult | null,
+  manualOverrides: Record<number, number>,
+  ignoredEntryIds: Record<number, true>
+) {
+  const displacedEntryIds: Record<number, true> = {};
+
+  for (const [rawShindenId, databaseId] of Object.entries(manualOverrides)) {
+    const shindenId = Number(rawShindenId);
+
+    for (const ownerId of activeWinnerOwnerIdsForDatabase(
+      databaseId,
+      shindenId,
+      matchResult,
+      manualOverrides,
+      ignoredEntryIds,
+      {}
+    )) {
+      if (automaticWinnerIdForEntry(ownerId, matchResult) === databaseId) {
+        displacedEntryIds[ownerId] = true;
+      }
+    }
+  }
+
+  return displacedEntryIds;
+}
+
 function automaticWinnerIdForEntry(
   shindenId: number,
   matchResult: MatchListResult | null
@@ -582,6 +659,113 @@ function omitRecordKey<T>(record: Record<number, T>, key: number) {
   const { [key]: _removed, ...nextRecord } = record;
 
   return nextRecord;
+}
+
+function pruneUnavailableManualOverrides(
+  manualOverrides: Record<number, number>,
+  availableShindenIds: readonly number[],
+  hasDatabaseEntry: (databaseId: number) => boolean
+) {
+  const availableShindenIdSet = new Set(availableShindenIds);
+  const nextManualOverrides: Record<number, number> = {};
+  let changed = false;
+
+  for (const [rawShindenId, databaseId] of Object.entries(manualOverrides)) {
+    const shindenId = Number(rawShindenId);
+
+    if (
+      !availableShindenIdSet.has(shindenId) ||
+      !hasDatabaseEntry(databaseId)
+    ) {
+      changed = true;
+      continue;
+    }
+
+    nextManualOverrides[shindenId] = databaseId;
+  }
+
+  return changed ? nextManualOverrides : manualOverrides;
+}
+
+const manualOverrideStoragePrefix = 'shinden-to-anilist:manual-overrides:v1:';
+
+function storageKeyForManualOverrides(scopeKey: string) {
+  return `${manualOverrideStoragePrefix}${scopeKey}`;
+}
+
+function readManualOverrides(storageKey: string): Record<number, number> {
+  const storage = getLocalStorage();
+  if (storage === null) {
+    return {};
+  }
+
+  try {
+    return normalizeManualOverrides(
+      JSON.parse(storage.getItem(storageKey) ?? 'null')
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeManualOverrides(
+  storageKey: string,
+  manualOverrides: Record<number, number>
+) {
+  const storage = getLocalStorage();
+  if (storage === null) {
+    return;
+  }
+
+  try {
+    if (Object.keys(manualOverrides).length === 0) {
+      storage.removeItem(storageKey);
+      return;
+    }
+
+    storage.setItem(storageKey, JSON.stringify({ overrides: manualOverrides }));
+  } catch {
+    // Storage is best-effort; the in-memory workspace should keep working.
+  }
+}
+
+function normalizeManualOverrides(value: unknown): Record<number, number> {
+  const overrides =
+    isRecord(value) && isRecord(value.overrides) ? value.overrides : value;
+  if (!isRecord(overrides)) {
+    return {};
+  }
+
+  const normalized: Record<number, number> = {};
+  for (const [rawShindenId, rawDatabaseId] of Object.entries(overrides)) {
+    const shindenId = Number(rawShindenId);
+    const databaseId = Number(rawDatabaseId);
+
+    if (Number.isSafeInteger(shindenId) && Number.isSafeInteger(databaseId)) {
+      normalized[shindenId] = databaseId;
+    }
+  }
+
+  return normalized;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getLocalStorage() {
+  return typeof localStorage === 'undefined' ? null : localStorage;
+}
+
+function recordsEqual<T>(left: Record<number, T>, right: Record<number, T>) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every((key) => left[Number(key)] === right[Number(key)]);
 }
 
 function errorMessage(error: unknown) {
