@@ -12,6 +12,13 @@
   } from '../../features/workspace/animeListPaneController.svelte';
   import AnimeListTabs from './AnimeListTabs.svelte';
   import AnimeRow from './AnimeRow.svelte';
+  import type { AnimeListTabId } from './tabs';
+
+  const specificTabIds = [
+    'ignored',
+    'manual',
+    'automatic'
+  ] as const satisfies readonly AnimeListTabId[];
 
   let {
     providerLabel,
@@ -43,6 +50,33 @@
     getDisplacedAutomaticEntryIds: () => displacedAutomaticEntryIds,
     getSelectedEntryId: () => selectedEntryId
   });
+  let selectedEntryTabIds = $derived.by((): ReadonlySet<AnimeListTabId> => {
+    if (selectedEntryId === null) {
+      return new Set<AnimeListTabId>();
+    }
+
+    const containingSpecificTabs = specificTabIds.filter((tabId) =>
+      entryIdsByView[tabId].some((entryId) => entryId === selectedEntryId)
+    );
+
+    if (listPane.activeTab === 'all') {
+      return new Set<AnimeListTabId>(containingSpecificTabs);
+    }
+
+    if (listPane.visibleEntryIds.some((entryId) => entryId === selectedEntryId)) {
+      return new Set<AnimeListTabId>();
+    }
+
+    const priorityTabId = containingSpecificTabs[0];
+    const containingTabIds: AnimeListTabId[] =
+      priorityTabId !== undefined
+        ? [priorityTabId]
+        : entryIdsByView.all.some((entryId) => entryId === selectedEntryId)
+          ? ['all']
+          : [];
+
+    return new Set<AnimeListTabId>(containingTabIds);
+  });
 
   function handleListScroll() {
     listPane.handleScroll();
@@ -66,6 +100,7 @@
   <div class="workspace-pane__header">
     <AnimeListTabs
       activeTab={listPane.activeTab}
+      {selectedEntryTabIds}
       onSelectTab={listPane.selectTab}
     />
   </div>

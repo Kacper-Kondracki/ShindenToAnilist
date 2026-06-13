@@ -209,10 +209,13 @@ export function createAnimeListPaneController(
     }
 
     const nextTabAnchor = selectedScrollAnchors[nextTabId];
+    const nextTabEntryIds = input.getEntryIdsByView()[nextTabId];
 
     return nextTabAnchor?.entryId === selectedEntryId
       ? nextTabAnchor.viewportOffset
-      : null;
+      : nextTabEntryIds.some((entryId) => entryId === selectedEntryId)
+        ? 0
+        : null;
   }
 
   function getSelectedViewportOffset(

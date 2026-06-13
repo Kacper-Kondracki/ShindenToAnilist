@@ -192,7 +192,7 @@
   }
 
   .entry-row--suppressed {
-    --entry-row-indicator-color: var(--ctp-mocha-maroon);
+    --entry-row-indicator-color: var(--ctp-mocha-pink);
   }
 
   .entry-row--soft-warning {
