@@ -52,15 +52,16 @@
       value={selector.query}
       oninput={handleQueryInput}
     />
-    {#if manualOverrideId !== null}
-      <button
-        type="button"
-        class="btn btn-ghost btn-sm"
-        onclick={selector.clearManualOverride}
-      >
-        Wyczyść ręczny wybór
-      </button>
-    {/if}
+    <button
+      type="button"
+      class="btn btn-primary btn-soft border-0 btn-square btn-sm clear-manual-override-button"
+      aria-label="Wyczyść ręczny wybór"
+      title="Wyczyść ręczny wybór"
+      disabled={manualOverrideId === null}
+      onclick={selector.clearManualOverride}
+    >
+      <span aria-hidden="true" class="icon-[lucide--rotate-ccw] size-4"></span>
+    </button>
   </div>
   <div class="search-content">
     {#if selector.errorMessage !== null}
@@ -123,6 +124,10 @@
     border-radius: var(--radius-box) var(--radius-box) 0 0;
     background-color: var(--match-selector-panel-bg);
     padding: calc(var(--spacing) * 2);
+  }
+
+  .clear-manual-override-button {
+    flex: 0 0 auto;
   }
   .search-content {
     flex: 1 1 auto;
