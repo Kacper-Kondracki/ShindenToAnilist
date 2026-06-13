@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type {
     DatabaseEntry,
     MatchResult,
@@ -62,11 +63,37 @@
     clearManualOverride: (shindenId) => onClearManualOverride(shindenId)
   });
 
+  let matchResultsElement = $state<HTMLUListElement | null>(null);
+  let searchResultsAnchorElement = $state<HTMLLIElement | null>(null);
+  let pendingSearchAlignmentQuery = $state<string | null>(null);
+  let searchAlignmentSpacerHeight = $state(0);
+
+  $effect(() => {
+    const pendingQuery = pendingSearchAlignmentQuery;
+    const currentQuery = selector.query;
+    const resultSignature = getResultSignature();
+
+    if (
+      pendingQuery === null ||
+      pendingQuery !== currentQuery ||
+      matchResultsElement === null
+    ) {
+      return;
+    }
+
+    void alignSearchResultsAfterQueryInput(currentQuery, resultSignature);
+  });
+
   function handleQueryInput(event: Event) {
-    selector.updateQuery((event.currentTarget as HTMLInputElement).value);
+    const nextQuery = (event.currentTarget as HTMLInputElement).value;
+
+    pendingSearchAlignmentQuery = nextQuery;
+    selector.updateQuery(nextQuery);
   }
 
   function handleReset() {
+    pendingSearchAlignmentQuery = null;
+    searchAlignmentSpacerHeight = 0;
     selector.resetQuery();
 
     if (manualOverrideId !== null || isIgnored || isAutomaticWinnerSuppressed) {
@@ -84,6 +111,102 @@
     }
 
     return databaseId === selectedDatabaseEntryId ? 'matched' : 'neutral';
+  }
+
+  async function alignSearchResultsAfterQueryInput(
+    query: string,
+    resultSignature: string
+  ) {
+    await tick();
+
+    if (
+      pendingSearchAlignmentQuery !== query ||
+      selector.query !== query ||
+      getResultSignature() !== resultSignature ||
+      matchResultsElement === null
+    ) {
+      return;
+    }
+
+    if (selector.automaticResults.length === 0) {
+      searchAlignmentSpacerHeight = 0;
+      await tick();
+
+      if (
+        pendingSearchAlignmentQuery === query &&
+        selector.query === query &&
+        getResultSignature() === resultSignature &&
+        matchResultsElement !== null
+      ) {
+        matchResultsElement.scrollTop = 0;
+      }
+
+      return;
+    }
+
+    if (searchResultsAnchorElement === null) {
+      return;
+    }
+
+    searchAlignmentSpacerHeight = 0;
+    await tick();
+
+    if (
+      pendingSearchAlignmentQuery !== query ||
+      selector.query !== query ||
+      getResultSignature() !== resultSignature ||
+      matchResultsElement === null ||
+      searchResultsAnchorElement === null
+    ) {
+      return;
+    }
+
+    const targetScrollTop = getElementScrollTop(
+      matchResultsElement,
+      searchResultsAnchorElement
+    );
+    const maximumScrollTop =
+      matchResultsElement.scrollHeight - matchResultsElement.clientHeight;
+    const nextSpacerHeight = Math.ceil(
+      Math.max(0, targetScrollTop - maximumScrollTop)
+    );
+
+    if (searchAlignmentSpacerHeight !== nextSpacerHeight) {
+      searchAlignmentSpacerHeight = nextSpacerHeight;
+      await tick();
+    }
+
+    if (
+      pendingSearchAlignmentQuery === query &&
+      selector.query === query &&
+      getResultSignature() === resultSignature &&
+      matchResultsElement !== null &&
+      searchResultsAnchorElement !== null
+    ) {
+      matchResultsElement.scrollTop = getElementScrollTop(
+        matchResultsElement,
+        searchResultsAnchorElement
+      );
+    }
+  }
+
+  function getElementScrollTop(container: HTMLElement, element: HTMLElement) {
+    return (
+      element.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop
+    );
+  }
+
+  function getResultSignature() {
+    const automaticResultIds = selector.automaticResults
+      .map((result) => result.id)
+      .join(',');
+    const searchResultIds = selector.searchResults
+      .map((result) => result.id)
+      .join(',');
+
+    return `${automaticResultIds}:${searchResultIds}`;
   }
 
   let canReset = $derived(
@@ -126,7 +249,11 @@
   </div>
   <div class="search-content">
     {#if selector.hasResults}
-      <ul class="match-results" aria-label="Wyniki dopasowania">
+      <ul
+        class="match-results"
+        aria-label="Wyniki dopasowania"
+        bind:this={matchResultsElement}
+      >
         {#each selector.automaticResults as result (result.id)}
           <li class="match-result">
             <DatabaseEntryRow
@@ -145,6 +272,13 @@
         {#if selector.automaticResults.length > 0 && selector.searchResults.length > 0}
           <li class="match-results-separator" aria-hidden="true"></li>
         {/if}
+        {#if selector.automaticResults.length > 0}
+          <li
+            class="match-results-search-anchor"
+            aria-hidden="true"
+            bind:this={searchResultsAnchorElement}
+          ></li>
+        {/if}
         {#each selector.searchResults as result (result.id)}
           <li class="match-result">
             <DatabaseEntryRow
@@ -160,6 +294,18 @@
             />
           </li>
         {/each}
+        {#if selector.automaticResults.length > 0 && selector.searchResults.length === 0}
+          <li class="search-message text-sm font-medium text-muted">
+            Brak wyników
+          </li>
+        {/if}
+        {#if searchAlignmentSpacerHeight > 0}
+          <li
+            class="match-results-alignment-spacer"
+            style={`height: ${searchAlignmentSpacerHeight}px`}
+            aria-hidden="true"
+          ></li>
+        {/if}
       </ul>
     {:else if selector.errorMessage !== null}
       <p class="search-message text-sm font-medium text-error">
@@ -241,9 +387,27 @@
     min-width: 0;
   }
 
+  .match-results-search-anchor,
+  .match-results-alignment-spacer {
+    min-width: 0;
+    flex: 0 0 auto;
+    pointer-events: none;
+  }
+
+  .match-results-search-anchor {
+    height: 0;
+  }
+
   .match-results-separator {
     min-width: 0;
-    margin: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
-    border-top: var(--border) solid var(--match-selector-border-color);
+    margin: calc(var(--spacing) * 2.5) calc(var(--spacing) * 4);
+    --match-results-separator-color: color-mix(
+      in oklab,
+      var(--color-base-content) 50%,
+      transparent
+    );
+    border-top: 2px solid var(--match-results-separator-color);
+    border-bottom: 2px solid var(--match-results-separator-color);
+    border-radius: 999px;
   }
 </style>
