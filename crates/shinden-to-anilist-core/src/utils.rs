@@ -14,6 +14,8 @@ use wana_kana::{
     IsJapaneseChar,
 };
 
+const GMT_PLUS_1_OFFSET_SECS: i64 = 60 * 60;
+
 pub(crate) fn de_timestamp<'de, T, D>(deserializer: D) -> Result<T, D::Error>
 where
     T: From<Option<NaiveDate>> + serde::Deserialize<'de>,
@@ -30,7 +32,7 @@ where
     Ok(match date_or_timestamp {
         Some(DateOrTimestamp::Date(date)) => T::from(Some(date)),
         Some(DateOrTimestamp::Timestamp(timestamp)) => T::from(Some(
-            chrono::DateTime::from_timestamp(timestamp, 0)
+            chrono::DateTime::from_timestamp(timestamp + GMT_PLUS_1_OFFSET_SECS, 0)
                 .map(|t| t.date_naive())
                 .ok_or(D::Error::custom("could not deserialize date"))?,
         )),
