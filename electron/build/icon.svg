@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="ShindenToAnilist">
+  <title>ShindenToAnilist</title>
+  <rect width="256" height="256" rx="48" fill="#141b30"/>
+  <rect x="22" y="22" width="212" height="212" rx="42" fill="#24d2ba"/>
+  <path d="M64 176 176 64M98 192 192 98" stroke="#fff" stroke-width="28" stroke-linecap="round"/>
+  <path d="M88 72v112M162 72v112" stroke="#141b30" stroke-width="28" stroke-linecap="round"/>
+</svg>

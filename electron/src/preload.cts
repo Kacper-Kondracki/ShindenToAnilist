@@ -6,29 +6,36 @@ type RendererPaths = {
   database: string;
   export: string;
 };
+type AppConfig = {
+  paths: RendererPaths;
+  grpcBaseUrl: string;
+};
 type SelectExportPathOptions = {
   defaultPath?: string;
 };
 
-const pathsArgumentPrefix = '--shinden-to-anilist-paths=';
+const configArgumentPrefix = '--shinden-to-anilist-config=';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
 
-function rendererPaths(): RendererPaths {
-  const pathsArgument = process.argv.find((argument) =>
-    argument.startsWith(pathsArgumentPrefix)
+function appConfig(): AppConfig {
+  const configArgument = process.argv.find((argument) =>
+    argument.startsWith(configArgumentPrefix)
   );
 
-  if (pathsArgument === undefined) {
-    throw new Error('Missing ShindenToAnilist renderer paths');
+  if (configArgument === undefined) {
+    throw new Error('Missing ShindenToAnilist app config');
   }
 
   return JSON.parse(
-    pathsArgument.slice(pathsArgumentPrefix.length)
-  ) as RendererPaths;
+    configArgument.slice(configArgumentPrefix.length)
+  ) as AppConfig;
 }
 
+const config = appConfig();
+
 contextBridge.exposeInMainWorld('shindenToAnilist', {
-  paths: rendererPaths(),
+  paths: config.paths,
+  grpcBaseUrl: config.grpcBaseUrl,
   selectExportPath: (options?: SelectExportPathOptions) =>
     ipcRenderer.invoke(selectExportPathChannel, options) as Promise<
       string | null

@@ -1,0 +1,145 @@
+name: Production Builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  linux:
+    name: Linux artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+          curl -L -o "$RUNNER_TEMP/appimagetool" \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >> "$GITHUB_ENV"
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build thin system Electron tarball
+        run: pnpm bundle:linux:system
+
+      - name: Build thin system Electron AppImage
+        run: pnpm bundle:linux:appimage:system
+
+      - name: Build bundled Electron Linux directory
+        run: pnpm bundle:linux:bundled
+
+      - name: Build bundled Electron AppImage
+        run: pnpm bundle:linux:appimage:bundled
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: shindentoanilist-linux
+          path: |
+            dist/*.tar.gz
+            dist/*.AppImage
+            dist/electron-builder/**
+
+  windows-native:
+    name: Windows portable native
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Windows portable executable
+        run: pnpm bundle:windows:portable
+
+      - name: Upload Windows portable executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: shindentoanilist-windows-portable-native
+          path: dist/electron-builder/*.exe
+
+  windows-xwin:
+    name: Windows portable via cargo-xwin
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install cross-build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm lld wine64
+          cargo install --locked cargo-xwin
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Windows portable executable with cargo-xwin
+        run: pnpm bundle:windows:portable:xwin
+
+      - name: Upload Windows portable executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: shindentoanilist-windows-portable-xwin
+          path: dist/electron-builder/*.exe
