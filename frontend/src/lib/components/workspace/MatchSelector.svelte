@@ -96,6 +96,21 @@
     selector.updateQuery(nextQuery);
   }
 
+  function handleQueryKeydown(event: KeyboardEvent) {
+    const currentQuery = (event.currentTarget as HTMLInputElement).value;
+
+    if (event.key !== 'Backspace' || currentQuery.length > 0) {
+      return;
+    }
+
+    pendingSearchAlignmentQuery = null;
+    setSearchAlignmentSpacerHeight(0);
+
+    if (matchResultsElement !== null) {
+      matchResultsElement.scrollTop = 0;
+    }
+  }
+
   function handleReset() {
     pendingSearchAlignmentQuery = null;
     searchAlignmentSpacerHeight = 0;
@@ -243,6 +258,7 @@
       placeholder={selectedEntry.title || 'Wyszukaj tytuł'}
       class="input search-input"
       value={selector.query}
+      onkeydown={handleQueryKeydown}
       oninput={handleQueryInput}
     />
     <button
