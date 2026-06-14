@@ -27,10 +27,11 @@
     "bundle:windows:portable:xwin": "pnpm build:frontend && pnpm build:electron && pnpm build:grpc:windows:xwin && pnpm build:icons && node scripts/stage-sidecar.mjs windows && pnpm --filter electron exec electron-builder --win portable",
     "export:linux": "pnpm bundle:linux:system && pnpm bundle:linux:appimage:system && pnpm bundle:linux:bundled && pnpm bundle:linux:appimage:bundled",
     "export:windows": "pnpm bundle:windows:portable",
+    "format:root": "prettier --config prettier.config.mjs --ignore-path .prettierignore --write package.json pnpm-workspace.yaml prettier.config.mjs prettier.base.mjs scripts .github",
     "format:frontend": "pnpm --filter frontend format",
     "format:electron": "pnpm --filter electron format",
     "format:crates": "cargo +nightly fmt",
-    "format": "pnpm format:crates && pnpm format:frontend && pnpm format:electron"
+    "format": "pnpm format:crates && pnpm format:root && pnpm format:frontend && pnpm format:electron"
   },
   "devDependencies": {
     "concurrently": "^10.0.3",

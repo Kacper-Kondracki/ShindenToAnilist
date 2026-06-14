@@ -9,6 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
 const appConfigArgumentPrefix = '--shinden-to-anilist-config=';
 const sidecarReadyTimeoutMs = 15_000;
+const sidecarShutdownTimeoutMs = 3_000;
 const defaultDevGrpcBaseUrl = 'http://127.0.0.1:45187';
 
 type SelectExportPathOptions = {
@@ -33,6 +34,7 @@ type SidecarReadyEvent = {
 
 let rendererPaths: RendererPaths;
 let sidecarProcess: ChildProcess | undefined;
+let sidecarShutdownTimer: NodeJS.Timeout | undefined;
 
 ipcMain.handle(
   selectExportPathChannel,
@@ -105,9 +107,13 @@ function startSidecar(): Promise<string> {
   }
 
   return new Promise((resolve, reject) => {
-    const child = spawn(sidecarPath(), ['--listen-addr', '127.0.0.1:0'], {
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
+    const child = spawn(
+      sidecarPath(),
+      ['--listen-addr', '127.0.0.1:0', '--exit-on-stdin-close'],
+      {
+        stdio: ['pipe', 'pipe', 'pipe']
+      }
+    );
 
     sidecarProcess = child;
     child.stdout.setEncoding('utf8');
@@ -165,6 +171,15 @@ function startSidecar(): Promise<string> {
     });
 
     child.on('exit', (code, signal) => {
+      if (sidecarProcess === child) {
+        sidecarProcess = undefined;
+      }
+
+      if (sidecarShutdownTimer !== undefined) {
+        clearTimeout(sidecarShutdownTimer);
+        sidecarShutdownTimer = undefined;
+      }
+
       if (!settled) {
         settled = true;
         clearTimeout(timer);
@@ -220,10 +235,17 @@ function stopSidecar(): void {
     return;
   }
 
-  sidecarProcess.kill();
+  sidecarProcess.stdin?.end();
+  sidecarShutdownTimer ??= setTimeout(() => {
+    sidecarProcess?.kill();
+  }, sidecarShutdownTimeoutMs);
+  sidecarShutdownTimer.unref();
 }
 
 app.on('before-quit', stopSidecar);
+process.once('exit', () => {
+  sidecarProcess?.stdin?.destroy();
+});
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();

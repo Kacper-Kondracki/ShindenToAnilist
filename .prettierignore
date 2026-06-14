@@ -5,11 +5,14 @@ pnpm-lock.yaml
 yarn.lock
 
 # Build outputs
-dist
-build
-out
-.tmp
-temp
+dist/
+out/
+.tmp/
+temp/
+tmp/
+electron/build/sidecar/
+frontend/dist/
+electron/dist/
 
 # Vite
 vite.config.ts.timestamp-*

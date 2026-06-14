@@ -1,6 +1,11 @@
 use std::{
     env,
+    io::{
+        self,
+        Read,
+    },
     net::SocketAddr,
+    thread,
 };
 
 use reqwest::Client;
@@ -21,6 +26,13 @@ use tracing_subscriber::{
 
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:45187";
 const LISTEN_ADDR_ENV: &str = "SHINDEN_TO_ANILIST_GRPC_LISTEN_ADDR";
+const EXIT_ON_STDIN_CLOSE_ENV: &str = "SHINDEN_TO_ANILIST_GRPC_EXIT_ON_STDIN_CLOSE";
+
+#[derive(Debug)]
+struct Config {
+    listen_addr: SocketAddr,
+    exit_on_stdin_close: bool,
+}
 
 fn init_tracing() {
     let filter = EnvFilter::try_from_default_env()
@@ -29,52 +41,89 @@ fn init_tracing() {
     fmt().with_env_filter(filter).init();
 }
 
-fn listen_addr_argument() -> Result<Option<String>, Box<dyn std::error::Error>> {
+fn config() -> Result<Config, Box<dyn std::error::Error>> {
+    let mut listen_addr = env::var(LISTEN_ADDR_ENV).unwrap_or_else(|_| DEFAULT_LISTEN_ADDR.to_owned());
+    let mut exit_on_stdin_close = env::var(EXIT_ON_STDIN_CLOSE_ENV)
+        .is_ok_and(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"));
     let mut args = env::args().skip(1);
 
     while let Some(arg) = args.next() {
         if arg == "--listen-addr" {
-            return args
+            listen_addr = args
                 .next()
-                .map(Some)
-                .ok_or_else(|| "--listen-addr requires an address".into());
+                .ok_or_else(|| "--listen-addr requires an address".to_owned())?;
+            continue;
         }
 
         if let Some(addr) = arg.strip_prefix("--listen-addr=") {
-            return Ok(Some(addr.to_owned()));
+            listen_addr = addr.to_owned();
+            continue;
+        }
+
+        if arg == "--exit-on-stdin-close" {
+            exit_on_stdin_close = true;
         }
     }
 
-    Ok(None)
+    Ok(Config {
+        listen_addr: listen_addr.parse()?,
+        exit_on_stdin_close,
+    })
 }
 
-fn listen_addr() -> Result<SocketAddr, Box<dyn std::error::Error>> {
-    let addr = listen_addr_argument()?
-        .or_else(|| env::var(LISTEN_ADDR_ENV).ok())
-        .unwrap_or_else(|| DEFAULT_LISTEN_ADDR.to_owned());
+fn stdin_close_shutdown() -> tokio::sync::watch::Receiver<bool> {
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
-    Ok(addr.parse()?)
+    thread::spawn(move || {
+        let mut stdin = io::stdin().lock();
+        let mut buffer = [0u8; 1];
+
+        loop {
+            match stdin.read(&mut buffer) {
+                Ok(0) | Err(_) => {
+                    let _ = shutdown_tx.send(true);
+                    break;
+                },
+                Ok(_) => {},
+            }
+        }
+    });
+
+    shutdown_rx
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_tracing();
 
-    let addr = listen_addr()?;
+    let config = config()?;
+    let addr = config.listen_addr;
     let listener = TcpListener::bind(addr).await?;
     let addr = listener.local_addr()?;
     let service = ShindenToAnilist::new(Client::new());
+    let stdin_shutdown = config.exit_on_stdin_close.then(stdin_close_shutdown);
 
     info!(%addr, "ShindenToAnilist gRPC listening");
     println!(r#"{{"event":"ready","addr":"{addr}"}}"#);
 
-    Server::builder()
+    let server = Server::builder()
         .accept_http1(true)
         .layer(CorsLayer::permissive())
         .layer(GrpcWebLayer::new())
-        .add_service(ShindenToAnilistServiceServer::new(service))
-        .serve_with_incoming(TcpListenerStream::new(listener))
-        .await?;
+        .add_service(ShindenToAnilistServiceServer::new(service));
+
+    if let Some(mut shutdown) = stdin_shutdown {
+        server
+            .serve_with_incoming_shutdown(TcpListenerStream::new(listener), async move {
+                let _ = shutdown.changed().await;
+                info!("ShindenToAnilist gRPC shutting down after stdin closed");
+            })
+            .await?;
+    } else {
+        server
+            .serve_with_incoming(TcpListenerStream::new(listener))
+            .await?;
+    }
 
     Ok(())
 }
