@@ -244,9 +244,10 @@ export function createMatchSelectorController(
 }
 
 export async function loadInitialMatchSelectorSearch(
-  selectedEntry: ShindenEntry
+  selectedEntry: ShindenEntry,
+  inputQuery = ''
 ): Promise<MatchSelectorInitialSearch> {
-  const query = selectedEntry.title.trim();
+  const query = resolveSearchQueryForEntry(selectedEntry, inputQuery);
 
   if (query.length === 0) {
     return {

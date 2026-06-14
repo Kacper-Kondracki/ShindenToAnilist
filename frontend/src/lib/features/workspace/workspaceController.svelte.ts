@@ -245,8 +245,10 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
 
     const currentSelectionRequestId = ++selectionRequestId;
     pendingSelectionEntryId = entryId;
-    const nextInitialMatchSearch =
-      await loadInitialMatchSelectorSearch(selectedEntry);
+    const nextInitialMatchSearch = await loadInitialMatchSelectorSearch(
+      selectedEntry,
+      matchSelectorQueries[entryId] ?? ''
+    );
 
     if (currentSelectionRequestId !== selectionRequestId) {
       return;
