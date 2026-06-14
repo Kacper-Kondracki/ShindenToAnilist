@@ -67,8 +67,9 @@
 
     return new Set<AnimeListTabId>(containingTabIds);
   });
-  let manualOverrideCount = $derived(
-    Object.keys(workspace.manualOverrides).length
+  let listOverrideCount = $derived(
+    Object.keys(workspace.manualOverrides).length +
+      Object.keys(workspace.ignoredEntryIds).length
   );
 </script>
 
@@ -78,9 +79,9 @@
       <AnimeListTabs
         activeTab={listPane.activeTab}
         {selectedEntryTabIds}
-        {manualOverrideCount}
+        {listOverrideCount}
         onSelectTab={listPane.selectTab}
-        onClearManualOverrides={workspace.clearManualOverrides}
+        onClearListOverrides={workspace.clearManualOverrides}
       />
     </div>
     <div class="workspace-layout">

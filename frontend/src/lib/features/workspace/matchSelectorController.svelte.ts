@@ -67,15 +67,23 @@ export function createMatchSelectorController(
     resolveCandidates(automaticCandidates(input.getAutomaticMatchResult()))
   );
   let searchResults = $derived.by((): MatchSelectorResult[] => {
-    const excludedIds = new Set(automaticResults.map((item) => item.id));
     const searchItems =
       searchState.status === 'ready' ? searchState.result.items : [];
 
-    return resolveCandidates(searchItems, excludedIds);
+    return resolveCandidates(searchItems);
   });
   let hasResults = $derived(
     automaticResults.length > 0 || searchResults.length > 0
   );
+  let isSearchCurrent = $derived.by(() => {
+    const currentQuery = resolveSearchQuery(query);
+
+    if (searchState.status === 'idle') {
+      return currentQuery.length === 0;
+    }
+
+    return searchState.query === currentQuery;
+  });
   let conflictingWinnerIds = $derived.by(() => {
     const selectedEntryId = input.getSelectedEntry().id;
     const conflicts = new Set<number>();
@@ -218,6 +226,9 @@ export function createMatchSelectorController(
     get hasResults() {
       return hasResults;
     },
+    get isSearchCurrent() {
+      return isSearchCurrent;
+    },
     get conflictingWinnerIds() {
       return conflictingWinnerIds;
     },
@@ -233,9 +244,10 @@ export function createMatchSelectorController(
 }
 
 export async function loadInitialMatchSelectorSearch(
-  selectedEntry: ShindenEntry
+  selectedEntry: ShindenEntry,
+  inputQuery = ''
 ): Promise<MatchSelectorInitialSearch> {
-  const query = selectedEntry.title.trim();
+  const query = resolveSearchQueryForEntry(selectedEntry, inputQuery);
 
   if (query.length === 0) {
     return {

@@ -34,6 +34,11 @@ export type SelectedWinnerState =
   | { status: 'ready'; selectedEntryId: number; entry: DatabaseEntry }
   | { status: 'missing'; selectedEntryId: number; databaseEntryId: number };
 
+type PersistedListOverrides = {
+  manualOverrides: Record<number, number>;
+  ignoredEntryIds: Record<number, true>;
+};
+
 export type WorkspaceController = ReturnType<typeof createWorkspaceController>;
 
 export function createWorkspaceController(animeData: LoadedAnimeData) {
@@ -139,7 +144,10 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
       return;
     }
 
-    writeManualOverrides(manualOverrideStorageKey, manualOverrides);
+    writeListOverrides(manualOverrideStorageKey, {
+      manualOverrides,
+      ignoredEntryIds
+    });
   });
 
   $effect(() => {
@@ -151,29 +159,35 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     }
 
     databaseVersion;
-    const nextManualOverrides = pruneUnavailableManualOverrides(
-      manualOverrides,
+    const nextOverrides = pruneUnavailableListOverrides(
+      { manualOverrides, ignoredEntryIds },
       activeState.entryIdsByView.all,
       (databaseId) => animeData.getDatabaseEntry(databaseId) !== null
     );
 
-    if (nextManualOverrides === manualOverrides) {
+    if (
+      nextOverrides.manualOverrides === manualOverrides &&
+      nextOverrides.ignoredEntryIds === ignoredEntryIds
+    ) {
       return;
     }
 
-    replaceManualState(nextManualOverrides, ignoredEntryIds);
+    replaceManualState(
+      nextOverrides.manualOverrides,
+      nextOverrides.ignoredEntryIds
+    );
   });
 
   function activate(next: WorkspaceActivation) {
     const nextManualOverrideStorageKey = storageKeyForManualOverrides(
       next.manualOverrideScopeKey
     );
-    const storedManualOverrides =
+    const storedListOverrides =
       nextManualOverrideStorageKey === manualOverrideStorageKey
-        ? manualOverrides
-        : readManualOverrides(nextManualOverrideStorageKey);
-    const nextManualOverrides = pruneUnavailableManualOverrides(
-      storedManualOverrides,
+        ? { manualOverrides, ignoredEntryIds }
+        : readListOverrides(nextManualOverrideStorageKey);
+    const nextListOverrides = pruneUnavailableListOverrides(
+      storedListOverrides,
       next.entryIdsByView.all,
       (databaseId) => animeData.getDatabaseEntry(databaseId) !== null
     );
@@ -194,7 +208,11 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     initialMatchSearch = null;
     manualOverrideStorageKey = nextManualOverrideStorageKey;
     manualOverridesHydrated = true;
-    replaceManualState(nextManualOverrides, {}, false);
+    replaceManualState(
+      nextListOverrides.manualOverrides,
+      nextListOverrides.ignoredEntryIds,
+      false
+    );
     matchSelectorQueries = {};
     exportState = { status: 'idle' };
   }
@@ -227,8 +245,10 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
 
     const currentSelectionRequestId = ++selectionRequestId;
     pendingSelectionEntryId = entryId;
-    const nextInitialMatchSearch =
-      await loadInitialMatchSelectorSearch(selectedEntry);
+    const nextInitialMatchSearch = await loadInitialMatchSelectorSearch(
+      selectedEntry,
+      matchSelectorQueries[entryId] ?? ''
+    );
 
     if (currentSelectionRequestId !== selectionRequestId) {
       return;
@@ -352,7 +372,7 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   }
 
   function clearManualOverrides() {
-    replaceManualState({}, ignoredEntryIds);
+    replaceManualState({}, {});
   }
 
   function replaceManualState(
@@ -661,14 +681,18 @@ function omitRecordKey<T>(record: Record<number, T>, key: number) {
   return nextRecord;
 }
 
-function pruneUnavailableManualOverrides(
-  manualOverrides: Record<number, number>,
+function pruneUnavailableListOverrides(
+  listOverrides: PersistedListOverrides,
   availableShindenIds: readonly number[],
   hasDatabaseEntry: (databaseId: number) => boolean
 ) {
   const availableShindenIdSet = new Set(availableShindenIds);
+  const manualOverrides = listOverrides.manualOverrides;
+  const ignoredEntryIds = listOverrides.ignoredEntryIds;
   const nextManualOverrides: Record<number, number> = {};
-  let changed = false;
+  const nextIgnoredEntryIds: Record<number, true> = {};
+  let manualOverridesChanged = false;
+  let ignoredEntryIdsChanged = false;
 
   for (const [rawShindenId, databaseId] of Object.entries(manualOverrides)) {
     const shindenId = Number(rawShindenId);
@@ -677,14 +701,32 @@ function pruneUnavailableManualOverrides(
       !availableShindenIdSet.has(shindenId) ||
       !hasDatabaseEntry(databaseId)
     ) {
-      changed = true;
+      manualOverridesChanged = true;
       continue;
     }
 
     nextManualOverrides[shindenId] = databaseId;
   }
 
-  return changed ? nextManualOverrides : manualOverrides;
+  for (const rawShindenId of Object.keys(ignoredEntryIds)) {
+    const shindenId = Number(rawShindenId);
+
+    if (!availableShindenIdSet.has(shindenId)) {
+      ignoredEntryIdsChanged = true;
+      continue;
+    }
+
+    nextIgnoredEntryIds[shindenId] = true;
+  }
+
+  return {
+    manualOverrides: manualOverridesChanged
+      ? nextManualOverrides
+      : manualOverrides,
+    ignoredEntryIds: ignoredEntryIdsChanged
+      ? nextIgnoredEntryIds
+      : ignoredEntryIds
+  };
 }
 
 const manualOverrideStoragePrefix = 'shinden-to-anilist:manual-overrides:v1:';
@@ -693,24 +735,24 @@ function storageKeyForManualOverrides(scopeKey: string) {
   return `${manualOverrideStoragePrefix}${scopeKey}`;
 }
 
-function readManualOverrides(storageKey: string): Record<number, number> {
+function readListOverrides(storageKey: string): PersistedListOverrides {
   const storage = getLocalStorage();
   if (storage === null) {
-    return {};
+    return emptyListOverrides();
   }
 
   try {
-    return normalizeManualOverrides(
+    return normalizeListOverrides(
       JSON.parse(storage.getItem(storageKey) ?? 'null')
     );
   } catch {
-    return {};
+    return emptyListOverrides();
   }
 }
 
-function writeManualOverrides(
+function writeListOverrides(
   storageKey: string,
-  manualOverrides: Record<number, number>
+  listOverrides: PersistedListOverrides
 ) {
   const storage = getLocalStorage();
   if (storage === null) {
@@ -718,15 +760,35 @@ function writeManualOverrides(
   }
 
   try {
-    if (Object.keys(manualOverrides).length === 0) {
+    if (
+      Object.keys(listOverrides.manualOverrides).length === 0 &&
+      Object.keys(listOverrides.ignoredEntryIds).length === 0
+    ) {
       storage.removeItem(storageKey);
       return;
     }
 
-    storage.setItem(storageKey, JSON.stringify({ overrides: manualOverrides }));
+    storage.setItem(
+      storageKey,
+      JSON.stringify({
+        overrides: listOverrides.manualOverrides,
+        ignoredEntryIds: listOverrides.ignoredEntryIds
+      })
+    );
   } catch {
     // Storage is best-effort; the in-memory workspace should keep working.
   }
+}
+
+function normalizeListOverrides(value: unknown): PersistedListOverrides {
+  if (!isRecord(value)) {
+    return emptyListOverrides();
+  }
+
+  return {
+    manualOverrides: normalizeManualOverrides(value),
+    ignoredEntryIds: normalizeTrueRecord(value.ignoredEntryIds)
+  };
 }
 
 function normalizeManualOverrides(value: unknown): Record<number, number> {
@@ -747,6 +809,30 @@ function normalizeManualOverrides(value: unknown): Record<number, number> {
   }
 
   return normalized;
+}
+
+function normalizeTrueRecord(value: unknown): Record<number, true> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const normalized: Record<number, true> = {};
+  for (const [rawEntryId, flag] of Object.entries(value)) {
+    const entryId = Number(rawEntryId);
+
+    if (flag === true && Number.isSafeInteger(entryId)) {
+      normalized[entryId] = true;
+    }
+  }
+
+  return normalized;
+}
+
+function emptyListOverrides(): PersistedListOverrides {
+  return {
+    manualOverrides: {},
+    ignoredEntryIds: {}
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -279,9 +279,20 @@ export async function matchShindenList(options: SearchOptions = {}) {
 
 export async function exportXml(matches: MatchSelection[], path = exportPath) {
   return callRpc(async (): Promise<ExportResult> => {
+    const selectedPath = await selectExportPath(path);
+
+    if (selectedPath === null) {
+      return {
+        path,
+        exportedCount: 0,
+        cancelled: true,
+        shindenVersion
+      };
+    }
+
     const response = await client.exportXml(
       create(ExportXmlRequestSchema, {
-        path,
+        path: selectedPath,
         matches: matches.map((match) =>
           create(AnimeIdPairSchema, {
             shindenId: BigInt(match.shindenId),
@@ -299,6 +310,16 @@ export async function exportXml(matches: MatchSelection[], path = exportPath) {
       shindenVersion: toNumber(response.shindenVersion)
     };
   });
+}
+
+async function selectExportPath(defaultPath: string) {
+  const selectPath = globalThis.shindenToAnilist?.selectExportPath;
+
+  if (selectPath === undefined) {
+    return defaultPath;
+  }
+
+  return selectPath({ defaultPath });
 }
 
 async function callRpc<T>(run: () => Promise<T>) {

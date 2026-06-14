@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import envPaths from 'env-paths';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -14,6 +14,33 @@ const rendererPaths = {
   database: join(appPaths.data, 'database.jsonl'),
   export: join(appPaths.data, 'export.xml')
 };
+const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
+
+type SelectExportPathOptions = {
+  defaultPath?: string;
+};
+
+ipcMain.handle(
+  selectExportPathChannel,
+  async (event, options?: SelectExportPathOptions) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const dialogOptions = {
+      title: 'Wybierz plik eksportu',
+      defaultPath: options?.defaultPath ?? rendererPaths.export,
+      buttonLabel: 'Eksportuj',
+      filters: [
+        { name: 'XML', extensions: ['xml'] },
+        { name: 'Wszystkie pliki', extensions: ['*'] }
+      ]
+    };
+    const result =
+      window === null
+        ? await dialog.showSaveDialog(dialogOptions)
+        : await dialog.showSaveDialog(window, dialogOptions);
+
+    return result.canceled ? null : (result.filePath ?? null);
+  }
+);
 
 function createWindow(): void {
   const win = new BrowserWindow({

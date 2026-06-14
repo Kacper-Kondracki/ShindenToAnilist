@@ -8,6 +8,9 @@ interface Window {
       database: string;
       export: string;
     };
+    selectExportPath?: (options?: {
+      defaultPath?: string;
+    }) => Promise<string | null>;
   };
 }
 

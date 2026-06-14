@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { flushSync, untrack } from 'svelte';
   import type {
     DatabaseEntry,
     MatchResult,
@@ -62,11 +63,57 @@
     clearManualOverride: (shindenId) => onClearManualOverride(shindenId)
   });
 
+  let matchResultsElement = $state<HTMLUListElement | null>(null);
+  let searchResultsAnchorElement = $state<HTMLLIElement | null>(null);
+  let pendingSearchAlignmentQuery = $state<string | null>(null);
+  let searchAlignmentSpacerHeight = $state(0);
+
+  $effect(() => {
+    const pendingQuery = pendingSearchAlignmentQuery;
+    const currentQuery = selector.query;
+    const isSearchCurrent = selector.isSearchCurrent;
+
+    if (
+      pendingQuery === null ||
+      pendingQuery !== currentQuery ||
+      !isSearchCurrent ||
+      matchResultsElement === null
+    ) {
+      return;
+    }
+
+    const resultSignature = getResultSignature();
+
+    untrack(() =>
+      alignSearchResultsAfterQueryInput(currentQuery, resultSignature)
+    );
+  });
+
   function handleQueryInput(event: Event) {
-    selector.updateQuery((event.currentTarget as HTMLInputElement).value);
+    const nextQuery = (event.currentTarget as HTMLInputElement).value;
+
+    pendingSearchAlignmentQuery = nextQuery;
+    selector.updateQuery(nextQuery);
+  }
+
+  function handleQueryKeydown(event: KeyboardEvent) {
+    const currentQuery = (event.currentTarget as HTMLInputElement).value;
+
+    if (event.key !== 'Backspace' || currentQuery.length > 0) {
+      return;
+    }
+
+    pendingSearchAlignmentQuery = null;
+    setSearchAlignmentSpacerHeight(0);
+
+    if (matchResultsElement !== null) {
+      matchResultsElement.scrollTop = 0;
+    }
   }
 
   function handleReset() {
+    pendingSearchAlignmentQuery = null;
+    searchAlignmentSpacerHeight = 0;
     selector.resetQuery();
 
     if (manualOverrideId !== null || isIgnored || isAutomaticWinnerSuppressed) {
@@ -86,6 +133,116 @@
     return databaseId === selectedDatabaseEntryId ? 'matched' : 'neutral';
   }
 
+  function alignSearchResultsAfterQueryInput(
+    query: string,
+    resultSignature: string
+  ) {
+    if (
+      pendingSearchAlignmentQuery !== query ||
+      selector.query !== query ||
+      getResultSignature() !== resultSignature ||
+      matchResultsElement === null
+    ) {
+      return;
+    }
+
+    if (selector.automaticResults.length === 0) {
+      setSearchAlignmentSpacerHeight(0);
+      matchResultsElement.scrollTop = 0;
+      return;
+    }
+
+    if (searchResultsAnchorElement === null) {
+      return;
+    }
+
+    const targetScrollTop = getElementScrollTop(
+      matchResultsElement,
+      searchResultsAnchorElement
+    );
+    const nextSpacerHeight =
+      getRequiredSearchAlignmentSpacerHeight(targetScrollTop);
+
+    setSearchAlignmentSpacerHeight(nextSpacerHeight);
+
+    if (
+      pendingSearchAlignmentQuery === query &&
+      selector.query === query &&
+      getResultSignature() === resultSignature &&
+      matchResultsElement !== null &&
+      searchResultsAnchorElement !== null
+    ) {
+      const alignedTargetScrollTop = getElementScrollTop(
+        matchResultsElement,
+        searchResultsAnchorElement
+      );
+      const alignedSpacerHeight = getRequiredSearchAlignmentSpacerHeight(
+        alignedTargetScrollTop
+      );
+
+      setSearchAlignmentSpacerHeight(alignedSpacerHeight);
+
+      if (
+        pendingSearchAlignmentQuery === query &&
+        selector.query === query &&
+        getResultSignature() === resultSignature &&
+        matchResultsElement !== null &&
+        searchResultsAnchorElement !== null
+      ) {
+        matchResultsElement.scrollTop = getElementScrollTop(
+          matchResultsElement,
+          searchResultsAnchorElement
+        );
+      }
+    }
+  }
+
+  function getRequiredSearchAlignmentSpacerHeight(targetScrollTop: number) {
+    if (matchResultsElement === null) {
+      return 0;
+    }
+
+    const maximumScrollTopWithoutSpacer = Math.max(
+      0,
+      matchResultsElement.scrollHeight -
+        searchAlignmentSpacerHeight -
+        matchResultsElement.clientHeight
+    );
+
+    return Math.ceil(
+      Math.max(0, targetScrollTop - maximumScrollTopWithoutSpacer)
+    );
+  }
+
+  function setSearchAlignmentSpacerHeight(nextSpacerHeight: number) {
+    if (searchAlignmentSpacerHeight === nextSpacerHeight) {
+      return;
+    }
+
+    flushSync(() => {
+      searchAlignmentSpacerHeight = nextSpacerHeight;
+    });
+  }
+
+  function getElementScrollTop(container: HTMLElement, element: HTMLElement) {
+    return (
+      element.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop
+    );
+  }
+
+  function getResultSignature() {
+    const automaticResultIds = selector.automaticResults
+      .map((result) => result.id)
+      .join(',');
+    const searchResultIds = selector.searchResults
+      .map((result) => result.id)
+      .join(',');
+
+    return `${automaticResultIds}:${searchResultIds}`;
+  }
+
   let canReset = $derived(
     selector.hasRememberedQuery ||
       manualOverrideId !== null ||
@@ -101,6 +258,7 @@
       placeholder={selectedEntry.title || 'Wyszukaj tytuł'}
       class="input search-input"
       value={selector.query}
+      onkeydown={handleQueryKeydown}
       oninput={handleQueryInput}
     />
     <button
@@ -126,7 +284,16 @@
   </div>
   <div class="search-content">
     {#if selector.hasResults}
-      <ul class="match-results" aria-label="Wyniki dopasowania">
+      <ul
+        class="match-results"
+        aria-label="Wyniki dopasowania"
+        bind:this={matchResultsElement}
+      >
+        {#if selector.automaticResults.length > 0}
+          <li class="match-results-section-label">
+            <span>Najlepsze kandydaty</span>
+          </li>
+        {/if}
         {#each selector.automaticResults as result (result.id)}
           <li class="match-result">
             <DatabaseEntryRow
@@ -142,8 +309,18 @@
             />
           </li>
         {/each}
-        {#if selector.automaticResults.length > 0 && selector.searchResults.length > 0}
+        {#if selector.automaticResults.length > 0}
           <li class="match-results-separator" aria-hidden="true"></li>
+          <li
+            class="match-results-search-anchor"
+            aria-hidden="true"
+            bind:this={searchResultsAnchorElement}
+          ></li>
+        {/if}
+        {#if selector.automaticResults.length > 0 || selector.searchResults.length > 0}
+          <li class="match-results-section-label">
+            <span>Wyniki wyszukiwania</span>
+          </li>
         {/if}
         {#each selector.searchResults as result (result.id)}
           <li class="match-result">
@@ -160,6 +337,18 @@
             />
           </li>
         {/each}
+        {#if selector.automaticResults.length > 0 && selector.searchResults.length === 0}
+          <li class="search-message text-sm font-medium text-muted">
+            Brak wyników
+          </li>
+        {/if}
+        {#if searchAlignmentSpacerHeight > 0}
+          <li
+            class="match-results-alignment-spacer"
+            style={`height: ${searchAlignmentSpacerHeight}px`}
+            aria-hidden="true"
+          ></li>
+        {/if}
       </ul>
     {:else if selector.errorMessage !== null}
       <p class="search-message text-sm font-medium text-error">
@@ -221,17 +410,19 @@
   }
 
   .search-message {
-    padding: calc(var(--spacing) * 3);
+    padding: calc(var(--spacing) * 2.5);
   }
 
   .match-results {
+    --match-results-list-padding: calc(var(--spacing) * 1);
+
     display: flex;
     box-sizing: border-box;
     height: 100%;
     min-width: 0;
     flex-direction: column;
     margin: 0;
-    padding: calc(var(--spacing) * 1);
+    padding: var(--match-results-list-padding);
     overflow-y: auto;
     list-style: none;
     scrollbar-color: var(--color-primary) var(--match-selector-panel-bg);
@@ -241,9 +432,56 @@
     min-width: 0;
   }
 
+  .match-results-section-label {
+    display: flex;
+    min-width: 0;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: calc(var(--spacing) * 2);
+    padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3)
+      calc(var(--spacing) * 1);
+    color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .match-results-section-label::after {
+    min-width: calc(var(--spacing) * 8);
+    height: 1px;
+    flex: 1 1 auto;
+    background-color: color-mix(
+      in oklab,
+      var(--color-base-content) 18%,
+      transparent
+    );
+    content: '';
+  }
+
+  .match-results-search-anchor,
+  .match-results-alignment-spacer {
+    min-width: 0;
+    flex: 0 0 auto;
+    pointer-events: none;
+  }
+
+  .match-results-search-anchor {
+    height: var(--match-results-list-padding);
+  }
+
   .match-results-separator {
     min-width: 0;
-    margin: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
-    border-top: var(--border) solid var(--match-selector-border-color);
+    margin: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+    margin-bottom: 0;
+    --match-results-separator-color: color-mix(
+      in oklab,
+      var(--color-base-content) 38%,
+      transparent
+    );
+    border-top: 1px solid var(--match-results-separator-color);
+    border-bottom: 1px solid var(--match-results-separator-color);
+    border-radius: 999px;
   }
 </style>

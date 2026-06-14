@@ -4,15 +4,15 @@
   let {
     activeTab,
     selectedEntryTabIds = new Set<AnimeListTabId>(),
-    manualOverrideCount,
+    listOverrideCount,
     onSelectTab,
-    onClearManualOverrides
+    onClearListOverrides
   }: {
     activeTab: AnimeListTabId;
     selectedEntryTabIds?: ReadonlySet<AnimeListTabId>;
-    manualOverrideCount: number;
+    listOverrideCount: number;
     onSelectTab: (tabId: AnimeListTabId) => void;
-    onClearManualOverrides: () => void;
+    onClearListOverrides: () => void;
   } = $props();
 </script>
 
@@ -39,10 +39,10 @@
   <button
     type="button"
     class="btn btn-error btn-soft btn-xs reset-manual-overrides-button"
-    disabled={manualOverrideCount === 0}
-    aria-label="Wyczyść wszystkie ręczne dopasowania"
-    title="Wyczyść wszystkie ręczne dopasowania"
-    onclick={onClearManualOverrides}
+    disabled={listOverrideCount === 0}
+    aria-label="Wyczyść ręczne dopasowania i ignorowane wpisy"
+    title="Wyczyść ręczne dopasowania i ignorowane wpisy"
+    onclick={onClearListOverrides}
   >
     <span aria-hidden="true" class="icon-[lucide--rotate-ccw] size-3.5"></span>
     <span>Wyczyść listę</span>
