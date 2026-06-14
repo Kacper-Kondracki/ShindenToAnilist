@@ -67,11 +67,10 @@ export function createMatchSelectorController(
     resolveCandidates(automaticCandidates(input.getAutomaticMatchResult()))
   );
   let searchResults = $derived.by((): MatchSelectorResult[] => {
-    const excludedIds = new Set(automaticResults.map((item) => item.id));
     const searchItems =
       searchState.status === 'ready' ? searchState.result.items : [];
 
-    return resolveCandidates(searchItems, excludedIds);
+    return resolveCandidates(searchItems);
   });
   let hasResults = $derived(
     automaticResults.length > 0 || searchResults.length > 0

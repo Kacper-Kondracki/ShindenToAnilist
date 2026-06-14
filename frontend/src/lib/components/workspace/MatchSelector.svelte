@@ -141,18 +141,12 @@
       return;
     }
 
-    const currentSpacerHeight = searchAlignmentSpacerHeight;
     const targetScrollTop = getElementScrollTop(
       matchResultsElement,
       searchResultsAnchorElement
     );
-    const maximumScrollTopWithoutSpacer =
-      matchResultsElement.scrollHeight -
-      currentSpacerHeight -
-      matchResultsElement.clientHeight;
-    const nextSpacerHeight = Math.ceil(
-      Math.max(0, targetScrollTop - maximumScrollTopWithoutSpacer)
-    );
+    const nextSpacerHeight =
+      getRequiredSearchAlignmentSpacerHeight(targetScrollTop);
 
     setSearchAlignmentSpacerHeight(nextSpacerHeight);
 
@@ -163,11 +157,46 @@
       matchResultsElement !== null &&
       searchResultsAnchorElement !== null
     ) {
-      matchResultsElement.scrollTop = getElementScrollTop(
+      const alignedTargetScrollTop = getElementScrollTop(
         matchResultsElement,
         searchResultsAnchorElement
       );
+      const alignedSpacerHeight = getRequiredSearchAlignmentSpacerHeight(
+        alignedTargetScrollTop
+      );
+
+      setSearchAlignmentSpacerHeight(alignedSpacerHeight);
+
+      if (
+        pendingSearchAlignmentQuery === query &&
+        selector.query === query &&
+        getResultSignature() === resultSignature &&
+        matchResultsElement !== null &&
+        searchResultsAnchorElement !== null
+      ) {
+        matchResultsElement.scrollTop = getElementScrollTop(
+          matchResultsElement,
+          searchResultsAnchorElement
+        );
+      }
     }
+  }
+
+  function getRequiredSearchAlignmentSpacerHeight(targetScrollTop: number) {
+    if (matchResultsElement === null) {
+      return 0;
+    }
+
+    const maximumScrollTopWithoutSpacer = Math.max(
+      0,
+      matchResultsElement.scrollHeight -
+        searchAlignmentSpacerHeight -
+        matchResultsElement.clientHeight
+    );
+
+    return Math.ceil(
+      Math.max(0, targetScrollTop - maximumScrollTopWithoutSpacer)
+    );
   }
 
   function setSearchAlignmentSpacerHeight(nextSpacerHeight: number) {
@@ -244,6 +273,11 @@
         aria-label="Wyniki dopasowania"
         bind:this={matchResultsElement}
       >
+        {#if selector.automaticResults.length > 0}
+          <li class="match-results-section-label">
+            <span>Najlepsze kandydaty</span>
+          </li>
+        {/if}
         {#each selector.automaticResults as result (result.id)}
           <li class="match-result">
             <DatabaseEntryRow
@@ -259,15 +293,18 @@
             />
           </li>
         {/each}
-        {#if selector.automaticResults.length > 0 && selector.searchResults.length > 0}
-          <li class="match-results-separator" aria-hidden="true"></li>
-        {/if}
         {#if selector.automaticResults.length > 0}
+          <li class="match-results-separator" aria-hidden="true"></li>
           <li
             class="match-results-search-anchor"
             aria-hidden="true"
             bind:this={searchResultsAnchorElement}
           ></li>
+        {/if}
+        {#if selector.automaticResults.length > 0 || selector.searchResults.length > 0}
+          <li class="match-results-section-label">
+            <span>Wyniki wyszukiwania</span>
+          </li>
         {/if}
         {#each selector.searchResults as result (result.id)}
           <li class="match-result">
@@ -357,17 +394,19 @@
   }
 
   .search-message {
-    padding: calc(var(--spacing) * 3);
+    padding: calc(var(--spacing) * 2.5);
   }
 
   .match-results {
+    --match-results-list-padding: calc(var(--spacing) * 1);
+
     display: flex;
     box-sizing: border-box;
     height: 100%;
     min-width: 0;
     flex-direction: column;
     margin: 0;
-    padding: calc(var(--spacing) * 1);
+    padding: var(--match-results-list-padding);
     overflow-y: auto;
     list-style: none;
     scrollbar-color: var(--color-primary) var(--match-selector-panel-bg);
@@ -375,6 +414,34 @@
 
   .match-result {
     min-width: 0;
+  }
+
+  .match-results-section-label {
+    display: flex;
+    min-width: 0;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: calc(var(--spacing) * 2);
+    padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3)
+      calc(var(--spacing) * 1);
+    color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .match-results-section-label::after {
+    min-width: calc(var(--spacing) * 8);
+    height: 1px;
+    flex: 1 1 auto;
+    background-color: color-mix(
+      in oklab,
+      var(--color-base-content) 18%,
+      transparent
+    );
+    content: '';
   }
 
   .match-results-search-anchor,
@@ -385,19 +452,20 @@
   }
 
   .match-results-search-anchor {
-    height: 0;
+    height: var(--match-results-list-padding);
   }
 
   .match-results-separator {
     min-width: 0;
-    margin: calc(var(--spacing) * 2.5) calc(var(--spacing) * 4);
+    margin: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+    margin-bottom: 0;
     --match-results-separator-color: color-mix(
       in oklab,
-      var(--color-base-content) 50%,
+      var(--color-base-content) 38%,
       transparent
     );
-    border-top: 2px solid var(--match-results-separator-color);
-    border-bottom: 2px solid var(--match-results-separator-color);
+    border-top: 1px solid var(--match-results-separator-color);
+    border-bottom: 1px solid var(--match-results-separator-color);
     border-radius: 999px;
   }
 </style>
