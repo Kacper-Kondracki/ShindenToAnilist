@@ -33,9 +33,10 @@
     displacedAutomaticEntryIds: Record<number, true>;
     exportState: ExportState;
     canExport: boolean;
-    onExport: () => void;
+    onExport: () => void | Promise<void>;
   } = $props();
 
+  let isExportWarningOpen = $state(false);
   let summary = $derived(
     buildWorkspaceStatusSummary(
       entryIds,
@@ -56,6 +57,45 @@
     formatDuration(fetchDurationMs);
     matchTimeText;
   });
+
+  function handleExportClick() {
+    if (!canExport) {
+      return;
+    }
+
+    if (summary.reviewCount > 0) {
+      isExportWarningOpen = true;
+      return;
+    }
+
+    void onExport();
+  }
+
+  function closeExportWarning() {
+    isExportWarningOpen = false;
+  }
+
+  function confirmExportWithUnresolvedEntries() {
+    isExportWarningOpen = false;
+    void onExport();
+  }
+
+  function handleExportWarningKeydown(event: KeyboardEvent) {
+    if (!isExportWarningOpen) {
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeExportWarning();
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      confirmExportWithUnresolvedEntries();
+    }
+  }
 </script>
 
 <footer class="app-status-bar">
@@ -115,7 +155,8 @@
       class="btn btn-error xl:btn-wide"
       class:is-export-ready={summary.reviewCount === 0}
       type="button"
-      onclick={onExport}
+      disabled={!canExport}
+      onclick={handleExportClick}
       title={exportState.status === 'error'
         ? exportState.message
         : 'Eksportuj dopasowania do pliku XML'}
@@ -124,6 +165,55 @@
     </button>
   </div>
 </footer>
+
+<svelte:window onkeydown={handleExportWarningKeydown} />
+
+<div
+  class="modal"
+  class:modal-open={isExportWarningOpen}
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="export-warning-title"
+>
+  <div class="modal-box max-w-md">
+    <div class="flex items-start gap-3">
+      <span
+        aria-hidden="true"
+        class="icon-[lucide--triangle-alert] mt-1 size-5 shrink-0 text-warning"
+      ></span>
+      <div class="min-w-0">
+        <h2 id="export-warning-title" class="text-lg font-bold">
+          Nierozwiązane wpisy
+        </h2>
+        <p class="mt-2 text-sm leading-6 text-muted">
+          {summary.reviewCount}
+          {summary.reviewCount === 1
+            ? 'wpis nie ma dopasowania'
+            : 'wpisy nie mają dopasowania'} i nie
+          {summary.reviewCount === 1 ? ' zostanie' : ' zostaną'} uwzględnione w eksporcie.
+        </p>
+      </div>
+    </div>
+    <div class="modal-action">
+      <button class="btn btn-ghost" type="button" onclick={closeExportWarning}>
+        Anuluj
+      </button>
+      <button
+        class="btn btn-error"
+        type="button"
+        onclick={confirmExportWithUnresolvedEntries}
+      >
+        Eksportuj mimo to
+      </button>
+    </div>
+  </div>
+  <button
+    class="modal-backdrop"
+    type="button"
+    aria-label="Zamknij"
+    onclick={closeExportWarning}
+  ></button>
+</div>
 
 <style>
   .app-status-bar {
