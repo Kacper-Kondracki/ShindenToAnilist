@@ -1,6 +1,7 @@
 packages:
-  - "frontend"
-  - "electron"
+  - 'frontend'
+  - 'electron'
 allowBuilds:
   '@bufbuild/buf': true
-  protobufjs: set this to true or false
+  electron-winstaller: true
+  protobufjs: true

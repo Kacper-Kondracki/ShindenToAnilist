@@ -51,7 +51,10 @@ import type {
   ShindenListIndex
 } from '../domain/anime';
 
-const grpcBaseUrl = 'http://127.0.0.1:50051';
+const grpcBaseUrl =
+  globalThis.shindenToAnilist?.grpcBaseUrl ??
+  import.meta.env.VITE_SHINDEN_TO_ANILIST_GRPC_BASE_URL ??
+  'http://127.0.0.1:45187';
 export const databasePath =
   globalThis.shindenToAnilist?.paths.database ??
   '/tmp/shinden-to-anilist-database.jsonl';

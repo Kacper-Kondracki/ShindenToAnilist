@@ -2,6 +2,7 @@ node_modules/
 target/
 dist/
 tmp/
+electron/build/sidecar/
 anime-offline-database.jsonl
 animedb.jsonl
 animedb.info.json

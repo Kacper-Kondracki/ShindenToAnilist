@@ -1,10 +1,15 @@
 {
   "name": "electron",
+  "version": "0.1.0",
+  "description": "Electron shell for ShindenToAnilist.",
   "private": true,
+  "productName": "ShindenToAnilist",
+  "author": "Kacper Kondracki",
+  "license": "MPL-2.0",
   "main": "dist/main.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "node ../scripts/clean-dir.mjs electron/dist && tsc",
     "start": "/usr/bin/electron ./dist/main.js",
     "dev": "pnpm run build && pnpm run start",
     "format": "prettier --ignore-path ../.prettierignore --write .",
@@ -20,10 +25,66 @@
   "devDependencies": {
     "@types/node": "^25.9.2",
     "electron": "^42.3.3",
+    "electron-builder": "^26.15.3",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3"
   },
-  "dependencies": {
-    "env-paths": "^4.0.0"
+  "build": {
+    "appId": "io.github.kacperkondracki.shindentoanilist",
+    "productName": "ShindenToAnilist",
+    "copyright": "Copyright © 2026 Kacper Kondracki",
+    "directories": {
+      "buildResources": "build",
+      "output": "../dist/electron-builder"
+    },
+    "files": [
+      "package.json",
+      "dist/**/*",
+      {
+        "from": "../frontend/dist",
+        "to": "renderer",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "build/sidecar",
+        "to": "sidecar",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../LICENSE",
+        "to": "LICENSE"
+      }
+    ],
+    "asar": true,
+    "linux": {
+      "target": [
+        "dir",
+        "AppImage"
+      ],
+      "category": "Utility",
+      "executableName": "shindentoanilist",
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-${version}-${arch}-bundled.${ext}"
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}-${arch}-bundled.AppImage"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-${arch}-portable.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-${arch}-portable.${ext}",
+      "requestExecutionLevel": "user"
+    }
   }
 }
