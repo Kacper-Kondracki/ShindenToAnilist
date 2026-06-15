@@ -4,6 +4,7 @@
   "description": "Electron shell for ShindenToAnilist.",
   "private": true,
   "productName": "ShindenToAnilist",
+  "desktopName": "io.github.kacperkondracki.shindentoanilist.desktop",
   "author": "Kacper Kondracki",
   "license": "MPL-2.0",
   "main": "dist/main.js",
@@ -49,6 +50,10 @@
       }
     ],
     "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      },
       {
         "from": "build/sidecar",
         "to": "sidecar",

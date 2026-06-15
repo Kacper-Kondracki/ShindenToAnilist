@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, mkdirSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const productName = 'ShindenToAnilist';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
 const appConfigArgumentPrefix = '--shinden-to-anilist-config=';
 const sidecarReadyTimeoutMs = 15_000;
@@ -78,6 +79,19 @@ function sidecarExecutableName(): string {
 
 function resourceDir(): string {
   return process.env.SHINDEN_TO_ANILIST_RESOURCE_DIR ?? process.resourcesPath;
+}
+
+function appIconPath(): string | undefined {
+  const candidates = [
+    process.env.SHINDEN_TO_ANILIST_ICON,
+    join(resourceDir(), 'icon.png'),
+    resolve(__dirname, '..', 'build', 'icon.png')
+  ];
+
+  return candidates.find(
+    (candidate): candidate is string =>
+      candidate !== undefined && existsSync(candidate)
+  );
 }
 
 function sidecarPath(): string {
@@ -216,9 +230,11 @@ async function loadRenderer(win: BrowserWindow): Promise<void> {
 }
 
 async function createWindow(config: AppConfig): Promise<void> {
+  const icon = appIconPath();
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    ...(icon === undefined ? {} : { icon }),
     webPreferences: {
       additionalArguments: [
         `${appConfigArgumentPrefix}${JSON.stringify(config)}`
@@ -251,6 +267,8 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+app.setName(productName);
 
 app.whenReady().then(async () => {
   rendererPaths = createRendererPaths();

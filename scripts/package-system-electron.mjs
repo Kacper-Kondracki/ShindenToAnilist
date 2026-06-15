@@ -75,6 +75,7 @@ function copyApp(appRoot, resourceRoot) {
         name: 'shinden-to-anilist',
         version,
         productName,
+        desktopName: `${appId}.desktop`,
         main: 'dist/main.js',
         type: 'module',
         author: 'Kacper Kondracki',
@@ -87,6 +88,10 @@ function copyApp(appRoot, resourceRoot) {
   copyFileSync(
     sidecarSource,
     resolve(resourceRoot, 'sidecar', 'shinden-to-anilist-grpc')
+  );
+  copyFileSync(
+    resolve(root, 'electron', 'build', 'icon.png'),
+    resolve(resourceRoot, 'icon.png')
   );
   chmodSync(resolve(resourceRoot, 'sidecar', 'shinden-to-anilist-grpc'), 0o755);
 }
