@@ -12,6 +12,7 @@
     type MatchSelectorInitialSearch
   } from '../../features/workspace/matchSelectorController.svelte';
   import DatabaseEntryRow from './DatabaseEntryRow.svelte';
+  import WorkspaceDialog from './WorkspaceDialog.svelte';
 
   let {
     selectedEntry,
@@ -24,6 +25,7 @@
     initialSearch,
     winnerClaimsByDatabaseId,
     getDatabaseEntry,
+    getShindenEntry,
     onSetManualOverride,
     onSetIgnored,
     onClearManualOverride,
@@ -40,6 +42,7 @@
     initialSearch: MatchSelectorInitialSearch | null;
     winnerClaimsByDatabaseId: ReadonlyMap<number, readonly number[]>;
     getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
+    getShindenEntry: (entryId: number) => ShindenEntry | null;
     onSetManualOverride: (shindenId: number, databaseId: number) => void;
     onSetIgnored: (shindenId: number) => void;
     onClearManualOverride: (shindenId: number) => void;
@@ -66,7 +69,18 @@
   let matchResultsElement = $state<HTMLUListElement | null>(null);
   let searchResultsAnchorElement = $state<HTMLLIElement | null>(null);
   let pendingSearchAlignmentQuery = $state<string | null>(null);
+  let pendingAlreadyUsedDatabaseId = $state<number | null>(null);
   let searchAlignmentSpacerHeight = $state(0);
+  let pendingAlreadyUsedOwners = $derived.by(() =>
+    pendingAlreadyUsedDatabaseId === null
+      ? []
+      : conflictOwnerIdsForDatabase(pendingAlreadyUsedDatabaseId).map(
+          (ownerId) => ({
+            id: ownerId,
+            title: getShindenEntry(ownerId)?.title.trim() || `wpis #${ownerId}`
+          })
+        )
+  );
 
   $effect(() => {
     const pendingQuery = pendingSearchAlignmentQuery;
@@ -131,6 +145,39 @@
     }
 
     return databaseId === selectedDatabaseEntryId ? 'matched' : 'neutral';
+  }
+
+  function handleResultSelect(databaseId: number) {
+    if (
+      databaseId !== selectedDatabaseEntryId &&
+      conflictOwnerIdsForDatabase(databaseId).length > 0
+    ) {
+      pendingAlreadyUsedDatabaseId = databaseId;
+      return;
+    }
+
+    selector.applyManualOverride(databaseId);
+  }
+
+  function closeAlreadyUsedWarning() {
+    pendingAlreadyUsedDatabaseId = null;
+  }
+
+  function confirmAlreadyUsedSelection() {
+    const databaseId = pendingAlreadyUsedDatabaseId;
+
+    if (databaseId === null) {
+      return;
+    }
+
+    pendingAlreadyUsedDatabaseId = null;
+    selector.applyManualOverride(databaseId);
+  }
+
+  function conflictOwnerIdsForDatabase(databaseId: number) {
+    return (winnerClaimsByDatabaseId.get(databaseId) ?? []).filter(
+      (ownerId) => ownerId !== selectedEntry.id
+    );
   }
 
   function alignSearchResultsAfterQueryInput(
@@ -305,7 +352,7 @@
               showIndicator={true}
               rounded={true}
               compact={true}
-              onSelect={() => selector.applyManualOverride(result.id)}
+              onSelect={() => handleResultSelect(result.id)}
             />
           </li>
         {/each}
@@ -333,7 +380,7 @@
               showIndicator={false}
               rounded={true}
               compact={true}
-              onSelect={() => selector.applyManualOverride(result.id)}
+              onSelect={() => handleResultSelect(result.id)}
             />
           </li>
         {/each}
@@ -359,6 +406,30 @@
     {/if}
   </div>
 </div>
+
+<WorkspaceDialog
+  open={pendingAlreadyUsedDatabaseId !== null}
+  titleId="already-used-entry-warning-title"
+  title="Wpis jest już używany"
+  tone="warning"
+  confirmLabel="Wybierz mimo to"
+  cancelLabel="Zostaw bez zmian"
+  onCancel={closeAlreadyUsedWarning}
+  onConfirm={confirmAlreadyUsedSelection}
+>
+  {#if pendingAlreadyUsedOwners.length === 1}
+    <p>
+      Wpis „{pendingAlreadyUsedOwners[0]?.title ?? ''}” utraci to dopasowanie.
+    </p>
+  {:else}
+    <p>Te wpisy utracą to dopasowanie:</p>
+    <ul class="already-used-owner-list">
+      {#each pendingAlreadyUsedOwners as owner (owner.id)}
+        <li>{owner.title}</li>
+      {/each}
+    </ul>
+  {/if}
+</WorkspaceDialog>
 
 <style>
   .match-selector {
@@ -483,5 +554,10 @@
     border-top: 1px solid var(--match-results-separator-color);
     border-bottom: 1px solid var(--match-results-separator-color);
     border-radius: 999px;
+  }
+
+  .already-used-owner-list {
+    margin: calc(var(--spacing) * 2) 0 0;
+    padding-inline-start: calc(var(--spacing) * 4);
   }
 </style>

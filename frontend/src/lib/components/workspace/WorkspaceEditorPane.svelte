@@ -173,6 +173,7 @@
               initialSearch={initialMatchSearch}
               {winnerClaimsByDatabaseId}
               getDatabaseEntry={animeData.getDatabaseEntry}
+              getShindenEntry={animeData.getShindenEntry}
               {onSetManualOverride}
               {onSetIgnored}
               {onClearManualOverride}
