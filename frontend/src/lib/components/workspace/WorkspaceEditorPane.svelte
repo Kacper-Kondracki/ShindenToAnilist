@@ -60,6 +60,9 @@
     onResetMatchSelectorQuery: (shindenId: number) => void;
   } = $props();
 
+  const compactPreviewPaneHeight = 42 * 16;
+  const compactPreviewViewportWidth = 58 * 16;
+
   let selectedShindenEntry = $derived(
     selectedEntryId === null ? null : animeData.getShindenEntry(selectedEntryId)
   );
@@ -96,9 +99,21 @@
       : placeholderDatabaseEntry
   );
   let isPreviewPlaceholder = $derived(selectedWinnerState.status !== 'ready');
+  let paneHeight = $state(0);
+  let viewportWidth = $state(0);
+  let isPreviewCompact = $derived(
+    (paneHeight > 0 && paneHeight < compactPreviewPaneHeight) ||
+      (viewportWidth > 0 && viewportWidth <= compactPreviewViewportWidth)
+  );
 </script>
 
-<section class="workspace-pane" aria-label="Editor">
+<svelte:window bind:innerWidth={viewportWidth} />
+
+<section
+  class="workspace-pane"
+  aria-label="Editor"
+  bind:clientHeight={paneHeight}
+>
   <div class="workspace-pane__body">
     {#if selectedWinnerState.status === 'no-selection'}
       <p class="workspace-empty text-sm font-medium text-muted">
@@ -135,6 +150,7 @@
           <DatabaseEntryPreview
             entry={previewEntry}
             placeholder={isPreviewPlaceholder}
+            compact={isPreviewCompact}
           />
         </div>
       </div>
