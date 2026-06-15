@@ -6,7 +6,7 @@
   } from '../../gen/shinden_to_anilist/v1/common_pb';
   import {
     formatEpisodeCount,
-    formatPremiereYear,
+    formatPremiereDate,
     translateAnimeStatus,
     translateAnimeType,
     translateWatchStatus
@@ -65,7 +65,7 @@
 
     if (entry.premiereDate) {
       items.push({
-        label: formatPremiereYear(entry.premiereDate),
+        label: formatPremiereDate(entry.premiereDate),
         tone: 'year'
       });
     }
