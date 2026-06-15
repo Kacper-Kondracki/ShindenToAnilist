@@ -9,6 +9,7 @@
     | 'info'
     | 'suppressed'
     | 'ignored';
+  export type EntryRowIndicator = 'bar' | 'star';
 
   let {
     tone = 'neutral',
@@ -17,6 +18,7 @@
     title,
     onSelect,
     showIndicator = true,
+    indicator = 'bar',
     rounded = false,
     compact = false,
     softWarning = false,
@@ -30,6 +32,7 @@
     title: string;
     onSelect: () => void;
     showIndicator?: boolean;
+    indicator?: EntryRowIndicator;
     rounded?: boolean;
     compact?: boolean;
     softWarning?: boolean;
@@ -50,6 +53,7 @@
   class:entry-row--ignored={tone === 'ignored'}
   class:entry-row--soft-warning={softWarning}
   class:entry-row--selected={isSelected}
+  class:entry-row--star-indicator={showIndicator && indicator === 'star'}
   class:entry-row--without-indicator={!showIndicator}
   class:entry-row--rounded={rounded}
   class:entry-row--compact={compact}
@@ -59,6 +63,12 @@
   {title}
   onclick={onSelect}
 >
+  {#if showIndicator && indicator === 'star'}
+    <span
+      class="entry-row__indicator-icon icon-[lucide--star]"
+      aria-hidden="true"
+    ></span>
+  {/if}
   <div class="entry-row__content">
     <div class="entry-row__main">
       {@render children?.()}
@@ -74,6 +84,7 @@
 <style>
   .entry-row {
     --entry-row-indicator-color: var(--color-primary);
+    --entry-row-icon-color: var(--entry-row-indicator-color);
     --entry-row-separator-color: color-mix(
       in oklab,
       var(--color-base-content) 8%,
@@ -138,6 +149,29 @@
     content: '';
   }
 
+  .entry-row__indicator-icon {
+    position: absolute;
+    top: 50%;
+    left: calc(var(--spacing) * 1.5);
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--entry-row-icon-color);
+    filter: drop-shadow(
+      0 0 0.35rem
+        color-mix(in oklab, var(--entry-row-icon-color) 32%, transparent)
+    );
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+
+  .entry-row--star-indicator::before {
+    display: none;
+  }
+
+  .entry-row--star-indicator {
+    padding-inline-start: calc(var(--spacing) * 9);
+  }
+
   .entry-row--without-indicator {
     padding-inline-start: calc(var(--spacing) * 2);
   }
@@ -197,6 +231,16 @@
     --entry-row-indicator-color: var(--ctp-mocha-pink);
   }
 
+  .entry-row--star-indicator {
+    --entry-row-icon-color: var(--color-warning);
+
+    background-color: color-mix(
+      in oklab,
+      var(--ctp-mocha-flamingo) 7%,
+      transparent
+    );
+  }
+
   .entry-row--soft-warning {
     --entry-row-indicator-color: color-mix(
       in oklab,
@@ -209,17 +253,9 @@
       transparent
     );
     --entry-row-state-shadow: inset 0 0 0 1px
-      color-mix(
-        in oklab,
-        var(--color-warning) 24%,
-        transparent
-      );
+      color-mix(in oklab, var(--color-warning) 24%, transparent);
 
-    background-color: color-mix(
-      in oklab,
-      var(--color-warning) 8%,
-      transparent
-    );
+    background-color: color-mix(in oklab, var(--color-warning) 8%, transparent);
     color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
   }
 
@@ -266,6 +302,14 @@
     background-color: color-mix(
       in oklab,
       var(--color-base-content) 5%,
+      transparent
+    );
+  }
+
+  .entry-row--star-indicator:hover {
+    background-color: color-mix(
+      in oklab,
+      var(--ctp-mocha-flamingo) 10%,
       transparent
     );
   }

@@ -15,7 +15,10 @@
   import EntryRow from './EntryRow.svelte';
   import RowMetadataBadges from './RowMetadataBadges.svelte';
   import type { RowMetadataBadge } from './RowMetadataBadges.svelte';
-  import type { EntryRowTone } from './EntryRow.svelte';
+  import type {
+    EntryRowIndicator,
+    EntryRowTone
+  } from './EntryRow.svelte';
 
   let {
     entry,
@@ -23,6 +26,7 @@
     isSelected,
     onSelect,
     showIndicator = true,
+    indicator = 'bar',
     rounded = false,
     compact = false,
     softWarning = false,
@@ -33,6 +37,7 @@
     isSelected: boolean;
     onSelect: () => void;
     showIndicator?: boolean;
+    indicator?: EntryRowIndicator;
     rounded?: boolean;
     compact?: boolean;
     softWarning?: boolean;
@@ -93,6 +98,7 @@
   ariaLabel={`${entry.title}: ${scoreLabel}`}
   title={entry.title}
   {showIndicator}
+  {indicator}
   {rounded}
   {compact}
   {softWarning}

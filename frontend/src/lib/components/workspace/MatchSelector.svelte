@@ -296,6 +296,11 @@
       isIgnored ||
       isAutomaticWinnerSuppressed
   );
+  let showsAmbiguousTopCandidates = $derived(
+    automaticMatchResult !== null &&
+      automaticMatchResult.winner === null &&
+      automaticMatchResult.top.length > 0
+  );
 </script>
 
 <div class="match-selector">
@@ -350,6 +355,7 @@
               tone={resultTone(result.id)}
               softWarning={selector.conflictingWinnerIds.has(result.id)}
               showIndicator={true}
+              indicator={showsAmbiguousTopCandidates ? 'star' : 'bar'}
               rounded={true}
               compact={true}
               onSelect={() => handleResultSelect(result.id)}
