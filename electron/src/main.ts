@@ -80,7 +80,7 @@ ipcMain.handle(openExternalUrlChannel, async (_event, url: string) => {
 });
 
 function createRendererPaths(): RendererPaths {
-  const base = app.getPath('userData');
+  const base = appDataBasePath();
 
   mkdirSync(base, { recursive: true });
 
@@ -89,6 +89,20 @@ function createRendererPaths(): RendererPaths {
     database: join(base, 'database.jsonl'),
     export: join(base, 'export.xml')
   };
+}
+
+function appDataBasePath(): string {
+  return join(appDataHome(), productName);
+}
+
+function appDataHome(): string {
+  if (process.platform !== 'linux') {
+    return app.getPath('appData');
+  }
+
+  return (
+    process.env.XDG_DATA_HOME ?? join(app.getPath('home'), '.local', 'share')
+  );
 }
 
 function sidecarExecutableName(): string {

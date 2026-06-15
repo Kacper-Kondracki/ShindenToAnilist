@@ -1,3 +1,4 @@
+import { isTauri } from '@tauri-apps/api/core';
 import type { DatabaseEntry } from '../../domain/anime';
 
 export async function copyText(text: string) {
@@ -23,14 +24,22 @@ export async function copyText(text: string) {
 }
 
 export function openExternalUrl(url: string) {
+  const externalUrl = validatedExternalUrl(url);
   const openExternalUrl = globalThis.shindenToAnilist?.openExternalUrl;
 
   if (openExternalUrl !== undefined) {
-    void openExternalUrl(url);
+    void openExternalUrl(externalUrl);
     return;
   }
 
-  window.open(url, '_blank', 'noopener,noreferrer');
+  if (isTauri() || globalThis.__TAURI_INTERNALS__ !== undefined) {
+    void import('@tauri-apps/plugin-opener').then(({ openUrl }) =>
+      openUrl(externalUrl)
+    );
+    return;
+  }
+
+  window.open(externalUrl, '_blank', 'noopener,noreferrer');
 }
 
 export function shindenEntryUrl(entryId: number) {
@@ -56,4 +65,14 @@ function isMalAnimeUrl(source: string) {
   } catch {
     return false;
   }
+}
+
+function validatedExternalUrl(url: string) {
+  const parsedUrl = new URL(url);
+
+  if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+    throw new Error(`Unsupported external URL protocol: ${parsedUrl.protocol}`);
+  }
+
+  return parsedUrl.toString();
 }
