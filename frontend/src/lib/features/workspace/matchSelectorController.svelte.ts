@@ -61,6 +61,8 @@ export function createMatchSelectorController(
 
   let query = $state(initialQuery);
   let searchState = $state<MatchSearchState>(initialSearchState);
+  const automaticCandidateOrders = new WeakMap<MatchResult, number[]>();
+  const searchCandidateOrders = new WeakMap<MatchResult, number[]>();
   let requestId = 0;
 
   let conflictingWinnerIds = $derived.by(() => {
@@ -78,16 +80,29 @@ export function createMatchSelectorController(
 
     return conflicts;
   });
-  let automaticResults = $derived.by((): MatchSelectorResult[] =>
-    orderCandidatesByAvailability(
-      resolveCandidates(automaticCandidates(input.getAutomaticMatchResult()))
-    )
-  );
-  let searchResults = $derived.by((): MatchSelectorResult[] => {
-    const searchItems =
-      searchState.status === 'ready' ? searchState.result.items : [];
+  let automaticResults = $derived.by((): MatchSelectorResult[] => {
+    const matchResult = input.getAutomaticMatchResult();
 
-    return orderCandidatesByAvailability(resolveCandidates(searchItems));
+    if (matchResult === null) {
+      return [];
+    }
+
+    return orderCandidatesByInitialAvailability(
+      resolveCandidates(automaticCandidates(matchResult)),
+      matchResult,
+      automaticCandidateOrders
+    );
+  });
+  let searchResults = $derived.by((): MatchSelectorResult[] => {
+    if (searchState.status !== 'ready') {
+      return [];
+    }
+
+    return orderCandidatesByInitialAvailability(
+      resolveCandidates(searchState.result.items),
+      searchState.result,
+      searchCandidateOrders
+    );
   });
   let hasResults = $derived(
     automaticResults.length > 0 || searchResults.length > 0
@@ -127,7 +142,21 @@ export function createMatchSelectorController(
     return resolvedItems;
   }
 
-  function orderCandidatesByAvailability(candidates: MatchSelectorResult[]) {
+  function orderCandidatesByInitialAvailability(
+    candidates: MatchSelectorResult[],
+    source: MatchResult,
+    candidateOrders: WeakMap<MatchResult, number[]>
+  ) {
+    if (candidates.length === 0) {
+      return [];
+    }
+
+    const cachedOrder = candidateOrders.get(source);
+
+    if (cachedOrder !== undefined) {
+      return orderCandidatesByIds(candidates, cachedOrder);
+    }
+
     const available: MatchSelectorResult[] = [];
     const alreadyUsed: MatchSelectorResult[] = [];
 
@@ -139,7 +168,13 @@ export function createMatchSelectorController(
       }
     }
 
-    return [...available, ...alreadyUsed];
+    const orderedCandidates = [...available, ...alreadyUsed];
+    candidateOrders.set(
+      source,
+      orderedCandidates.map((candidate) => candidate.id)
+    );
+
+    return orderedCandidates;
   }
 
   if (initialSearchState.status === 'idle') {
@@ -365,6 +400,27 @@ function uniqueCandidates(candidates: ScoredCandidate[]) {
   }
 
   return unique;
+}
+
+function orderCandidatesByIds(
+  candidates: MatchSelectorResult[],
+  orderedIds: number[]
+) {
+  const candidatesById = new Map(
+    candidates.map((candidate) => [candidate.id, candidate])
+  );
+  const orderedCandidates: MatchSelectorResult[] = [];
+
+  for (const id of orderedIds) {
+    const candidate = candidatesById.get(id);
+
+    if (candidate !== undefined) {
+      orderedCandidates.push(candidate);
+      candidatesById.delete(id);
+    }
+  }
+
+  return [...orderedCandidates, ...candidatesById.values()];
 }
 
 function errorToMessage(error: unknown) {

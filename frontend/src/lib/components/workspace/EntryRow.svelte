@@ -249,13 +249,13 @@
     );
     --entry-row-separator-color: color-mix(
       in oklab,
-      var(--color-warning) 20%,
+      var(--color-warning) 28%,
       transparent
     );
     --entry-row-state-shadow: inset 0 0 0 1px
-      color-mix(in oklab, var(--color-warning) 24%, transparent);
+      color-mix(in oklab, var(--color-warning) 34%, transparent);
 
-    background-color: color-mix(in oklab, var(--color-warning) 8%, transparent);
+    background-color: color-mix(in oklab, var(--color-warning) 12%, transparent);
     color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
   }
 
@@ -317,7 +317,7 @@
   .entry-row--soft-warning:hover {
     background-color: color-mix(
       in oklab,
-      var(--color-warning) 12%,
+      var(--color-warning) 16%,
       transparent
     );
   }
