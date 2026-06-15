@@ -1,14 +1,25 @@
 <script lang="ts">
   import type { ShindenEntry } from '../../domain/anime';
   import {
+    AnimeStatus,
+    AnimeType
+  } from '../../gen/shinden_to_anilist/v1/common_pb';
+  import {
     formatEpisodeCount,
-    formatPremiereYear,
+    formatPremiereDate,
     translateAnimeStatus,
     translateAnimeType,
     translateWatchStatus
   } from '../../domain/animeView';
+  import ContextMenu from './ContextMenu.svelte';
   import EntryRow from './EntryRow.svelte';
   import RowMetadataBadges from './RowMetadataBadges.svelte';
+  import {
+    copyText,
+    openExternalUrl,
+    shindenEntryUrl
+  } from './contextMenuActions';
+  import type { ContextMenuItem } from './contextMenuState.svelte';
   import type { EntryRowTone } from './EntryRow.svelte';
   import type { RowMetadataBadge } from './RowMetadataBadges.svelte';
 
@@ -25,6 +36,9 @@
     matchStatus,
     isSelected,
     onSelect,
+    onReset,
+    canReset,
+    onToggleIgnored,
     showIndicator = true,
     rounded = false,
     compact = false
@@ -33,6 +47,9 @@
     matchStatus: AnimeMatchStatus;
     isSelected: boolean;
     onSelect: () => void;
+    onReset: () => void;
+    canReset: boolean;
+    onToggleIgnored: () => void;
     showIndicator?: boolean;
     rounded?: boolean;
     compact?: boolean;
@@ -56,35 +73,93 @@
       ? 'Brak odc.'
       : `${entry.watchedEpisodes} / ${episodeCountText} odc.`
   );
-  let metadataItems = $derived<RowMetadataBadge[]>([
-    { label: formatPremiereYear(entry.premiereDate), tone: 'year' },
-    { label: translateAnimeType(entry.animeType), tone: 'anime-type' },
+  let contextMenuItems = $derived<ContextMenuItem[]>([
     {
-      label: translateAnimeStatus(entry.animeStatus),
-      tone: 'status',
-      animeStatus: entry.animeStatus
+      id: 'copy-title',
+      label: 'Kopiuj tytuł',
+      icon: 'icon-[lucide--copy]',
+      onSelect: () => copyText(entry.title)
+    },
+    {
+      id: 'open-shinden',
+      label: 'Otwórz stronę Shinden',
+      icon: 'icon-[lucide--external-link]',
+      onSelect: () => openExternalUrl(shindenEntryUrl(entry.id))
+    },
+    {
+      id: 'reset-entry',
+      label: 'Resetuj wpis',
+      icon: 'icon-[lucide--rotate-ccw]',
+      dividerBefore: true,
+      disabled: !canReset,
+      onSelect: onReset
+    },
+    {
+      id: 'toggle-ignored',
+      label:
+        matchStatus === 'ignored' ? 'Przestań ignorować wpis' : 'Ignoruj wpis',
+      icon: 'icon-[lucide--eye-off]',
+      checked: matchStatus === 'ignored',
+      onSelect: onToggleIgnored
     }
   ]);
+  let metadataItems = $derived.by<RowMetadataBadge[]>(() => {
+    const items: RowMetadataBadge[] = [];
+
+    if (entry.premiereDate) {
+      items.push({
+        label: formatPremiereDate(entry.premiereDate),
+        tone: 'year'
+      });
+    }
+
+    if (
+      entry.animeType !== AnimeType.UNSPECIFIED &&
+      entry.animeType !== AnimeType.UNKNOWN
+    ) {
+      items.push({
+        label: translateAnimeType(entry.animeType),
+        tone: 'anime-type'
+      });
+    }
+
+    if (
+      entry.animeStatus !== AnimeStatus.UNSPECIFIED &&
+      entry.animeStatus !== AnimeStatus.UNKNOWN
+    ) {
+      items.push({
+        label: translateAnimeStatus(entry.animeStatus),
+        tone: 'status',
+        animeStatus: entry.animeStatus
+      });
+    }
+
+    return items;
+  });
 </script>
 
-<EntryRow
-  tone={rowTone}
-  {isSelected}
-  ariaLabel={`${entry.title}: ${matchStatusLabels[matchStatus]}`}
-  title={entry.title}
-  class="h-0"
-  {showIndicator}
-  {rounded}
-  {compact}
-  {onSelect}
->
-  <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
-  <RowMetadataBadges items={metadataItems} />
+<ContextMenu items={contextMenuItems}>
+  <EntryRow
+    tone={rowTone}
+    {isSelected}
+    ariaLabel={`${entry.title}: ${matchStatusLabels[matchStatus]}`}
+    title={entry.title}
+    class="h-0"
+    {showIndicator}
+    {rounded}
+    {compact}
+    {onSelect}
+  >
+    <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
+    {#if metadataItems.length > 0}
+      <RowMetadataBadges items={metadataItems} />
+    {/if}
 
-  {#snippet meta()}
-    <span class="text-xs font-semibold">
-      {translateWatchStatus(entry.watchStatus)}
-    </span>
-    <span class="text-xs text-muted">{episodeProgressText}</span>
-  {/snippet}
-</EntryRow>
+    {#snippet meta()}
+      <span class="text-xs font-semibold">
+        {translateWatchStatus(entry.watchStatus)}
+      </span>
+      <span class="text-xs text-muted">{episodeProgressText}</span>
+    {/snippet}
+  </EntryRow>
+</ContextMenu>

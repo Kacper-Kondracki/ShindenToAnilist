@@ -7,6 +7,7 @@
     formatDuration
   } from '../../features/workspace/statusBarSummary';
   import type { ExportState } from '../../features/workspace/workspaceController.svelte';
+  import WorkspaceDialog from './WorkspaceDialog.svelte';
 
   let {
     entryIds,
@@ -80,22 +81,6 @@
     void onExport();
   }
 
-  function handleExportWarningKeydown(event: KeyboardEvent) {
-    if (!isExportWarningOpen) {
-      return;
-    }
-
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closeExportWarning();
-      return;
-    }
-
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      confirmExportWithUnresolvedEntries();
-    }
-  }
 </script>
 
 <footer class="app-status-bar">
@@ -166,57 +151,31 @@
   </div>
 </footer>
 
-<svelte:window onkeydown={handleExportWarningKeydown} />
-
-<div
-  class="modal"
-  class:modal-open={isExportWarningOpen}
-  role="dialog"
-  aria-modal="true"
-  aria-labelledby="export-warning-title"
+<WorkspaceDialog
+  open={isExportWarningOpen}
+  titleId="export-warning-title"
+  title="Nierozwiązane wpisy"
+  tone="warning"
+  confirmTone="error"
+  confirmLabel="Eksportuj mimo to"
+  onCancel={closeExportWarning}
+  onConfirm={confirmExportWithUnresolvedEntries}
 >
-  <div class="modal-box max-w-md">
-    <div class="flex items-start gap-3">
-      <span
-        aria-hidden="true"
-        class="icon-[lucide--triangle-alert] mt-1 size-5 shrink-0 text-warning"
-      ></span>
-      <div class="min-w-0">
-        <h2 id="export-warning-title" class="text-lg font-bold">
-          Nierozwiązane wpisy
-        </h2>
-        <p class="mt-2 text-sm leading-6 text-muted">
-          {summary.reviewCount}
-          {summary.reviewCount === 1
-            ? 'wpis nie ma dopasowania'
-            : 'wpisy nie mają dopasowania'} i nie
-          {summary.reviewCount === 1 ? ' zostanie' : ' zostaną'} uwzględnione w eksporcie.
-        </p>
-      </div>
-    </div>
-    <div class="modal-action">
-      <button class="btn btn-ghost" type="button" onclick={closeExportWarning}>
-        Anuluj
-      </button>
-      <button
-        class="btn btn-error"
-        type="button"
-        onclick={confirmExportWithUnresolvedEntries}
-      >
-        Eksportuj mimo to
-      </button>
-    </div>
-  </div>
-  <button
-    class="modal-backdrop"
-    type="button"
-    aria-label="Zamknij"
-    onclick={closeExportWarning}
-  ></button>
-</div>
+  <p>
+    {summary.reviewCount}
+    {summary.reviewCount === 1
+      ? 'wpis nie ma dopasowania'
+      : 'wpisy nie mają dopasowania'} i nie
+    {summary.reviewCount === 1 ? ' zostanie' : ' zostaną'} uwzględnione w eksporcie.
+  </p>
+</WorkspaceDialog>
 
 <style>
   .app-status-bar {
+    flex: 0 0 auto;
+    min-width: 0;
+    overflow: hidden;
+    contain: layout paint;
     border-top: var(--border) solid
       color-mix(in oklab, var(--color-base-content) 10%, transparent);
     background-color: var(--color-base-200);
@@ -224,6 +183,9 @@
 
   .app-status-bar__body {
     display: flex;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
     align-items: center;
     justify-content: space-between;
     gap: calc(var(--spacing) * 4);
@@ -239,9 +201,15 @@
     flex-wrap: nowrap;
     align-items: center;
     gap: calc(var(--spacing) * 2);
+    overflow: hidden;
+  }
+
+  .app-status-bar__body > .btn {
+    flex: 0 0 auto;
   }
 
   .app-status-bar__summary > .badge {
+    flex: 0 0 auto;
     height: auto;
     min-height: 1.5rem;
     white-space: nowrap;

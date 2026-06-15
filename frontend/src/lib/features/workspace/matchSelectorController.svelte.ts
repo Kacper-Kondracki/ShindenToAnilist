@@ -61,29 +61,10 @@ export function createMatchSelectorController(
 
   let query = $state(initialQuery);
   let searchState = $state<MatchSearchState>(initialSearchState);
+  const automaticCandidateOrders = new WeakMap<MatchResult, number[]>();
+  const searchCandidateOrders = new WeakMap<MatchResult, number[]>();
   let requestId = 0;
 
-  let automaticResults = $derived.by((): MatchSelectorResult[] =>
-    resolveCandidates(automaticCandidates(input.getAutomaticMatchResult()))
-  );
-  let searchResults = $derived.by((): MatchSelectorResult[] => {
-    const searchItems =
-      searchState.status === 'ready' ? searchState.result.items : [];
-
-    return resolveCandidates(searchItems);
-  });
-  let hasResults = $derived(
-    automaticResults.length > 0 || searchResults.length > 0
-  );
-  let isSearchCurrent = $derived.by(() => {
-    const currentQuery = resolveSearchQuery(query);
-
-    if (searchState.status === 'idle') {
-      return currentQuery.length === 0;
-    }
-
-    return searchState.query === currentQuery;
-  });
   let conflictingWinnerIds = $derived.by(() => {
     const selectedEntryId = input.getSelectedEntry().id;
     const conflicts = new Set<number>();
@@ -98,6 +79,42 @@ export function createMatchSelectorController(
     }
 
     return conflicts;
+  });
+  let automaticResults = $derived.by((): MatchSelectorResult[] => {
+    const matchResult = input.getAutomaticMatchResult();
+
+    if (matchResult === null) {
+      return [];
+    }
+
+    return orderCandidatesByInitialAvailability(
+      resolveCandidates(automaticCandidates(matchResult)),
+      matchResult,
+      automaticCandidateOrders
+    );
+  });
+  let searchResults = $derived.by((): MatchSelectorResult[] => {
+    if (searchState.status !== 'ready') {
+      return [];
+    }
+
+    return orderCandidatesByInitialAvailability(
+      resolveCandidates(searchState.result.items),
+      searchState.result,
+      searchCandidateOrders
+    );
+  });
+  let hasResults = $derived(
+    automaticResults.length > 0 || searchResults.length > 0
+  );
+  let isSearchCurrent = $derived.by(() => {
+    const currentQuery = resolveSearchQuery(query);
+
+    if (searchState.status === 'idle') {
+      return currentQuery.length === 0;
+    }
+
+    return searchState.query === currentQuery;
   });
   let errorMessage = $derived(
     searchState.status === 'error' ? searchState.message : null
@@ -123,6 +140,41 @@ export function createMatchSelectorController(
     }
 
     return resolvedItems;
+  }
+
+  function orderCandidatesByInitialAvailability(
+    candidates: MatchSelectorResult[],
+    source: MatchResult,
+    candidateOrders: WeakMap<MatchResult, number[]>
+  ) {
+    if (candidates.length === 0) {
+      return [];
+    }
+
+    const cachedOrder = candidateOrders.get(source);
+
+    if (cachedOrder !== undefined) {
+      return orderCandidatesByIds(candidates, cachedOrder);
+    }
+
+    const available: MatchSelectorResult[] = [];
+    const alreadyUsed: MatchSelectorResult[] = [];
+
+    for (const candidate of candidates) {
+      if (conflictingWinnerIds.has(candidate.id)) {
+        alreadyUsed.push(candidate);
+      } else {
+        available.push(candidate);
+      }
+    }
+
+    const orderedCandidates = [...available, ...alreadyUsed];
+    candidateOrders.set(
+      source,
+      orderedCandidates.map((candidate) => candidate.id)
+    );
+
+    return orderedCandidates;
   }
 
   if (initialSearchState.status === 'idle') {
@@ -348,6 +400,27 @@ function uniqueCandidates(candidates: ScoredCandidate[]) {
   }
 
   return unique;
+}
+
+function orderCandidatesByIds(
+  candidates: MatchSelectorResult[],
+  orderedIds: number[]
+) {
+  const candidatesById = new Map(
+    candidates.map((candidate) => [candidate.id, candidate])
+  );
+  const orderedCandidates: MatchSelectorResult[] = [];
+
+  for (const id of orderedIds) {
+    const candidate = candidatesById.get(id);
+
+    if (candidate !== undefined) {
+      orderedCandidates.push(candidate);
+      candidatesById.delete(id);
+    }
+  }
+
+  return [...orderedCandidates, ...candidatesById.values()];
 }
 
 function errorToMessage(error: unknown) {

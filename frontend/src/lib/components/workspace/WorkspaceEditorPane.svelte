@@ -41,7 +41,8 @@
     matchSelectorQueries,
     winnerClaimsByDatabaseId,
     initialMatchSearch,
-    selectedWinnerState
+    selectedWinnerState,
+    onSelectEntry
   }: {
     animeData: LoadedAnimeData;
     selectedEntryId: number | null;
@@ -58,7 +59,12 @@
     onClearManualOverride: (shindenId: number) => void;
     onSetMatchSelectorQuery: (shindenId: number, query: string) => void;
     onResetMatchSelectorQuery: (shindenId: number) => void;
+    onSelectEntry: (entryId: number) => void | Promise<void>;
   } = $props();
+
+  const compactPreviewPaneHeight = 42 * 16;
+  const compactPreviewPaneHeightHysteresis = 16;
+  const compactPreviewViewportWidth = 58 * 16;
 
   let selectedShindenEntry = $derived(
     selectedEntryId === null ? null : animeData.getShindenEntry(selectedEntryId)
@@ -96,9 +102,55 @@
       : placeholderDatabaseEntry
   );
   let isPreviewPlaceholder = $derived(selectedWinnerState.status !== 'ready');
+  let hasCompactPreviewPaneHeight = $state(false);
+  let viewportWidth = $state(0);
+  let isPreviewCompact = $derived(
+    hasCompactPreviewPaneHeight ||
+      (viewportWidth > 0 && viewportWidth <= compactPreviewViewportWidth)
+  );
+
+  function trackCompactPreviewPaneHeight(node: HTMLElement) {
+    function update(height: number) {
+      if (hasCompactPreviewPaneHeight) {
+        if (
+          height >
+          compactPreviewPaneHeight + compactPreviewPaneHeightHysteresis
+        ) {
+          hasCompactPreviewPaneHeight = false;
+        }
+
+        return;
+      }
+
+      if (height < compactPreviewPaneHeight) {
+        hasCompactPreviewPaneHeight = true;
+      }
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      update(
+        entries[0]?.contentRect.height ?? node.getBoundingClientRect().height
+      );
+    });
+
+    resizeObserver.observe(node);
+    update(node.getBoundingClientRect().height);
+
+    return {
+      destroy() {
+        resizeObserver.disconnect();
+      }
+    };
+  }
 </script>
 
-<section class="workspace-pane" aria-label="Editor">
+<svelte:window bind:innerWidth={viewportWidth} />
+
+<section
+  class="workspace-pane"
+  aria-label="Editor"
+  use:trackCompactPreviewPaneHeight
+>
   <div class="workspace-pane__body">
     {#if selectedWinnerState.status === 'no-selection'}
       <p class="workspace-empty text-sm font-medium text-muted">
@@ -123,11 +175,13 @@
               initialSearch={initialMatchSearch}
               {winnerClaimsByDatabaseId}
               getDatabaseEntry={animeData.getDatabaseEntry}
+              getShindenEntry={animeData.getShindenEntry}
               {onSetManualOverride}
               {onSetIgnored}
               {onClearManualOverride}
               {onSetMatchSelectorQuery}
               {onResetMatchSelectorQuery}
+              {onSelectEntry}
             />
           {/key}
         </div>
@@ -135,6 +189,7 @@
           <DatabaseEntryPreview
             entry={previewEntry}
             placeholder={isPreviewPlaceholder}
+            compact={isPreviewCompact}
           />
         </div>
       </div>
@@ -183,10 +238,18 @@
 
   .editor-layout__preview {
     min-width: 0;
+    min-height: 0;
     overflow: hidden;
   }
 
   .workspace-empty {
     padding: calc(var(--spacing) * 4);
+  }
+
+  @media (width <= 48rem) {
+    .editor-layout {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
   }
 </style>

@@ -8,6 +8,21 @@ import type { DatabaseState } from './anime';
 
 const missingValueText = 'Brak danych';
 
+const abbreviatedPremiereMonthLabels = [
+  'sty',
+  'lut',
+  'mar',
+  'kwi',
+  'maj',
+  'cze',
+  'lip',
+  'sie',
+  'wrz',
+  'paź',
+  'lis',
+  'gru'
+];
+
 const animeTypeLabels: Record<AnimeType, string> = {
   [AnimeType.UNSPECIFIED]: missingValueText,
   [AnimeType.TV]: 'Serial TV',
@@ -50,6 +65,21 @@ export function formatPremiereYear(premiereDate: string | null) {
   }
 
   return premiereDate.slice(0, 4);
+}
+
+export function formatPremiereDate(premiereDate: string | null) {
+  if (!premiereDate) {
+    return 'Nieznana data';
+  }
+
+  const [yearText, monthText, dayText] = premiereDate.split('-');
+  const monthLabel = abbreviatedPremiereMonthLabels[Number(monthText) - 1];
+
+  if (!yearText || !monthLabel || !dayText) {
+    return premiereDate;
+  }
+
+  return `${yearText}, ${Number(dayText)} ${monthLabel}`;
 }
 
 export function formatYear(year: number | null) {

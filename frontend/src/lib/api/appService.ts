@@ -51,10 +51,6 @@ import type {
   ShindenListIndex
 } from '../domain/anime';
 
-const grpcBaseUrl =
-  globalThis.shindenToAnilist?.grpcBaseUrl ??
-  import.meta.env.VITE_SHINDEN_TO_ANILIST_GRPC_BASE_URL ??
-  'http://127.0.0.1:45187';
 export const databasePath =
   globalThis.shindenToAnilist?.paths.database ??
   '/tmp/shinden-to-anilist-database.jsonl';
@@ -62,14 +58,32 @@ export const exportPath =
   globalThis.shindenToAnilist?.paths.export ??
   '/tmp/shinden-to-anilist-export.xml';
 
-const transport = createGrpcWebTransport({
-  baseUrl: grpcBaseUrl
-});
-
-const client = createClient(ShindenToAnilistService, transport);
+const clientPromise = createAppClient();
+type AppClient = Awaited<typeof clientPromise>;
 
 let shindenVersion = 0;
 let databaseVersion = 0;
+
+async function createAppClient() {
+  const transport = createGrpcWebTransport({
+    baseUrl: await resolveGrpcBaseUrl()
+  });
+
+  return createClient(ShindenToAnilistService, transport);
+}
+
+async function resolveGrpcBaseUrl() {
+  const getGrpcBaseUrl = globalThis.shindenToAnilist?.getGrpcBaseUrl;
+
+  if (getGrpcBaseUrl !== undefined) {
+    return await getGrpcBaseUrl();
+  }
+
+  return (
+    import.meta.env.VITE_SHINDEN_TO_ANILIST_GRPC_BASE_URL ??
+    'http://127.0.0.1:45187'
+  );
+}
 
 export function currentVersions() {
   return {
@@ -101,7 +115,7 @@ export async function ensureDatabase() {
 }
 
 export async function fetchShindenList(userId: number) {
-  return callRpc(async () => {
+  return callRpc(async (client) => {
     const response = await client.fetchShindenList(
       create(FetchShindenListRequestSchema, { id: BigInt(userId) })
     );
@@ -111,7 +125,7 @@ export async function fetchShindenList(userId: number) {
 }
 
 export async function getShindenIds(sortedBy = AnimeListSortedBy.URGENCY) {
-  return callRpc(async (): Promise<ShindenListIndex> => {
+  return callRpc(async (client): Promise<ShindenListIndex> => {
     const response = await client.getShindenIds(
       create(GetShindenIdsRequestSchema, { sortedBy })
     );
@@ -125,7 +139,7 @@ export async function getShindenIds(sortedBy = AnimeListSortedBy.URGENCY) {
 }
 
 export async function getShindenFull() {
-  return callRpc(async () => {
+  return callRpc(async (client) => {
     const entries: ShindenEntry[] = [];
     let version = 0n;
 
@@ -145,7 +159,7 @@ export async function getShindenFull() {
 }
 
 export async function checkDatabaseUpdate(path = databasePath) {
-  return callRpc(async () => {
+  return callRpc(async (client) => {
     const response = await client.checkDatabaseUpdate(
       create(CheckDatabaseUpdateRequestSchema, { path })
     );
@@ -159,7 +173,7 @@ export async function checkDatabaseUpdate(path = databasePath) {
 }
 
 export async function downloadDatabase(path = databasePath) {
-  return callRpc(async () => {
+  return callRpc(async (client) => {
     const response = await client.downloadDatabase(
       create(DownloadDatabaseRequestSchema, { path })
     );
@@ -173,7 +187,7 @@ export async function downloadDatabase(path = databasePath) {
 }
 
 export async function loadDatabase(path = databasePath) {
-  return callRpc(async () => {
+  return callRpc(async (client) => {
     const response = await client.loadDatabase(
       create(LoadDatabaseRequestSchema, { path })
     );
@@ -183,7 +197,7 @@ export async function loadDatabase(path = databasePath) {
 }
 
 export async function getDatabaseMetadata(path = databasePath) {
-  return callRpc(async () => {
+  return callRpc(async (client) => {
     const response = await client.getDatabaseMetadata(
       create(GetDatabaseMetadataRequestSchema, { path })
     );
@@ -197,7 +211,7 @@ export async function getDatabaseMetadata(path = databasePath) {
 }
 
 export async function getDatabaseFull() {
-  return callRpc(async () => {
+  return callRpc(async (client) => {
     const entries: DatabaseEntry[] = [];
     let version = 0n;
 
@@ -217,7 +231,7 @@ export async function getDatabaseFull() {
 }
 
 export async function fuzzySearch(query: string, options: SearchOptions = {}) {
-  return callRpc(async (): Promise<SearchResult> => {
+  return callRpc(async (client): Promise<SearchResult> => {
     const response = await client.fuzzySearch(
       create(FuzzySearchRequestSchema, {
         query,
@@ -241,7 +255,7 @@ export async function fuzzyMatch(
   options: SearchOptions = {},
   shindenId?: number
 ) {
-  return callRpc(async () => {
+  return callRpc(async (client) => {
     const response = await client.fuzzyMatch(
       create(FuzzyMatchRequestSchema, {
         query,
@@ -259,7 +273,7 @@ export async function fuzzyMatch(
 }
 
 export async function matchShindenList(options: SearchOptions = {}) {
-  return callRpc(async (): Promise<MatchListResult> => {
+  return callRpc(async (client): Promise<MatchListResult> => {
     const entries: ProtoShindenMatchResult[] = [];
     let nextShindenVersion = 0n;
     let nextDatabaseVersion = 0n;
@@ -281,7 +295,7 @@ export async function matchShindenList(options: SearchOptions = {}) {
 }
 
 export async function exportXml(matches: MatchSelection[], path = exportPath) {
-  return callRpc(async (): Promise<ExportResult> => {
+  return callRpc(async (client): Promise<ExportResult> => {
     const selectedPath = await selectExportPath(path);
 
     if (selectedPath === null) {
@@ -325,9 +339,9 @@ async function selectExportPath(defaultPath: string) {
   return selectPath({ defaultPath });
 }
 
-async function callRpc<T>(run: () => Promise<T>) {
+async function callRpc<T>(run: (client: AppClient) => Promise<T>) {
   try {
-    return await run();
+    return await run(await clientPromise);
   } catch (error) {
     throw normalizeRpcError(error);
   }

@@ -13,6 +13,7 @@ const fallbackCoverHeight = 172;
 
 type DatabaseEntryPreviewControllerInput = {
   getEntry: () => DatabaseEntry;
+  getCompact: () => boolean;
 };
 
 export type DatabaseEntryPreviewController = ReturnType<
@@ -46,6 +47,7 @@ export function createDatabaseEntryPreviewController(
 ) {
   let coverLoadState = $state<CoverLoadState>({ status: 'idle' });
   let detailsHeight = $state(fallbackCoverHeight);
+  let metadataHeight = $state(fallbackCoverHeight);
 
   let coverUrl = $derived(
     input.getEntry().picture || input.getEntry().thumbnail
@@ -56,8 +58,11 @@ export function createDatabaseEntryPreviewController(
   let hasCoverError = $derived(
     coverLoadState.status === 'error' && coverLoadState.url === coverUrl
   );
-  let coverHeight = $derived(`${detailsHeight}px`);
-  let coverWidth = $derived(`${detailsHeight * 0.75}px`);
+  let coverSizingHeight = $derived(
+    input.getCompact() ? metadataHeight : detailsHeight
+  );
+  let coverHeight = $derived(`${coverSizingHeight}px`);
+  let coverWidth = $derived(`${coverSizingHeight * 0.75}px`);
   let metadataItems = $derived.by(() => {
     const entry = input.getEntry();
 
@@ -118,7 +123,21 @@ export function createDatabaseEntryPreviewController(
       return detailsHeight;
     },
     set detailsHeight(nextHeight: number) {
-      detailsHeight = nextHeight;
+      const roundedHeight = Math.round(nextHeight);
+
+      if (roundedHeight > 0 && roundedHeight !== detailsHeight) {
+        detailsHeight = roundedHeight;
+      }
+    },
+    get metadataHeight() {
+      return metadataHeight;
+    },
+    set metadataHeight(nextHeight: number) {
+      const roundedHeight = Math.round(nextHeight);
+
+      if (roundedHeight > 0 && roundedHeight !== metadataHeight) {
+        metadataHeight = roundedHeight;
+      }
     },
     get coverUrl() {
       return coverUrl;

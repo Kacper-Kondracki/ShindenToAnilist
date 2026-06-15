@@ -1,7 +1,11 @@
 use std::cmp::Reverse;
 
 use ahash::AHashMap;
-use chrono::Datelike;
+use chrono::{
+    Datelike,
+    NaiveDate,
+    Utc,
+};
 use ordered_float::OrderedFloat;
 use serde::{
     Deserialize,
@@ -50,8 +54,10 @@ pub trait Matcher {
 
 /// Per-candidate breakdown of all individual scoring dimensions.
 ///
-/// Each field is a `0.0..=1.0` score for one aspect of the match.
-/// The `final_score` is the weighted combination of all dimensions.
+/// Most fields are `0.0..=1.0` scores for one aspect of the match. Some
+/// dimensions may be negative when a strong mismatch should actively penalize
+/// the candidate. The `final_score` is the weighted combination of all
+/// dimensions, clamped to `0.0..=1.0`.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Default)]
 pub struct ScoreBreakdown {
     /// Score from the search phase.
@@ -254,21 +260,24 @@ pub mod scoring {
 
     /// Scores year proximity.
     ///
-    /// Returns `1.0` for an exact match, `0.6` for ±1 year, `0.25` for ±2,
-    /// and `0.2` for larger differences.  Mixed `Some`/`None` yields `0.4`.
-    /// When `None`/`None` → `0.7`.
+    /// Returns `1.0` for an exact match, `0.35` for ±1 year, `-0.1` for ±2,
+    /// and `-0.35` for larger differences.  When the query year is unknown,
+    /// known candidate years get a small recency bump over the `0.4` baseline.
+    /// When the candidate year is unknown, mixed `Some`/`None` yields `0.4`;
+    /// `None`/`None` → `0.7`.
     pub fn score_year(year_a: Option<i32>, year_b: Option<i32>) -> f32 {
         match (year_a, year_b) {
             (Some(sy), Some(dy)) => {
                 let diff = (sy - dy).abs();
                 match diff {
                     0 => 1.0,
-                    1 => 0.6,
-                    2 => 0.25,
-                    _ => 0.2,
+                    1 => 0.35,
+                    2 => -0.1,
+                    _ => -0.35,
                 }
             },
-            (None, Some(_)) | (Some(_), None) => 0.4,
+            (None, Some(dy)) => score_unknown_query_year(dy),
+            (Some(_), None) => 0.4,
             (None, None) => 0.7,
         }
     }
@@ -332,26 +341,28 @@ pub mod scoring {
         }
     }
 
-    /// Scores the alignment between a premiere month and an airing season.
+    /// Scores the alignment between a premiere date and an airing season.
     ///
-    /// Uses circular month distance.  Within 3 months of the season center
-    /// → `1.0`; 4 months → `0.5`; 5–6 months → `0.3`; further → `0.2`.
+    /// Uses circular day distance from astronomical season boundary dates.
+    /// Within roughly 6 weeks of the boundary → `1.0`; within roughly
+    /// 3 months → `0.75`; roughly 4 months → `0.4`; further → `0.2`.
     /// One unknown → `0.4`, otherwise `0.7`
-    pub fn score_seasonal(month: Option<i32>, season: Season) -> f32 {
-        let season_center = season_center(season);
+    pub fn score_seasonal(date: Option<NaiveDate>, season: Season) -> f32 {
+        let Some(date) = date else {
+            return if season == Season::Undefined { 0.7 } else { 0.4 };
+        };
 
-        match (month, season_center) {
-            (Some(x), Some(y)) => {
-                let diff = circular_month_distance(x, y);
-                match diff {
-                    0..=3 => 1.0,
-                    4 => 0.5,
-                    5..=6 => 0.3,
-                    _ => 0.2,
-                }
-            },
-            (None, Some(_)) | (Some(_), None) => 0.4,
-            (None, None) => 0.7,
+        let Some(boundary) = astronomical_season_boundary_ordinal(date.year(), season) else {
+            return 0.4;
+        };
+
+        let diff = circular_day_distance(date.ordinal(), boundary, days_in_year(date.year()));
+        match diff {
+            0..=45 => 1.0,
+            46..=93 => 0.75,
+            94..=124 => 0.4,
+            125..=186 => 0.2,
+            _ => 0.2,
         }
     }
 
@@ -370,18 +381,39 @@ pub mod scoring {
     }
 }
 
-fn season_center(season: Season) -> Option<i32> {
-    match season {
-        Season::Spring => Some(3),
-        Season::Summer => Some(6),
-        Season::Fall => Some(9),
-        Season::Winter => Some(12),
-        Season::Undefined => None,
+fn score_unknown_query_year(candidate_year: i32) -> f32 {
+    let current_year = Utc::now().year();
+    let age = current_year.saturating_sub(candidate_year).max(0);
+
+    match age {
+        0..=2 => 0.46,
+        3..=5 => 0.44,
+        6..=10 => 0.42,
+        _ => 0.4,
     }
 }
-fn circular_month_distance(month_a: i32, month_b: i32) -> i32 {
-    let diff = (month_a - month_b).abs();
-    diff.min(12 - diff)
+
+fn astronomical_season_boundary_ordinal(year: i32, season: Season) -> Option<u32> {
+    let (month, day) = match season {
+        Season::Spring => Some((3, 20)),
+        Season::Summer => Some((6, 21)),
+        Season::Fall => Some((9, 22)),
+        Season::Winter => Some((12, 21)),
+        Season::Undefined => None,
+    }?;
+
+    NaiveDate::from_ymd_opt(year, month, day).map(|date| date.ordinal())
+}
+
+fn circular_day_distance(day_a: u32, day_b: u32, days_in_year: u32) -> u32 {
+    let diff = day_a.abs_diff(day_b);
+    diff.min(days_in_year - diff)
+}
+
+fn days_in_year(year: i32) -> u32 {
+    NaiveDate::from_ymd_opt(year, 12, 31)
+        .expect("December 31 should be valid for all supported years")
+        .ordinal()
 }
 
 impl DefaultMatcher {
@@ -440,7 +472,6 @@ impl DefaultMatcher {
             .unwrap_or(neutral);
         let seasonal_score = entry
             .date()
-            .map(|d| d.map(|d| d.month() as i32))
             .map(|v| score_seasonal(v, candidate.season()))
             .unwrap_or(neutral);
         let episodes_score = entry

@@ -2,7 +2,6 @@
 name = "shinden-to-anilist-grpc"
 version = "0.1.0"
 edition = "2024"
-authors = ["Kacper Kondracki"]
 license = "MPL-2.0"
 
 [dependencies]
@@ -14,7 +13,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 shinden-to-anilist-core = { path = "../shinden-to-anilist-core" }
 tap = "1.0.1"
-tokio = { version = "1.52", features = ["macros", "net", "rt-multi-thread", "time"] }
+tokio = { version = "1.52", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tonic = { version = "0.14", features = ["transport"] }
 tonic-web = "0.14"

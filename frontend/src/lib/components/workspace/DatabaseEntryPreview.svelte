@@ -4,28 +4,29 @@
 
   let {
     entry,
-    placeholder = false
+    placeholder = false,
+    compact = false
   }: {
     entry: DatabaseEntry;
     placeholder?: boolean;
+    compact?: boolean;
   } = $props();
 
   const preview = createDatabaseEntryPreviewController({
-    getEntry: () => entry
+    getEntry: () => entry,
+    getCompact: () => compact
   });
 </script>
 
 <div
   class:database-entry-preview--placeholder={placeholder}
+  class:database-entry-preview--compact={compact}
   class="database-entry-preview"
+  style:--database-entry-cover-height={preview.coverHeight}
+  style:--database-entry-cover-width={preview.coverWidth}
   aria-hidden={placeholder}
 >
-  <div
-    class="database-entry-cover"
-    style:--database-entry-cover-height={preview.coverHeight}
-    style:--database-entry-cover-width={preview.coverWidth}
-    aria-label="Okładka dopasowanego anime"
-  >
+  <div class="database-entry-cover" aria-label="Okładka dopasowanego anime">
     {#if preview.coverUrl && !preview.hasCoverError}
       {#if !preview.isCoverLoaded}
         <span class="database-entry-cover__skeleton skeleton" aria-hidden="true"
@@ -56,7 +57,10 @@
       <h2 class="text-lg font-semibold">{entry.title}</h2>
     </div>
 
-    <dl class="database-entry-metadata">
+    <dl
+      class="database-entry-metadata"
+      bind:clientHeight={preview.metadataHeight}
+    >
       {#each preview.metadataItems as item}
         <div
           class={`database-entry-metadata__item database-entry-metadata__item--${item.tone}`}
@@ -76,7 +80,17 @@
     align-items: flex-start;
     flex-wrap: nowrap;
     gap: calc(var(--spacing) * 4);
+    contain: layout;
     white-space: nowrap;
+  }
+
+  .database-entry-preview--compact {
+    display: grid;
+    grid-template-columns: var(--database-entry-cover-width) minmax(0, 1fr);
+    grid-template-areas:
+      'title title'
+      'cover metadata';
+    gap: calc(var(--spacing) * 2) calc(var(--spacing) * 4);
   }
 
   .database-entry-preview--placeholder {
@@ -87,6 +101,7 @@
   .database-entry-cover {
     display: grid;
     position: relative;
+    grid-area: cover;
     flex: 0 0 var(--database-entry-cover-width);
     width: var(--database-entry-cover-width);
     height: var(--database-entry-cover-height);
@@ -158,7 +173,12 @@
     gap: calc(var(--spacing) * 4);
   }
 
+  .database-entry-preview--compact .database-entry-details {
+    display: contents;
+  }
+
   .database-entry-title {
+    grid-area: title;
     min-width: 0;
   }
 
@@ -181,10 +201,20 @@
     line-height: 1.35;
   }
 
+  .database-entry-preview--compact .database-entry-title h2 {
+    min-height: 2.7em;
+    max-height: 2.7em;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
   .database-entry-metadata {
     display: grid;
+    grid-area: metadata;
+    width: min(100%, 28rem);
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: calc(var(--spacing) * 1.5);
+    justify-self: start;
   }
 
   .database-entry-metadata__item {

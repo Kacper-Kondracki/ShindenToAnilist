@@ -48,10 +48,12 @@
   .row-metadata-badges {
     display: flex;
     min-width: 0;
+    width: 100%;
     max-width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: calc(var(--spacing) * 1);
+    overflow: hidden;
     padding-top: calc(var(--spacing) * 0.75);
   }
 
@@ -59,6 +61,7 @@
     --row-metadata-accent: var(--color-base-content);
 
     display: inline-flex;
+    flex: 0 1 auto;
     min-width: 0;
     max-width: 100%;
     align-items: center;
