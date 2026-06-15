@@ -1,6 +1,11 @@
 <script lang="ts">
   import type { DatabaseEntry } from '../../domain/anime';
   import {
+    AnimeStatus,
+    AnimeType,
+    Season
+  } from '../../gen/shinden_to_anilist/v1/common_pb';
+  import {
     formatEpisodeCount,
     formatYear,
     translateAnimeStatus,
@@ -37,16 +42,49 @@
   let tone = $derived<EntryRowTone>(
     explicitTone ?? (isSelected ? 'matched' : 'neutral')
   );
-  let metadataItems = $derived<RowMetadataBadge[]>([
-    { label: formatYear(entry.year), tone: 'year' },
-    { label: translateSeason(entry.season), tone: 'season' },
-    { label: translateAnimeType(entry.animeType), tone: 'anime-type' },
-    {
-      label: translateAnimeStatus(entry.status),
-      tone: 'status',
-      animeStatus: entry.status
+  let metadataItems = $derived.by<RowMetadataBadge[]>(() => {
+    const items: RowMetadataBadge[] = [];
+
+    if (entry.year !== null) {
+      items.push({
+        label: formatYear(entry.year),
+        tone: 'year'
+      });
     }
-  ]);
+
+    if (
+      entry.season !== Season.UNSPECIFIED &&
+      entry.season !== Season.UNKNOWN
+    ) {
+      items.push({
+        label: translateSeason(entry.season),
+        tone: 'season'
+      });
+    }
+
+    if (
+      entry.animeType !== AnimeType.UNSPECIFIED &&
+      entry.animeType !== AnimeType.UNKNOWN
+    ) {
+      items.push({
+        label: translateAnimeType(entry.animeType),
+        tone: 'anime-type'
+      });
+    }
+
+    if (
+      entry.status !== AnimeStatus.UNSPECIFIED &&
+      entry.status !== AnimeStatus.UNKNOWN
+    ) {
+      items.push({
+        label: translateAnimeStatus(entry.status),
+        tone: 'status',
+        animeStatus: entry.status
+      });
+    }
+
+    return items;
+  });
 </script>
 
 <EntryRow
@@ -61,7 +99,9 @@
   {onSelect}
 >
   <h3 class="truncate text-sm font-semibold">{entry.title}</h3>
-  <RowMetadataBadges items={metadataItems} />
+  {#if metadataItems.length > 0}
+    <RowMetadataBadges items={metadataItems} />
+  {/if}
 
   {#snippet meta()}
     <span class="text-xs font-semibold">{scoreLabel}</span>

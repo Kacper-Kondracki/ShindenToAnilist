@@ -1,6 +1,10 @@
 <script lang="ts">
   import type { ShindenEntry } from '../../domain/anime';
   import {
+    AnimeStatus,
+    AnimeType
+  } from '../../gen/shinden_to_anilist/v1/common_pb';
+  import {
     formatEpisodeCount,
     formatPremiereYear,
     translateAnimeStatus,
@@ -56,15 +60,39 @@
       ? 'Brak odc.'
       : `${entry.watchedEpisodes} / ${episodeCountText} odc.`
   );
-  let metadataItems = $derived<RowMetadataBadge[]>([
-    { label: formatPremiereYear(entry.premiereDate), tone: 'year' },
-    { label: translateAnimeType(entry.animeType), tone: 'anime-type' },
-    {
-      label: translateAnimeStatus(entry.animeStatus),
-      tone: 'status',
-      animeStatus: entry.animeStatus
+  let metadataItems = $derived.by<RowMetadataBadge[]>(() => {
+    const items: RowMetadataBadge[] = [];
+
+    if (entry.premiereDate) {
+      items.push({
+        label: formatPremiereYear(entry.premiereDate),
+        tone: 'year'
+      });
     }
-  ]);
+
+    if (
+      entry.animeType !== AnimeType.UNSPECIFIED &&
+      entry.animeType !== AnimeType.UNKNOWN
+    ) {
+      items.push({
+        label: translateAnimeType(entry.animeType),
+        tone: 'anime-type'
+      });
+    }
+
+    if (
+      entry.animeStatus !== AnimeStatus.UNSPECIFIED &&
+      entry.animeStatus !== AnimeStatus.UNKNOWN
+    ) {
+      items.push({
+        label: translateAnimeStatus(entry.animeStatus),
+        tone: 'status',
+        animeStatus: entry.animeStatus
+      });
+    }
+
+    return items;
+  });
 </script>
 
 <EntryRow
@@ -79,7 +107,9 @@
   {onSelect}
 >
   <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
-  <RowMetadataBadges items={metadataItems} />
+  {#if metadataItems.length > 0}
+    <RowMetadataBadges items={metadataItems} />
+  {/if}
 
   {#snippet meta()}
     <span class="text-xs font-semibold">
