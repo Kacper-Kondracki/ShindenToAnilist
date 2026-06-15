@@ -36,6 +36,7 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             curl \
+            ffmpeg \
             file \
             libayatana-appindicator3-dev \
             libfuse2 \
@@ -46,9 +47,14 @@ jobs:
             patchelf \
             protobuf-compiler \
             wget
+
+          protoc --version
+          ffmpeg -version
+
           curl -L -o "$RUNNER_TEMP/appimagetool" \
             https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x "$RUNNER_TEMP/appimagetool"
+
           echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >> "$GITHUB_ENV"
           echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV"
 
@@ -105,8 +111,13 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
-      - name: Install protobuf compiler
-        run: choco install protoc --no-progress -y
+      - name: Install Windows build tools
+        shell: pwsh
+        run: |
+          choco install protoc ffmpeg --no-progress -y
+
+          protoc --version
+          ffmpeg -version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -148,7 +159,17 @@ jobs:
       - name: Install cross-build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm lld wine64 protobuf-compiler
+          sudo apt-get install -y \
+            clang \
+            ffmpeg \
+            llvm \
+            lld \
+            protobuf-compiler \
+            wine64
+
+          protoc --version
+          ffmpeg -version
+
           cargo install --locked cargo-xwin
 
       - name: Install dependencies
