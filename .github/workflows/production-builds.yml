@@ -125,11 +125,24 @@ jobs:
       - name: Build Windows portable executable
         run: pnpm bundle:windows:portable
 
+      - name: Build Tauri Windows executable
+        run: pnpm bundle:tauri:windows
+
       - name: Upload Windows portable executable
         uses: actions/upload-artifact@v6
         with:
           name: shindentoanilist-windows-portable-native
           path: dist/electron-builder/*.exe
+
+      - name: Upload Tauri Windows native executable
+        uses: actions/upload-artifact@v6
+        with:
+          name: shindentoanilist-windows-tauri-native
+          if-no-files-found: error
+          path: |
+            dist/tauri-native/*.exe
+            target/release/*.exe
+            src-tauri/target/release/*.exe
 
   windows-xwin:
     name: Windows portable via cargo-xwin
@@ -185,6 +198,14 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: shindentoanilist-windows-portable-xwin
+          path: dist/electron-builder/*.exe
+
+      - name: Upload Tauri Windows xwin executable
+        uses: actions/upload-artifact@v6
+        with:
+          name: shindentoanilist-windows-tauri-xwin
+          if-no-files-found: error
           path: |
-            dist/electron-builder/*.exe
             dist/tauri-xwin/*.exe
+            target/x86_64-pc-windows-msvc/release/*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/*.exe
