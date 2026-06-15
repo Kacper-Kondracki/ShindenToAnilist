@@ -199,10 +199,18 @@
 
   .editor-layout__preview {
     min-width: 0;
+    min-height: 0;
     overflow: hidden;
   }
 
   .workspace-empty {
     padding: calc(var(--spacing) * 4);
+  }
+
+  @media (width <= 48rem) {
+    .editor-layout {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
   }
 </style>

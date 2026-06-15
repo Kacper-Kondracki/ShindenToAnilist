@@ -250,6 +250,8 @@ async function createWindow(config: AppConfig): Promise<void> {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 720,
+    minHeight: 800,
     ...(icon === undefined ? {} : { icon }),
     webPreferences: {
       additionalArguments: [
