@@ -15,6 +15,7 @@ export function createStatusBarBadgeMeasurement(
   let isMeasuringOptionalBadges = $state(true);
   let apiBadgeWidth = 0;
   let matchBadgeWidth = 0;
+  let observedSummaryWidth = 0;
   let measureAnimationFrame = 0;
 
   onMount(() => {
@@ -22,7 +23,19 @@ export function createStatusBarBadgeMeasurement(
       return;
     }
 
-    const resizeObserver = new ResizeObserver(schedule);
+    const resizeObserver = new ResizeObserver((entries) => {
+      const summaryWidth =
+        entries[0]?.contentRect.width ??
+        summaryElement?.getBoundingClientRect().width ??
+        0;
+
+      if (Math.abs(summaryWidth - observedSummaryWidth) < 0.5) {
+        return;
+      }
+
+      observedSummaryWidth = summaryWidth;
+      schedule();
+    });
     resizeObserver.observe(summaryElement);
     schedule();
 
@@ -67,9 +80,9 @@ export function createStatusBarBadgeMeasurement(
     );
     const gap = Number.parseFloat(getComputedStyle(summaryElement).columnGap);
     const badgeGap = Number.isFinite(gap) ? gap : 0;
-    const requiredWidth = visibleRequiredBadges.reduce(
-      (width, badge) => width + badge.getBoundingClientRect().width,
-      0
+    const requiredWidth = totalBadgeWidth(
+      visibleRequiredBadges.map((badge) => badge.getBoundingClientRect().width),
+      badgeGap
     );
     const availableWidth = summaryElement.getBoundingClientRect().width;
 
@@ -157,4 +170,13 @@ function fitsBadge(
 
 function gapBeforeNextBadge(currentBadgeCount: number, badgeGap: number) {
   return currentBadgeCount > 0 ? badgeGap : 0;
+}
+
+function totalBadgeWidth(badgeWidths: number[], badgeGap: number) {
+  const badgesWidth = badgeWidths.reduce((width, badgeWidth) => {
+    return width + badgeWidth;
+  }, 0);
+  const gapsWidth = Math.max(0, badgeWidths.length - 1) * badgeGap;
+
+  return badgesWidth + gapsWidth;
 }

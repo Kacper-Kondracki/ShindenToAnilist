@@ -217,6 +217,9 @@
 
 <style>
   .app-status-bar {
+    flex: 0 0 auto;
+    min-width: 0;
+    overflow: hidden;
     border-top: var(--border) solid
       color-mix(in oklab, var(--color-base-content) 10%, transparent);
     background-color: var(--color-base-200);
@@ -224,6 +227,9 @@
 
   .app-status-bar__body {
     display: flex;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
     align-items: center;
     justify-content: space-between;
     gap: calc(var(--spacing) * 4);
@@ -239,9 +245,15 @@
     flex-wrap: nowrap;
     align-items: center;
     gap: calc(var(--spacing) * 2);
+    overflow: hidden;
+  }
+
+  .app-status-bar__body > .btn {
+    flex: 0 0 auto;
   }
 
   .app-status-bar__summary > .badge {
+    flex: 0 0 auto;
     height: auto;
     min-height: 1.5rem;
     white-space: nowrap;
