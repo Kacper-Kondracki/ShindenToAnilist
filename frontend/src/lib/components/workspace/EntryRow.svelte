@@ -80,6 +80,7 @@
       transparent
     );
     --entry-row-depth-shadow: 0 0 0 0 transparent;
+    --entry-row-state-shadow: 0 0 0 0 transparent;
     --entry-row-selection-shadow: 0 0 0 0 transparent;
 
     display: flex;
@@ -118,7 +119,8 @@
     padding-inline: calc(var(--spacing) * 4) calc(var(--spacing) * 2);
     padding-block: calc(var(--spacing) * 2);
     box-shadow:
-      var(--entry-row-depth-shadow), var(--entry-row-selection-shadow);
+      var(--entry-row-depth-shadow), var(--entry-row-state-shadow),
+      var(--entry-row-selection-shadow);
     transition:
       background-color 160ms ease,
       box-shadow 160ms ease;
@@ -196,7 +198,29 @@
   }
 
   .entry-row--soft-warning {
-    background-color: color-mix(in oklab, var(--color-error) 20%, transparent);
+    --entry-row-indicator-color: color-mix(
+      in oklab,
+      var(--color-warning) 74%,
+      var(--color-base-content) 26%
+    );
+    --entry-row-separator-color: color-mix(
+      in oklab,
+      var(--color-warning) 20%,
+      transparent
+    );
+    --entry-row-state-shadow: inset 0 0 0 1px
+      color-mix(
+        in oklab,
+        var(--color-warning) 24%,
+        transparent
+      );
+
+    background-color: color-mix(
+      in oklab,
+      var(--color-warning) 8%,
+      transparent
+    );
+    color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
   }
 
   .entry-row--ignored {
@@ -247,7 +271,11 @@
   }
 
   .entry-row--soft-warning:hover {
-    background-color: color-mix(in oklab, var(--color-error) 25%, transparent);
+    background-color: color-mix(
+      in oklab,
+      var(--color-warning) 12%,
+      transparent
+    );
   }
 
   .entry-row--ignored:hover {

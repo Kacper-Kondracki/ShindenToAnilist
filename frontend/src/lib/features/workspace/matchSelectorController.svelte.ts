@@ -63,27 +63,6 @@ export function createMatchSelectorController(
   let searchState = $state<MatchSearchState>(initialSearchState);
   let requestId = 0;
 
-  let automaticResults = $derived.by((): MatchSelectorResult[] =>
-    resolveCandidates(automaticCandidates(input.getAutomaticMatchResult()))
-  );
-  let searchResults = $derived.by((): MatchSelectorResult[] => {
-    const searchItems =
-      searchState.status === 'ready' ? searchState.result.items : [];
-
-    return resolveCandidates(searchItems);
-  });
-  let hasResults = $derived(
-    automaticResults.length > 0 || searchResults.length > 0
-  );
-  let isSearchCurrent = $derived.by(() => {
-    const currentQuery = resolveSearchQuery(query);
-
-    if (searchState.status === 'idle') {
-      return currentQuery.length === 0;
-    }
-
-    return searchState.query === currentQuery;
-  });
   let conflictingWinnerIds = $derived.by(() => {
     const selectedEntryId = input.getSelectedEntry().id;
     const conflicts = new Set<number>();
@@ -98,6 +77,29 @@ export function createMatchSelectorController(
     }
 
     return conflicts;
+  });
+  let automaticResults = $derived.by((): MatchSelectorResult[] =>
+    orderCandidatesByAvailability(
+      resolveCandidates(automaticCandidates(input.getAutomaticMatchResult()))
+    )
+  );
+  let searchResults = $derived.by((): MatchSelectorResult[] => {
+    const searchItems =
+      searchState.status === 'ready' ? searchState.result.items : [];
+
+    return orderCandidatesByAvailability(resolveCandidates(searchItems));
+  });
+  let hasResults = $derived(
+    automaticResults.length > 0 || searchResults.length > 0
+  );
+  let isSearchCurrent = $derived.by(() => {
+    const currentQuery = resolveSearchQuery(query);
+
+    if (searchState.status === 'idle') {
+      return currentQuery.length === 0;
+    }
+
+    return searchState.query === currentQuery;
   });
   let errorMessage = $derived(
     searchState.status === 'error' ? searchState.message : null
@@ -123,6 +125,21 @@ export function createMatchSelectorController(
     }
 
     return resolvedItems;
+  }
+
+  function orderCandidatesByAvailability(candidates: MatchSelectorResult[]) {
+    const available: MatchSelectorResult[] = [];
+    const alreadyUsed: MatchSelectorResult[] = [];
+
+    for (const candidate of candidates) {
+      if (conflictingWinnerIds.has(candidate.id)) {
+        alreadyUsed.push(candidate);
+      } else {
+        available.push(candidate);
+      }
+    }
+
+    return [...available, ...alreadyUsed];
   }
 
   if (initialSearchState.status === 'idle') {
