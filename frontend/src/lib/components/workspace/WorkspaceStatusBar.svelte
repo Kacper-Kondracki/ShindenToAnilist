@@ -220,6 +220,7 @@
     flex: 0 0 auto;
     min-width: 0;
     overflow: hidden;
+    contain: layout paint;
     border-top: var(--border) solid
       color-mix(in oklab, var(--color-base-content) 10%, transparent);
     background-color: var(--color-base-200);

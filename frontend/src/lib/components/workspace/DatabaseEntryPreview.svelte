@@ -80,6 +80,7 @@
     align-items: flex-start;
     flex-wrap: nowrap;
     gap: calc(var(--spacing) * 4);
+    contain: layout;
     white-space: nowrap;
   }
 
@@ -210,8 +211,10 @@
   .database-entry-metadata {
     display: grid;
     grid-area: metadata;
+    width: min(100%, 28rem);
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: calc(var(--spacing) * 1.5);
+    justify-self: start;
   }
 
   .database-entry-metadata__item {

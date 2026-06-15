@@ -61,6 +61,7 @@
   } = $props();
 
   const compactPreviewPaneHeight = 42 * 16;
+  const compactPreviewPaneHeightHysteresis = 16;
   const compactPreviewViewportWidth = 58 * 16;
 
   let selectedShindenEntry = $derived(
@@ -99,12 +100,46 @@
       : placeholderDatabaseEntry
   );
   let isPreviewPlaceholder = $derived(selectedWinnerState.status !== 'ready');
-  let paneHeight = $state(0);
+  let hasCompactPreviewPaneHeight = $state(false);
   let viewportWidth = $state(0);
   let isPreviewCompact = $derived(
-    (paneHeight > 0 && paneHeight < compactPreviewPaneHeight) ||
+    hasCompactPreviewPaneHeight ||
       (viewportWidth > 0 && viewportWidth <= compactPreviewViewportWidth)
   );
+
+  function trackCompactPreviewPaneHeight(node: HTMLElement) {
+    function update(height: number) {
+      if (hasCompactPreviewPaneHeight) {
+        if (
+          height >
+          compactPreviewPaneHeight + compactPreviewPaneHeightHysteresis
+        ) {
+          hasCompactPreviewPaneHeight = false;
+        }
+
+        return;
+      }
+
+      if (height < compactPreviewPaneHeight) {
+        hasCompactPreviewPaneHeight = true;
+      }
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      update(
+        entries[0]?.contentRect.height ?? node.getBoundingClientRect().height
+      );
+    });
+
+    resizeObserver.observe(node);
+    update(node.getBoundingClientRect().height);
+
+    return {
+      destroy() {
+        resizeObserver.disconnect();
+      }
+    };
+  }
 </script>
 
 <svelte:window bind:innerWidth={viewportWidth} />
@@ -112,7 +147,7 @@
 <section
   class="workspace-pane"
   aria-label="Editor"
-  bind:clientHeight={paneHeight}
+  use:trackCompactPreviewPaneHeight
 >
   <div class="workspace-pane__body">
     {#if selectedWinnerState.status === 'no-selection'}

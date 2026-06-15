@@ -123,16 +123,20 @@ export function createDatabaseEntryPreviewController(
       return detailsHeight;
     },
     set detailsHeight(nextHeight: number) {
-      if (nextHeight > 0) {
-        detailsHeight = nextHeight;
+      const roundedHeight = Math.round(nextHeight);
+
+      if (roundedHeight > 0 && roundedHeight !== detailsHeight) {
+        detailsHeight = roundedHeight;
       }
     },
     get metadataHeight() {
       return metadataHeight;
     },
     set metadataHeight(nextHeight: number) {
-      if (nextHeight > 0) {
-        metadataHeight = nextHeight;
+      const roundedHeight = Math.round(nextHeight);
+
+      if (roundedHeight > 0 && roundedHeight !== metadataHeight) {
+        metadataHeight = roundedHeight;
       }
     },
     get coverUrl() {
