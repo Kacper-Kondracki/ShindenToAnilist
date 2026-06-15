@@ -8,7 +8,6 @@ type RendererPaths = {
 };
 type AppConfig = {
   paths: RendererPaths;
-  grpcBaseUrl: string;
 };
 type SelectExportPathOptions = {
   defaultPath?: string;
@@ -16,6 +15,7 @@ type SelectExportPathOptions = {
 
 const configArgumentPrefix = '--shinden-to-anilist-config=';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
+const getGrpcBaseUrlChannel = 'shinden-to-anilist:get-grpc-base-url';
 
 function appConfig(): AppConfig {
   const configArgument = process.argv.find((argument) =>
@@ -35,7 +35,8 @@ const config = appConfig();
 
 contextBridge.exposeInMainWorld('shindenToAnilist', {
   paths: config.paths,
-  grpcBaseUrl: config.grpcBaseUrl,
+  getGrpcBaseUrl: () =>
+    ipcRenderer.invoke(getGrpcBaseUrlChannel) as Promise<string>,
   selectExportPath: (options?: SelectExportPathOptions) =>
     ipcRenderer.invoke(selectExportPathChannel, options) as Promise<
       string | null

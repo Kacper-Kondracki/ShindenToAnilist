@@ -8,7 +8,7 @@ interface Window {
       database: string;
       export: string;
     };
-    grpcBaseUrl: string;
+    getGrpcBaseUrl?: () => Promise<string>;
     selectExportPath?: (options?: {
       defaultPath?: string;
     }) => Promise<string | null>;

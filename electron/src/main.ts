@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const productName = 'ShindenToAnilist';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
+const getGrpcBaseUrlChannel = 'shinden-to-anilist:get-grpc-base-url';
 const appConfigArgumentPrefix = '--shinden-to-anilist-config=';
 const sidecarReadyTimeoutMs = 15_000;
 const sidecarShutdownTimeoutMs = 3_000;
@@ -25,7 +26,6 @@ type RendererPaths = {
 
 type AppConfig = {
   paths: RendererPaths;
-  grpcBaseUrl: string;
 };
 
 type SidecarReadyEvent = {
@@ -36,6 +36,7 @@ type SidecarReadyEvent = {
 let rendererPaths: RendererPaths;
 let sidecarProcess: ChildProcess | undefined;
 let sidecarShutdownTimer: NodeJS.Timeout | undefined;
+let grpcBaseUrlPromise: Promise<string> | undefined;
 
 ipcMain.handle(
   selectExportPathChannel,
@@ -58,6 +59,14 @@ ipcMain.handle(
     return result.canceled ? null : (result.filePath ?? null);
   }
 );
+
+ipcMain.handle(getGrpcBaseUrlChannel, async () => {
+  if (grpcBaseUrlPromise === undefined) {
+    throw new Error('ShindenToAnilist gRPC sidecar is not initializing');
+  }
+
+  return await grpcBaseUrlPromise;
+});
 
 function createRendererPaths(): RendererPaths {
   const base = app.getPath('userData');
@@ -213,6 +222,13 @@ function rendererDevUrl(): string | undefined {
   return process.env.SHINDEN_TO_ANILIST_RENDERER_URL;
 }
 
+function shouldHideApplicationMenu(): boolean {
+  return (
+    process.platform !== 'darwin' &&
+    process.env.SHINDEN_TO_ANILIST_ELECTRON_DEV !== '1'
+  );
+}
+
 async function loadRenderer(win: BrowserWindow): Promise<void> {
   const devUrl = rendererDevUrl();
 
@@ -271,14 +287,22 @@ app.on('window-all-closed', () => {
 app.setName(productName);
 
 app.whenReady().then(async () => {
+  if (shouldHideApplicationMenu()) {
+    Menu.setApplicationMenu(null);
+  }
+
   rendererPaths = createRendererPaths();
-  const grpcBaseUrl =
+  grpcBaseUrlPromise =
     process.env.SHINDEN_TO_ANILIST_ELECTRON_DEV === '1'
-      ? (process.env.SHINDEN_TO_ANILIST_GRPC_BASE_URL ?? defaultDevGrpcBaseUrl)
-      : await startSidecar();
+      ? Promise.resolve(
+          process.env.SHINDEN_TO_ANILIST_GRPC_BASE_URL ?? defaultDevGrpcBaseUrl
+        )
+      : startSidecar();
+  void grpcBaseUrlPromise.catch((error: unknown) => {
+    console.error('Unable to start ShindenToAnilist gRPC sidecar', error);
+  });
 
   await createWindow({
-    paths: rendererPaths,
-    grpcBaseUrl
+    paths: rendererPaths
   });
 });
