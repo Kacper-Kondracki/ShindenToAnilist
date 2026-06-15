@@ -2,6 +2,9 @@
 /// <reference types="vite/client" />
 
 interface Window {
+  isTauri?: boolean;
+  __TAURI__?: unknown;
+  __TAURI_INTERNALS__?: unknown;
   shindenToAnilist?: {
     paths: {
       base: string;
@@ -16,4 +19,7 @@ interface Window {
   };
 }
 
+declare var isTauri: Window['isTauri'];
+declare var __TAURI__: Window['__TAURI__'];
+declare var __TAURI_INTERNALS__: Window['__TAURI_INTERNALS__'];
 declare var shindenToAnilist: Window['shindenToAnilist'];

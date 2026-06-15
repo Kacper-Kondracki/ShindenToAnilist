@@ -1,6 +1,7 @@
 packages:
   - 'frontend'
   - 'electron'
+  - 'tauri'
 allowBuilds:
   '@bufbuild/buf': true
   electron-winstaller: true

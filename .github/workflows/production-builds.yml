@@ -9,7 +9,7 @@ on:
 jobs:
   linux:
     name: Linux artifacts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
@@ -33,7 +33,19 @@ jobs:
       - name: Install Linux packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2 protobuf-compiler
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libfuse2 \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            patchelf \
+            protobuf-compiler \
+            wget
           curl -L -o "$RUNNER_TEMP/appimagetool" \
             https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x "$RUNNER_TEMP/appimagetool"
@@ -55,6 +67,9 @@ jobs:
       - name: Build bundled Electron AppImage
         run: pnpm bundle:linux:appimage:bundled
 
+      - name: Build Tauri AppImage
+        run: pnpm bundle:tauri:linux
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v6
         with:
@@ -63,6 +78,7 @@ jobs:
             dist/*.tar.gz
             dist/*.AppImage
             dist/electron-builder/**
+            target/release/bundle/appimage/*.AppImage
 
   windows-native:
     name: Windows portable native
@@ -141,8 +157,13 @@ jobs:
       - name: Build Windows portable executable with cargo-xwin
         run: pnpm bundle:windows:portable:xwin
 
+      - name: Build Tauri Windows executable with cargo-xwin
+        run: pnpm bundle:tauri:windows:xwin
+
       - name: Upload Windows portable executable
         uses: actions/upload-artifact@v6
         with:
           name: shindentoanilist-windows-portable-xwin
-          path: dist/electron-builder/*.exe
+          path: |
+            dist/electron-builder/*.exe
+            dist/tauri-xwin/*.exe

@@ -26,6 +26,8 @@ pub mod mapper;
 mod matching;
 pub mod server;
 
+pub use server::ShindenToAnilist;
+
 #[derive(Debug)]
 pub struct Snapshot<T> {
     version: u64,

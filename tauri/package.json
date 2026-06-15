@@ -1,0 +1,28 @@
+{
+  "name": "tauri",
+  "version": "0.1.0",
+  "description": "Tauri shell for ShindenToAnilist.",
+  "private": true,
+  "productName": "ShindenToAnilist",
+  "author": "Kacper Kondracki",
+  "license": "MPL-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build --no-bundle",
+    "bundle": "tauri build --bundles appimage",
+    "bundle:linux": "tauri build --bundles appimage",
+    "bundle:windows": "tauri build --bundles nsis",
+    "format": "cargo +nightly fmt --manifest-path Cargo.toml"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.3.0",
+      "onFail": "download"
+    }
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.2"
+  }
+}
