@@ -4,8 +4,10 @@
   import type { WorkspaceController } from '../features/workspace/workspaceController.svelte';
   import AnimeListPane from './workspace/AnimeListPane.svelte';
   import AnimeListTabs from './workspace/AnimeListTabs.svelte';
+  import ContextMenuLayer from './workspace/ContextMenuLayer.svelte';
   import WorkspaceEditorPane from './workspace/WorkspaceEditorPane.svelte';
   import WorkspaceStatusBar from './workspace/WorkspaceStatusBar.svelte';
+  import { closeContextMenu } from './workspace/contextMenuState.svelte';
   import type { AnimeListTabId } from './workspace/tabs';
 
   const specificTabIds = [
@@ -71,6 +73,37 @@
     Object.keys(workspace.manualOverrides).length +
       Object.keys(workspace.ignoredEntryIds).length
   );
+  let observedSelectedEntryId = $state<number | null | undefined>(undefined);
+
+  $effect(() => {
+    const selectedEntryId = workspace.selectedEntryId;
+
+    if (observedSelectedEntryId === undefined) {
+      observedSelectedEntryId = selectedEntryId;
+      return;
+    }
+
+    if (selectedEntryId === observedSelectedEntryId) {
+      return;
+    }
+
+    observedSelectedEntryId = selectedEntryId;
+    closeContextMenu();
+  });
+
+  function resetEntry(entryId: number) {
+    workspace.resetMatchSelectorQuery(entryId);
+    workspace.clearManualOverride(entryId);
+  }
+
+  function canResetEntry(entryId: number) {
+    return (
+      workspace.matchSelectorQueries[entryId] !== undefined ||
+      workspace.manualOverrides[entryId] !== undefined ||
+      workspace.ignoredEntryIds[entryId] === true ||
+      workspace.displacedAutomaticEntryIds[entryId] === true
+    );
+  }
 </script>
 
 <section class="grid min-h-0 flex-1 items-stretch">
@@ -91,6 +124,9 @@
         {listPane}
         selectedEntryId={workspace.selectedEntryId}
         onSelectEntry={workspace.selectEntry}
+        onResetEntry={resetEntry}
+        {canResetEntry}
+        onToggleIgnored={workspace.setIgnored}
       />
       <WorkspaceEditorPane
         {animeData}
@@ -108,10 +144,13 @@
         onClearManualOverride={workspace.clearManualOverride}
         onSetMatchSelectorQuery={workspace.setMatchSelectorQuery}
         onResetMatchSelectorQuery={workspace.resetMatchSelectorQuery}
+        onSelectEntry={workspace.selectEntry}
       />
     </div>
   </div>
 </section>
+
+<ContextMenuLayer />
 
 <WorkspaceStatusBar
   entryIds={workspace.entryIdsByView.all}

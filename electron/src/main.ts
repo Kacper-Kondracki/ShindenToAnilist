@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -9,6 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const productName = 'ShindenToAnilist';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
 const getGrpcBaseUrlChannel = 'shinden-to-anilist:get-grpc-base-url';
+const openExternalUrlChannel = 'shinden-to-anilist:open-external-url';
 const appConfigArgumentPrefix = '--shinden-to-anilist-config=';
 const sidecarReadyTimeoutMs = 15_000;
 const sidecarShutdownTimeoutMs = 3_000;
@@ -66,6 +67,16 @@ ipcMain.handle(getGrpcBaseUrlChannel, async () => {
   }
 
   return await grpcBaseUrlPromise;
+});
+
+ipcMain.handle(openExternalUrlChannel, async (_event, url: string) => {
+  const parsedUrl = new URL(url);
+
+  if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+    throw new Error(`Unsupported external URL protocol: ${parsedUrl.protocol}`);
+  }
+
+  await shell.openExternal(parsedUrl.toString());
 });
 
 function createRendererPaths(): RendererPaths {

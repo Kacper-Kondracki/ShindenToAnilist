@@ -12,13 +12,12 @@
     translateAnimeType,
     translateSeason
   } from '../../domain/animeView';
+  import ContextMenu from './ContextMenu.svelte';
   import EntryRow from './EntryRow.svelte';
   import RowMetadataBadges from './RowMetadataBadges.svelte';
+  import type { ContextMenuItem } from './contextMenuState.svelte';
   import type { RowMetadataBadge } from './RowMetadataBadges.svelte';
-  import type {
-    EntryRowIndicator,
-    EntryRowTone
-  } from './EntryRow.svelte';
+  import type { EntryRowIndicator, EntryRowTone } from './EntryRow.svelte';
 
   let {
     entry,
@@ -30,7 +29,8 @@
     rounded = false,
     compact = false,
     softWarning = false,
-    tone: explicitTone = null
+    tone: explicitTone = null,
+    contextMenuItems = []
   }: {
     entry: DatabaseEntry;
     scoreLabel: string;
@@ -42,6 +42,7 @@
     compact?: boolean;
     softWarning?: boolean;
     tone?: EntryRowTone | null;
+    contextMenuItems?: ContextMenuItem[];
   } = $props();
 
   let tone = $derived<EntryRowTone>(
@@ -92,27 +93,29 @@
   });
 </script>
 
-<EntryRow
-  {tone}
-  {isSelected}
-  ariaLabel={`${entry.title}: ${scoreLabel}`}
-  title={entry.title}
-  {showIndicator}
-  {indicator}
-  {rounded}
-  {compact}
-  {softWarning}
-  {onSelect}
->
-  <h3 class="truncate text-sm font-semibold">{entry.title}</h3>
-  {#if metadataItems.length > 0}
-    <RowMetadataBadges items={metadataItems} />
-  {/if}
+<ContextMenu items={contextMenuItems}>
+  <EntryRow
+    {tone}
+    {isSelected}
+    ariaLabel={`${entry.title}: ${scoreLabel}`}
+    title={entry.title}
+    {showIndicator}
+    {indicator}
+    {rounded}
+    {compact}
+    {softWarning}
+    {onSelect}
+  >
+    <h3 class="truncate text-sm font-semibold">{entry.title}</h3>
+    {#if metadataItems.length > 0}
+      <RowMetadataBadges items={metadataItems} />
+    {/if}
 
-  {#snippet meta()}
-    <span class="text-xs font-semibold">{scoreLabel}</span>
-    <span class="text-xs text-muted">
-      {formatEpisodeCount(entry.episodes)} odc.
-    </span>
-  {/snippet}
-</EntryRow>
+    {#snippet meta()}
+      <span class="text-xs font-semibold">{scoreLabel}</span>
+      <span class="text-xs text-muted">
+        {formatEpisodeCount(entry.episodes)} odc.
+      </span>
+    {/snippet}
+  </EntryRow>
+</ContextMenu>

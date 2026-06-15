@@ -13,13 +13,19 @@
     animeData,
     listPane,
     selectedEntryId,
-    onSelectEntry
+    onSelectEntry,
+    onResetEntry,
+    canResetEntry,
+    onToggleIgnored
   }: {
     providerLabel: string;
     animeData: LoadedAnimeData;
     listPane: AnimeListPaneController;
     selectedEntryId: number | null;
     onSelectEntry: (entryId: number) => void | Promise<void>;
+    onResetEntry: (entryId: number) => void;
+    canResetEntry: (entryId: number) => boolean;
+    onToggleIgnored: (entryId: number) => void;
   } = $props();
 
   function handleListScroll() {
@@ -28,6 +34,14 @@
 
   function handleSelectEntry(entryId: number) {
     void onSelectEntry(entryId);
+  }
+
+  function handleResetEntry(entryId: number) {
+    onResetEntry(entryId);
+  }
+
+  function handleToggleIgnored(entryId: number) {
+    onToggleIgnored(entryId);
   }
 
   function getLoadedShindenEntry(entryId: number): ShindenEntry {
@@ -58,6 +72,9 @@
             matchStatus={listPane.matchStatuses.get(entryId) ?? 'unmatched'}
             isSelected={entryId === selectedEntryId}
             onSelect={() => handleSelectEntry(entryId)}
+            onReset={() => handleResetEntry(entryId)}
+            canReset={canResetEntry(entryId)}
+            onToggleIgnored={() => handleToggleIgnored(entryId)}
           />
         {/snippet}
       </VList>

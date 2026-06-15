@@ -9,6 +9,7 @@ interface Window {
       export: string;
     };
     getGrpcBaseUrl?: () => Promise<string>;
+    openExternalUrl?: (url: string) => Promise<void>;
     selectExportPath?: (options?: {
       defaultPath?: string;
     }) => Promise<string | null>;

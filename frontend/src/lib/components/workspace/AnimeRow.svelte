@@ -11,8 +11,15 @@
     translateAnimeType,
     translateWatchStatus
   } from '../../domain/animeView';
+  import ContextMenu from './ContextMenu.svelte';
   import EntryRow from './EntryRow.svelte';
   import RowMetadataBadges from './RowMetadataBadges.svelte';
+  import {
+    copyText,
+    openExternalUrl,
+    shindenEntryUrl
+  } from './contextMenuActions';
+  import type { ContextMenuItem } from './contextMenuState.svelte';
   import type { EntryRowTone } from './EntryRow.svelte';
   import type { RowMetadataBadge } from './RowMetadataBadges.svelte';
 
@@ -29,6 +36,9 @@
     matchStatus,
     isSelected,
     onSelect,
+    onReset,
+    canReset,
+    onToggleIgnored,
     showIndicator = true,
     rounded = false,
     compact = false
@@ -37,6 +47,9 @@
     matchStatus: AnimeMatchStatus;
     isSelected: boolean;
     onSelect: () => void;
+    onReset: () => void;
+    canReset: boolean;
+    onToggleIgnored: () => void;
     showIndicator?: boolean;
     rounded?: boolean;
     compact?: boolean;
@@ -60,6 +73,36 @@
       ? 'Brak odc.'
       : `${entry.watchedEpisodes} / ${episodeCountText} odc.`
   );
+  let contextMenuItems = $derived<ContextMenuItem[]>([
+    {
+      id: 'copy-title',
+      label: 'Kopiuj tytuł',
+      icon: 'icon-[lucide--copy]',
+      onSelect: () => copyText(entry.title)
+    },
+    {
+      id: 'open-shinden',
+      label: 'Otwórz stronę Shinden',
+      icon: 'icon-[lucide--external-link]',
+      onSelect: () => openExternalUrl(shindenEntryUrl(entry.id))
+    },
+    {
+      id: 'reset-entry',
+      label: 'Resetuj wpis',
+      icon: 'icon-[lucide--rotate-ccw]',
+      dividerBefore: true,
+      disabled: !canReset,
+      onSelect: onReset
+    },
+    {
+      id: 'toggle-ignored',
+      label:
+        matchStatus === 'ignored' ? 'Przestań ignorować wpis' : 'Ignoruj wpis',
+      icon: 'icon-[lucide--eye-off]',
+      checked: matchStatus === 'ignored',
+      onSelect: onToggleIgnored
+    }
+  ]);
   let metadataItems = $derived.by<RowMetadataBadge[]>(() => {
     const items: RowMetadataBadge[] = [];
 
@@ -95,26 +138,28 @@
   });
 </script>
 
-<EntryRow
-  tone={rowTone}
-  {isSelected}
-  ariaLabel={`${entry.title}: ${matchStatusLabels[matchStatus]}`}
-  title={entry.title}
-  class="h-0"
-  {showIndicator}
-  {rounded}
-  {compact}
-  {onSelect}
->
-  <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
-  {#if metadataItems.length > 0}
-    <RowMetadataBadges items={metadataItems} />
-  {/if}
+<ContextMenu items={contextMenuItems}>
+  <EntryRow
+    tone={rowTone}
+    {isSelected}
+    ariaLabel={`${entry.title}: ${matchStatusLabels[matchStatus]}`}
+    title={entry.title}
+    class="h-0"
+    {showIndicator}
+    {rounded}
+    {compact}
+    {onSelect}
+  >
+    <h2 class="truncate text-sm font-semibold">{entry.title}</h2>
+    {#if metadataItems.length > 0}
+      <RowMetadataBadges items={metadataItems} />
+    {/if}
 
-  {#snippet meta()}
-    <span class="text-xs font-semibold">
-      {translateWatchStatus(entry.watchStatus)}
-    </span>
-    <span class="text-xs text-muted">{episodeProgressText}</span>
-  {/snippet}
-</EntryRow>
+    {#snippet meta()}
+      <span class="text-xs font-semibold">
+        {translateWatchStatus(entry.watchStatus)}
+      </span>
+      <span class="text-xs text-muted">{episodeProgressText}</span>
+    {/snippet}
+  </EntryRow>
+</ContextMenu>

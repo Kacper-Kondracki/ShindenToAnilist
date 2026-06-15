@@ -13,6 +13,12 @@
   } from '../../features/workspace/matchSelectorController.svelte';
   import DatabaseEntryRow from './DatabaseEntryRow.svelte';
   import WorkspaceDialog from './WorkspaceDialog.svelte';
+  import {
+    copyText,
+    databaseEntryMalUrl,
+    openExternalUrl
+  } from './contextMenuActions';
+  import type { ContextMenuItem } from './contextMenuState.svelte';
 
   let {
     selectedEntry,
@@ -30,7 +36,8 @@
     onSetIgnored,
     onClearManualOverride,
     onSetMatchSelectorQuery,
-    onResetMatchSelectorQuery
+    onResetMatchSelectorQuery,
+    onSelectEntry
   }: {
     selectedEntry: ShindenEntry;
     selectedDatabaseEntryId: number | null;
@@ -48,6 +55,7 @@
     onClearManualOverride: (shindenId: number) => void;
     onSetMatchSelectorQuery: (shindenId: number, query: string) => void;
     onResetMatchSelectorQuery: (shindenId: number) => void;
+    onSelectEntry: (entryId: number) => void | Promise<void>;
   } = $props();
 
   const selector = createMatchSelectorController({
@@ -178,6 +186,44 @@
     return (winnerClaimsByDatabaseId.get(databaseId) ?? []).filter(
       (ownerId) => ownerId !== selectedEntry.id
     );
+  }
+
+  function contextMenuItemsForResult(entry: DatabaseEntry): ContextMenuItem[] {
+    const ownerIds = conflictOwnerIdsForDatabase(entry.id);
+    const items: ContextMenuItem[] = [
+      {
+        id: 'copy-title',
+        label: 'Kopiuj tytuł',
+        icon: 'icon-[lucide--copy]',
+        onSelect: () => copyText(entry.title)
+      },
+      {
+        id: 'open-mal',
+        label: 'Otwórz stronę MAL',
+        icon: 'icon-[lucide--external-link]',
+        onSelect: () => openExternalUrl(databaseEntryMalUrl(entry))
+      }
+    ];
+
+    if (ownerIds.length > 0) {
+      const ownerId = ownerIds[0];
+
+      if (ownerId === undefined) {
+        return items;
+      }
+
+      items.push({
+        id: 'go-to-owner',
+        label: 'Przejdź do wpisu używającego ten',
+        icon: 'icon-[lucide--corner-down-right]',
+        dividerBefore: true,
+        onSelect: () => {
+          void onSelectEntry(ownerId);
+        }
+      });
+    }
+
+    return items;
   }
 
   function alignSearchResultsAfterQueryInput(
@@ -359,6 +405,7 @@
               rounded={true}
               compact={true}
               onSelect={() => handleResultSelect(result.id)}
+              contextMenuItems={contextMenuItemsForResult(result.entry)}
             />
           </li>
         {/each}
@@ -387,6 +434,7 @@
               rounded={true}
               compact={true}
               onSelect={() => handleResultSelect(result.id)}
+              contextMenuItems={contextMenuItemsForResult(result.entry)}
             />
           </li>
         {/each}
