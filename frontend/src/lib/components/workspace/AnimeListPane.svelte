@@ -66,11 +66,13 @@
         bufferSize={0}
         onscroll={handleListScroll}
       >
-        {#snippet children(entryId)}
+        {#snippet children(entryId, index)}
           <AnimeRow
             entry={getLoadedShindenEntry(entryId)}
             matchStatus={listPane.matchStatuses.get(entryId) ?? 'unmatched'}
             isSelected={entryId === selectedEntryId}
+            striped={index % 2 === 1}
+            separated={false}
             onSelect={() => handleSelectEntry(entryId)}
             onReset={() => handleResetEntry(entryId)}
             canReset={canResetEntry(entryId)}
