@@ -1,3 +1,5 @@
+<img src="assets/sta_icon.png" alt="ShindenToAnilist icon" align="left" width="72" />
+
 # ShindenToAnilist
 
 > Eksportuj swoją listę z Shindena do pliku XML, który zaimportujesz do AniList albo MyAnimeList.
