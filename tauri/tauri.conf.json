@@ -25,8 +25,7 @@
     }
   },
   "bundle": {
-    "active": true,
-    "targets": "all",
+    "active": false,
     "category": "Utility",
     "copyright": "Copyright © 2026 Kacper Kondracki",
     "licenseFile": "../LICENSE",
