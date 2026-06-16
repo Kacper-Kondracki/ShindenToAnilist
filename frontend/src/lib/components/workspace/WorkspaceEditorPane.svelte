@@ -42,7 +42,7 @@
     winnerClaimsByDatabaseId,
     initialMatchSearch,
     selectedWinnerState,
-    onSelectEntry
+    onGoToEntry
   }: {
     animeData: LoadedAnimeData;
     selectedEntryId: number | null;
@@ -59,7 +59,7 @@
     onClearManualOverride: (shindenId: number) => void;
     onSetMatchSelectorQuery: (shindenId: number, query: string) => void;
     onResetMatchSelectorQuery: (shindenId: number) => void;
-    onSelectEntry: (entryId: number) => void | Promise<void>;
+    onGoToEntry: (entryId: number) => void;
   } = $props();
 
   const compactPreviewPaneHeight = 42 * 16;
@@ -181,7 +181,7 @@
               {onClearManualOverride}
               {onSetMatchSelectorQuery}
               {onResetMatchSelectorQuery}
-              {onSelectEntry}
+              {onGoToEntry}
             />
           {/key}
         </div>

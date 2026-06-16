@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build --no-bundle",
+    "build:appimage": "tauri build --bundles appimage",
     "format": "cargo +nightly fmt --manifest-path Cargo.toml"
   },
   "devEngines": {

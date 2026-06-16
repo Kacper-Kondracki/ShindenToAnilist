@@ -5,8 +5,27 @@
 }
 @plugin "./catppuccinTheme.mocha.ts";
 
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 75% 100%;
+  font-display: swap;
+  src: url('../../assets/Roboto-VariableFont_wdth,wght.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: italic;
+  font-weight: 100 900;
+  font-stretch: 75% 100%;
+  font-display: swap;
+  src: url('../../assets/Roboto-Italic-VariableFont_wdth,wght.ttf')
+    format('truetype');
+}
+
 @theme {
-  --font-sans: Inter, Roboto, system-ui, sans-serif;
+  --font-sans: 'Roboto', system-ui, sans-serif;
 }
 
 :root {
@@ -37,7 +56,7 @@
   --ctp-mocha-mantle: #181825;
   --ctp-mocha-crust: #11111b;
 
-  font-family: 'Inter', 'Roboto', system-ui, sans-serif;
+  font-family: 'Roboto', system-ui, sans-serif;
 
   color: var(--color-base-content);
   background-color: var(--color-base-100);

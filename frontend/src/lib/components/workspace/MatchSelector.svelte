@@ -37,7 +37,7 @@
     onClearManualOverride,
     onSetMatchSelectorQuery,
     onResetMatchSelectorQuery,
-    onSelectEntry
+    onGoToEntry
   }: {
     selectedEntry: ShindenEntry;
     selectedDatabaseEntryId: number | null;
@@ -55,7 +55,7 @@
     onClearManualOverride: (shindenId: number) => void;
     onSetMatchSelectorQuery: (shindenId: number, query: string) => void;
     onResetMatchSelectorQuery: (shindenId: number) => void;
-    onSelectEntry: (entryId: number) => void | Promise<void>;
+    onGoToEntry: (entryId: number) => void;
   } = $props();
 
   const selector = createMatchSelectorController({
@@ -214,12 +214,10 @@
 
       items.push({
         id: 'go-to-owner',
-        label: 'Przejdź do wpisu używającego ten',
+        label: 'Przejdź do wpisu',
         icon: 'icon-[lucide--corner-down-right]',
         dividerBefore: true,
-        onSelect: () => {
-          void onSelectEntry(ownerId);
-        }
+        onSelect: () => onGoToEntry(ownerId)
       });
     }
 

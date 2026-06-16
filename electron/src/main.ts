@@ -87,7 +87,7 @@ function createRendererPaths(): RendererPaths {
   return {
     base,
     database: join(base, 'database.jsonl'),
-    export: join(base, 'export.xml')
+    export: join(app.getPath('documents'), 'export.xml')
   };
 }
 
