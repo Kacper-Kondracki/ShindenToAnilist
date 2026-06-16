@@ -4,9 +4,11 @@ import { fileURLToPath } from 'node:url';
 import packageJson from '../package.json' with { type: 'json' };
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const targetTriple = parseTargetTriple();
 const source = resolve(
   root,
   'target',
+  ...(targetTriple === null ? [] : [targetTriple]),
   'release',
   'shinden-to-anilist-tauri.exe'
 );
@@ -25,3 +27,15 @@ mkdirSync(outputDir, { recursive: true });
 copyFileSync(source, output);
 
 console.log(`Staged Tauri Windows executable: ${output}`);
+
+function parseTargetTriple() {
+  const targetArg = process.argv.find((arg) => arg.startsWith('--target='));
+
+  if (targetArg !== undefined) {
+    return targetArg.slice('--target='.length);
+  }
+
+  const targetIndex = process.argv.indexOf('--target');
+
+  return targetIndex >= 0 ? (process.argv[targetIndex + 1] ?? null) : null;
+}

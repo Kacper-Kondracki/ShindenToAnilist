@@ -372,10 +372,11 @@ fn app_paths(app: AppHandle) -> Result<AppPathsDto, String> {
         .join(PRODUCT_NAME);
 
     fs::create_dir_all(&base).map_err(|err| err.to_string())?;
+    let export_dir = app.path().document_dir().unwrap_or_else(|_| base.clone());
 
     Ok(AppPathsDto {
         database: display_path(&base.join("database.jsonl")),
-        export: display_path(&base.join("export.xml")),
+        export: display_path(&export_dir.join("export.xml")),
         base: display_path(&base),
     })
 }

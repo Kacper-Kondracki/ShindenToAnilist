@@ -236,7 +236,7 @@
 
     background-color: color-mix(
       in oklab,
-      var(--ctp-mocha-flamingo) 7%,
+      var(--ctp-mocha-lavender) 15%,
       transparent
     );
   }
@@ -255,7 +255,11 @@
     --entry-row-state-shadow: inset 0 0 0 1px
       color-mix(in oklab, var(--color-warning) 34%, transparent);
 
-    background-color: color-mix(in oklab, var(--color-warning) 12%, transparent);
+    background-color: color-mix(
+      in oklab,
+      var(--color-warning) 12%,
+      transparent
+    );
     color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
   }
 
@@ -309,7 +313,7 @@
   .entry-row--star-indicator:hover {
     background-color: color-mix(
       in oklab,
-      var(--ctp-mocha-flamingo) 10%,
+      var(--ctp-mocha-lavender) 19%,
       transparent
     );
   }

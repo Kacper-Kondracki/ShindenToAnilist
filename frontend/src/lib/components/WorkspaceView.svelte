@@ -104,6 +104,11 @@
       workspace.displacedAutomaticEntryIds[entryId] === true
     );
   }
+
+  function goToEntry(entryId: number) {
+    listPane.revealEntry(entryId, listPane.activeTab);
+    void workspace.selectEntry(entryId);
+  }
 </script>
 
 <section class="grid min-h-0 flex-1 items-stretch">
@@ -144,7 +149,7 @@
         onClearManualOverride={workspace.clearManualOverride}
         onSetMatchSelectorQuery={workspace.setMatchSelectorQuery}
         onResetMatchSelectorQuery={workspace.resetMatchSelectorQuery}
-        onSelectEntry={workspace.selectEntry}
+        onGoToEntry={goToEntry}
       />
     </div>
   </div>

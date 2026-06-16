@@ -133,6 +133,34 @@ export function createAnimeListPaneController(
     activeTab = nextTabId;
   }
 
+  function revealEntry(entryId: number, preferredTabId: AnimeListTabId) {
+    const targetTabId = tabIdContainingEntry(
+      entryId,
+      preferredTabId,
+      input.getEntryIdsByView()
+    );
+
+    if (targetTabId === null) {
+      return;
+    }
+
+    rememberActiveTabScrollState();
+
+    const restore = {
+      tabId: targetTabId,
+      selectedEntryId: entryId,
+      selectedViewportOffset: 0
+    };
+    pendingScrollRestore = restore;
+
+    if (targetTabId === activeTab) {
+      void restoreScrollPosition(restore);
+      return;
+    }
+
+    activeTab = targetTabId;
+  }
+
   async function restoreScrollPosition(restore: PendingScrollRestore) {
     pendingScrollRestore = null;
     await tick();
@@ -255,8 +283,33 @@ export function createAnimeListPaneController(
       return emptyListText;
     },
     handleScroll,
-    selectTab
+    selectTab,
+    revealEntry
   };
+}
+
+function tabIdContainingEntry(
+  entryId: number,
+  preferredTabId: AnimeListTabId,
+  entryIdsByView: ShindenListViews
+): AnimeListTabId | null {
+  if (entryIdsByView[preferredTabId].some((id) => id === entryId)) {
+    return preferredTabId;
+  }
+
+  if (entryIdsByView.manual.some((id) => id === entryId)) {
+    return 'manual';
+  }
+
+  if (entryIdsByView.automatic.some((id) => id === entryId)) {
+    return 'automatic';
+  }
+
+  if (entryIdsByView.ignored.some((id) => id === entryId)) {
+    return 'ignored';
+  }
+
+  return entryIdsByView.all.some((id) => id === entryId) ? 'all' : null;
 }
 
 function initialTabScrollOffsets(): Record<AnimeListTabId, number> {
