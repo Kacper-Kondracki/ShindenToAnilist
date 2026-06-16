@@ -13,6 +13,19 @@
 Aplikacja pozwala
 przejrzeć lub ręcznie poprawić niepewne dopasowania, a na końcu zapisuje eksport XML zgodny z MAL.
 
+## Zrzuty ekranu
+
+<table>
+  <tr>
+    <td>
+      <img src=".screenshots/sta-1.png" alt="Widok startowy aplikacji ShindenToAnilist" />
+    </td>
+    <td>
+      <img src=".screenshots/sta-2.png" alt="Widok dopasowywania i eksportu w aplikacji ShindenToAnilist" />
+    </td>
+  </tr>
+</table>
+
 ## Wydania
 
 Gotowe paczki aplikacji są publikowane na stronie wydań:
