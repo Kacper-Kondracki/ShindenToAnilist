@@ -41,7 +41,9 @@
     onToggleIgnored,
     showIndicator = true,
     rounded = false,
-    compact = false
+    compact = false,
+    striped = false,
+    separated = true
   }: {
     entry: ShindenEntry;
     matchStatus: AnimeMatchStatus;
@@ -53,6 +55,8 @@
     showIndicator?: boolean;
     rounded?: boolean;
     compact?: boolean;
+    striped?: boolean;
+    separated?: boolean;
   } = $props();
 
   const matchStatusLabels: Record<AnimeMatchStatus, string> = {
@@ -148,6 +152,8 @@
     {showIndicator}
     {rounded}
     {compact}
+    {striped}
+    {separated}
     {onSelect}
   >
     <h2 class="truncate text-sm font-semibold">{entry.title}</h2>

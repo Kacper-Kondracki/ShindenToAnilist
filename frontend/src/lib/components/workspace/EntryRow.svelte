@@ -21,6 +21,8 @@
     indicator = 'bar',
     rounded = false,
     compact = false,
+    striped = false,
+    separated = true,
     softWarning = false,
     children,
     meta,
@@ -35,6 +37,8 @@
     indicator?: EntryRowIndicator;
     rounded?: boolean;
     compact?: boolean;
+    striped?: boolean;
+    separated?: boolean;
     softWarning?: boolean;
     children?: Snippet;
     meta?: Snippet;
@@ -57,6 +61,8 @@
   class:entry-row--without-indicator={!showIndicator}
   class:entry-row--rounded={rounded}
   class:entry-row--compact={compact}
+  class:entry-row--striped={striped}
+  class:entry-row--without-separator={!separated}
   class={`entry-row ${className}`}
   aria-label={ariaLabel}
   aria-pressed={isSelected}
@@ -205,6 +211,18 @@
 
   .entry-row--compact::before {
     inset-block: calc(var(--spacing) * 1.5);
+  }
+
+  .entry-row--striped {
+    background-color: color-mix(
+      in oklab,
+      var(--color-base-content) 3%,
+      transparent
+    );
+  }
+
+  .entry-row--without-separator {
+    background-image: none;
   }
 
   .entry-row--matched {

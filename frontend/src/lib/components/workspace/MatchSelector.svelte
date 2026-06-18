@@ -133,10 +133,13 @@
     }
   }
 
-  function handleReset() {
+  function handleReset({ clearQuery = true } = {}) {
     pendingSearchAlignmentQuery = null;
     searchAlignmentSpacerHeight = 0;
-    selector.resetQuery();
+
+    if (clearQuery) {
+      selector.resetQuery();
+    }
 
     if (manualOverrideId !== null || isIgnored || isAutomaticWinnerSuppressed) {
       selector.clearManualOverride();
@@ -156,6 +159,11 @@
   }
 
   function handleResultSelect(databaseId: number) {
+    if (databaseId === selectedDatabaseEntryId) {
+      handleReset({ clearQuery: false });
+      return;
+    }
+
     if (
       databaseId !== selectedDatabaseEntryId &&
       conflictOwnerIdsForDatabase(databaseId).length > 0
