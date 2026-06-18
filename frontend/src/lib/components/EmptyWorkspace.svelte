@@ -19,7 +19,7 @@
   <AnimatedGridPanel
     class="grid place-items-center overflow-hidden surface-panel"
   >
-    {#if userListRequestState.status === 'loading'}
+    {#if userListRequestState.status === 'loading' && provider.supportsSourceImportProgress}
       <SourceImportProgress
         providerLabel={provider.label}
         progress={userListRequestState.progress}

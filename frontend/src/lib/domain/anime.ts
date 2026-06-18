@@ -7,7 +7,36 @@ import type {
   WatchStatus
 } from '../gen/shinden_to_anilist/v1/common_pb';
 
-export type WireNumber = bigint | number;
+export type WireNumber = bigint;
+export type WireNumberKey = string;
+export type WireNumberRecord<T> = Record<WireNumberKey, T>;
+
+const U64_MAX = (1n << 64n) - 1n;
+
+export function wireNumberKey(value: WireNumber): WireNumberKey {
+  return value.toString();
+}
+
+export function wireNumberEquals(left: WireNumber, right: WireNumber) {
+  return left === right;
+}
+
+export function parseWireNumber(value: unknown): WireNumber | null {
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value >= 0 ? BigInt(value) : null;
+  }
+
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+    return null;
+  }
+
+  const bigintValue = BigInt(value);
+  if (bigintValue > U64_MAX) {
+    return null;
+  }
+
+  return bigintValue;
+}
 
 export type DatabaseInfo = {
   lastUpdate: string;

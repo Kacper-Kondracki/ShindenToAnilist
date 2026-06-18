@@ -39,16 +39,19 @@
   />
 
   <div class="relative min-h-0 flex-1 overflow-hidden contain-[layout_paint]">
-    {#if app.workspace.state.status === 'empty'}
-      <div class="view-frame">
+    {#if app.workspace.state.status === 'empty' || app.shouldShowSourceImportProgress}
+      <div
+        class="view-frame"
+        class:view-frame--enter={app.shouldShowSourceImportProgress}
+      >
         <EmptyWorkspace
-          provider={app.selectedProviderDetails}
+          provider={app.userListRequestProviderDetails}
           canLoadProvider={app.isProviderSupported}
           userListRequestState={app.userListRequestState}
         />
       </div>
     {:else}
-      <div class="view-frame view-frame--workspace-enter">
+      <div class="view-frame view-frame--enter">
         {#key app.workspace.state}
           <WorkspaceView
             providerLabel={app.activeProviderDetails.label}
@@ -70,14 +73,14 @@
     flex-direction: column;
   }
 
-  .view-frame--workspace-enter {
-    animation: workspace-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  .view-frame--enter {
+    animation: view-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
     backface-visibility: hidden;
     transform: translateZ(0);
     will-change: transform, opacity;
   }
 
-  @keyframes workspace-enter {
+  @keyframes view-enter {
     from {
       opacity: 0;
       transform: translate3d(0, 4rem, 0);
@@ -90,7 +93,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .view-frame--workspace-enter {
+    .view-frame--enter {
       animation: none;
     }
   }

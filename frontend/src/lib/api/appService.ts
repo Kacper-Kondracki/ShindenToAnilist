@@ -64,6 +64,8 @@ import type {
   WireNumber
 } from '../domain/anime';
 
+type WireNumberInput = WireNumber | number | string;
+
 type AppPaths = {
   base: string;
   database: string;
@@ -82,7 +84,7 @@ type AppDatabaseReleaseInfo = Pick<
   DatabaseReleaseInfo,
   'release' | 'sha256'
 > & {
-  compressedSize?: WireNumber;
+  compressedSize?: WireNumberInput;
 };
 
 type AppDatabaseMetadata = {
@@ -96,7 +98,7 @@ type AppDatabaseUpdateCheck = {
 };
 
 type TauriShindenEntry = {
-  id: WireNumber;
+  id: WireNumberInput;
   coverId?: number | null;
   title: string;
   animeStatus: number;
@@ -111,7 +113,7 @@ type TauriShindenEntry = {
 };
 
 type TauriSourceEntry = {
-  id: WireNumber;
+  id: WireNumberInput;
   provider: number;
   title: string;
   animeStatus: number;
@@ -123,13 +125,13 @@ type TauriSourceEntry = {
   watchedEpisodes: number;
   score?: number | null;
   sourceUrl: string;
-  malId?: WireNumber | null;
+  malId?: WireNumberInput | null;
   coverId?: number | null;
   isFavourite?: boolean | null;
 };
 
 type TauriDatabaseEntry = {
-  id: WireNumber;
+  id: WireNumberInput;
   sources: string[];
   title: string;
   animeType: number;
@@ -146,12 +148,12 @@ type TauriDatabaseEntry = {
 type WireMatchResult = ProtoMatchResult | TauriMatchResult;
 
 type TauriMatchResult = {
-  id: WireNumber;
+  id: WireNumberInput;
   finalScore: number;
 };
 
 type TauriShindenMatchResult = {
-  shindenId: WireNumber;
+  shindenId: WireNumberInput;
   candidates: TauriMatchResult[];
   topCandidates: TauriMatchResult[];
   winner?: TauriMatchResult | null;
@@ -160,7 +162,7 @@ type TauriShindenMatchResult = {
 type WireShindenMatchResult = ProtoShindenMatchResult | TauriShindenMatchResult;
 
 type TauriSourceMatchResult = {
-  sourceId: WireNumber;
+  sourceId: WireNumberInput;
   candidates: TauriMatchResult[];
   topCandidates: TauriMatchResult[];
   winner?: TauriMatchResult | null;
@@ -174,7 +176,7 @@ type TauriSearchOptions = {
 };
 
 type TauriFetchShindenListResponse = {
-  shindenVersion: WireNumber;
+  shindenVersion: WireNumberInput;
 };
 
 export type SourceFetchProgress = {
@@ -188,32 +190,32 @@ export type SourceFetchProgress = {
 type TauriSourceFetchProgress = {
   provider: number;
   phase: number;
-  current: WireNumber;
-  total: WireNumber;
+  current: WireNumberInput;
+  total: WireNumberInput;
   latestTitle: string;
 };
 
 type TauriFetchSourceListResponse = {
-  sourceVersion: WireNumber;
+  sourceVersion: WireNumberInput;
 };
 
 type TauriGetShindenIdsResponse = {
-  shindenVersion: WireNumber;
-  ids: WireNumber[];
+  shindenVersion: WireNumberInput;
+  ids: WireNumberInput[];
 };
 
 type TauriGetSourceIdsResponse = {
-  sourceVersion: WireNumber;
-  ids: WireNumber[];
+  sourceVersion: WireNumberInput;
+  ids: WireNumberInput[];
 };
 
 type TauriGetShindenFullResponse = {
-  shindenVersion: WireNumber;
+  shindenVersion: WireNumberInput;
   entries: TauriShindenEntry[];
 };
 
 type TauriGetSourceFullResponse = {
-  sourceVersion: WireNumber;
+  sourceVersion: WireNumberInput;
   entries: TauriSourceEntry[];
 };
 
@@ -226,7 +228,7 @@ type TauriDownloadDatabaseResponse = {
 };
 
 type TauriLoadDatabaseResponse = {
-  databaseVersion: WireNumber;
+  databaseVersion: WireNumberInput;
 };
 
 type TauriGetDatabaseMetadataResponse = {
@@ -234,35 +236,35 @@ type TauriGetDatabaseMetadataResponse = {
 };
 
 type TauriGetDatabaseFullResponse = {
-  databaseVersion: WireNumber;
+  databaseVersion: WireNumberInput;
   entries: TauriDatabaseEntry[];
 };
 
 type TauriFuzzySearchResponse = {
-  databaseVersion: WireNumber;
-  results: Array<{ id: WireNumber; score: number }>;
+  databaseVersion: WireNumberInput;
+  results: Array<{ id: WireNumberInput; score: number }>;
 };
 
 type TauriFuzzyMatchResponse = {
-  databaseVersion: WireNumber;
+  databaseVersion: WireNumberInput;
   results: TauriMatchResult[];
 };
 
 type TauriMatchShindenListResponse = {
-  shindenVersion: WireNumber;
-  databaseVersion: WireNumber;
+  shindenVersion: WireNumberInput;
+  databaseVersion: WireNumberInput;
   results: TauriShindenMatchResult[];
 };
 
 type TauriMatchSourceListResponse = {
-  sourceVersion: WireNumber;
-  databaseVersion: WireNumber;
+  sourceVersion: WireNumberInput;
+  databaseVersion: WireNumberInput;
   results: TauriSourceMatchResult[];
 };
 
 type TauriExportXmlResponse = {
-  sourceVersion: WireNumber;
-  shindenVersion: WireNumber;
+  sourceVersion: WireNumberInput;
+  shindenVersion: WireNumberInput;
   path: string;
 };
 
@@ -283,9 +285,9 @@ type AppClient = Awaited<ReturnType<typeof createAppClient>>;
 
 const U64_MAX = (1n << 64n) - 1n;
 
-let shindenVersion: WireNumber = 0;
-let sourceVersion: WireNumber = 0;
-let databaseVersion: WireNumber = 0;
+let shindenVersion: WireNumber = 0n;
+let sourceVersion: WireNumber = 0n;
+let databaseVersion: WireNumber = 0n;
 
 async function createAppClient() {
   const transport = createGrpcWebTransport({
@@ -923,14 +925,14 @@ async function callTauri<T>(command: string, args?: Record<string, unknown>) {
   }
 }
 
-function observeShindenVersion(version: WireNumber) {
+function observeShindenVersion(version: WireNumberInput) {
   const nextVersion = toWireNumber(version);
   if (isGreaterWireNumber(nextVersion, shindenVersion)) {
     shindenVersion = nextVersion;
   }
 }
 
-function observeSourceVersion(version: WireNumber) {
+function observeSourceVersion(version: WireNumberInput) {
   const nextVersion = toWireNumber(version);
   if (isGreaterWireNumber(nextVersion, sourceVersion)) {
     sourceVersion = nextVersion;
@@ -938,7 +940,7 @@ function observeSourceVersion(version: WireNumber) {
   observeShindenVersion(version);
 }
 
-function observeDatabaseVersion(version: WireNumber) {
+function observeDatabaseVersion(version: WireNumberInput) {
   const nextVersion = toWireNumber(version);
   if (isGreaterWireNumber(nextVersion, databaseVersion)) {
     databaseVersion = nextVersion;
@@ -969,7 +971,7 @@ function toDatabaseInfo(input: {
   release: AppDatabaseReleaseInfo | null;
   metadata: AppDatabaseMetadata;
   needsUpdate: boolean;
-  databaseVersion: WireNumber;
+  databaseVersion: WireNumberInput;
 }): DatabaseInfo {
   return {
     path: input.path,
@@ -977,7 +979,7 @@ function toDatabaseInfo(input: {
     sha256: input.release?.sha256 ?? '',
     lastUpdate: formatProtoDate(input.metadata.lastUpdate) ?? '',
     needsUpdate: input.needsUpdate,
-    databaseVersion: input.databaseVersion
+    databaseVersion: toWireNumber(input.databaseVersion)
   };
 }
 
@@ -1048,8 +1050,8 @@ function toDatabaseEntry(
 
 function toMatchListResult(
   entries: WireShindenMatchResult[],
-  nextShindenVersion: WireNumber,
-  nextDatabaseVersion: WireNumber
+  nextShindenVersion: WireNumberInput,
+  nextDatabaseVersion: WireNumberInput
 ): MatchListResult {
   const mappedEntries = entries.map((entry) => ({
     shindenId: toWireNumber(entry.shindenId),
@@ -1073,8 +1075,8 @@ function toMatchListResult(
 
 function toSourceMatchListResult(
   entries: WireSourceMatchResult[],
-  nextSourceVersion: WireNumber,
-  nextDatabaseVersion: WireNumber
+  nextSourceVersion: WireNumberInput,
+  nextDatabaseVersion: WireNumberInput
 ): MatchListResult {
   const mappedEntries = entries.map((entry) => ({
     shindenId: toWireNumber(entry.sourceId),
@@ -1138,7 +1140,7 @@ function formatProtoDate(date: WireDate) {
   return `${date.year}-${month}-${day}`;
 }
 
-function toWireNumber(value: WireNumber): WireNumber {
+function toWireNumber(value: WireNumberInput): WireNumber {
   if (typeof value === 'number') {
     if (!Number.isInteger(value)) {
       throw new Error(`Id lub wersja nie jest liczbą całkowitą: ${value}`);
@@ -1154,29 +1156,37 @@ function toWireNumber(value: WireNumber): WireNumber {
       throw new Error(`Id lub wersja poza zakresem u64: ${value}`);
     }
 
-    return value;
+    return BigInt(value);
+  }
+
+  if (typeof value === 'string') {
+    if (!/^\d+$/.test(value)) {
+      throw new Error(`Id lub wersja nie jest liczbą całkowitą: ${value}`);
+    }
+
+    value = BigInt(value);
   }
 
   if (value < 0n || value > U64_MAX) {
     throw new Error(`Id lub wersja poza zakresem u64: ${value}`);
   }
 
-  const numberValue = Number(value);
-  return Number.isSafeInteger(numberValue) ? numberValue : value;
+  return value;
 }
 
-function toSafeNumber(value: WireNumber): number {
+function toSafeNumber(value: WireNumberInput): number {
   const normalized = toWireNumber(value);
 
-  if (typeof normalized === 'bigint') {
+  const numberValue = Number(normalized);
+  if (!Number.isSafeInteger(numberValue)) {
     throw new Error(`Id lub wersja poza bezpiecznym zakresem number: ${value}`);
   }
 
-  return normalized;
+  return numberValue;
 }
 
 function isGreaterWireNumber(left: WireNumber, right: WireNumber) {
-  return BigInt(left) > BigInt(right);
+  return left > right;
 }
 
 function normalizeRpcError(error: unknown) {

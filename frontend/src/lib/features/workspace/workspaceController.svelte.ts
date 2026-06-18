@@ -7,7 +7,14 @@ import type {
   MatchSelection,
   ShindenMatchResult,
   ShindenListViews,
+  WireNumber,
+  WireNumberRecord,
   WorkspaceState
+} from '../../domain/anime';
+import {
+  parseWireNumber,
+  wireNumberEquals,
+  wireNumberKey
 } from '../../domain/anime';
 import {
   loadInitialMatchSelectorSearch,
@@ -30,13 +37,17 @@ export type WorkspaceActivation = LoadedUserList & {
 
 export type SelectedWinnerState =
   | { status: 'no-selection' }
-  | { status: 'no-winner'; selectedEntryId: number }
-  | { status: 'ready'; selectedEntryId: number; entry: DatabaseEntry }
-  | { status: 'missing'; selectedEntryId: number; databaseEntryId: number };
+  | { status: 'no-winner'; selectedEntryId: WireNumber }
+  | { status: 'ready'; selectedEntryId: WireNumber; entry: DatabaseEntry }
+  | {
+      status: 'missing';
+      selectedEntryId: WireNumber;
+      databaseEntryId: WireNumber;
+    };
 
 type PersistedListOverrides = {
-  manualOverrides: Record<number, number>;
-  ignoredEntryIds: Record<number, true>;
+  manualOverrides: WireNumberRecord<WireNumber>;
+  ignoredEntryIds: WireNumberRecord<true>;
 };
 
 export type WorkspaceController = ReturnType<typeof createWorkspaceController>;
@@ -47,20 +58,20 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   let matchErrorMessage = $state<string | null>(null);
   let fetchDurationMs = $state<number | null>(null);
   let matchDurationMs = $state<number | null>(null);
-  let selectedEntryId = $state<number | null>(null);
+  let selectedEntryId = $state<WireNumber | null>(null);
   let initialMatchSearch = $state<MatchSelectorInitialSearch | null>(null);
   let manualOverrideStorageKey = $state<string | null>(null);
   let manualOverridesHydrated = $state(false);
-  let manualOverrides = $state<Record<number, number>>({});
-  let ignoredEntryIds = $state<Record<number, true>>({});
-  let displacedAutomaticEntryIds = $state<Record<number, true>>({});
-  let matchSelectorQueries = $state<Record<number, string>>({});
+  let manualOverrides = $state<WireNumberRecord<WireNumber>>({});
+  let ignoredEntryIds = $state<WireNumberRecord<true>>({});
+  let displacedAutomaticEntryIds = $state<WireNumberRecord<true>>({});
+  let matchSelectorQueries = $state<WireNumberRecord<string>>({});
   let exportState = $state<ExportState>({ status: 'idle' });
   let selectionRequestId = 0;
-  let pendingSelectionEntryId: number | null = null;
+  let pendingSelectionEntryId: WireNumber | null = null;
 
   let matchResultByEntryId = $derived.by(() => {
-    const entriesById = new Map<number, ShindenMatchResult>();
+    const entriesById = new Map<WireNumber, ShindenMatchResult>();
     for (const entry of matchResult?.entries ?? []) {
       entriesById.set(entry.shindenId, entry);
     }
@@ -217,16 +228,20 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     exportState = { status: 'idle' };
   }
 
-  async function selectEntry(entryId: number) {
+  async function selectEntry(entryId: WireNumber) {
     if (state.status !== 'active') {
       return;
     }
 
-    if (entryId === selectedEntryId || entryId === pendingSelectionEntryId) {
+    if (
+      (selectedEntryId !== null && wireNumberEquals(entryId, selectedEntryId)) ||
+      (pendingSelectionEntryId !== null &&
+        wireNumberEquals(entryId, pendingSelectionEntryId))
+    ) {
       return;
     }
 
-    if (!state.entryIdsByView.all.some((id) => id === entryId)) {
+    if (!state.entryIdsByView.all.some((id) => wireNumberEquals(id, entryId))) {
       selectionRequestId += 1;
       pendingSelectionEntryId = null;
       selectedEntryId = null;
@@ -247,7 +262,7 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     pendingSelectionEntryId = entryId;
     const nextInitialMatchSearch = await loadInitialMatchSelectorSearch(
       selectedEntry,
-      matchSelectorQueries[entryId] ?? ''
+      matchSelectorQueries[wireNumberKey(entryId)] ?? ''
     );
 
     if (currentSelectionRequestId !== selectionRequestId) {
@@ -260,10 +275,14 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   }
 
   function clearSelectionIfMissing() {
+    const currentSelectedEntryId = selectedEntryId;
+
     if (
       state.status === 'active' &&
-      selectedEntryId !== null &&
-      !state.entryIdsByView.all.some((entryId) => entryId === selectedEntryId)
+      currentSelectedEntryId !== null &&
+      !state.entryIdsByView.all.some((entryId) =>
+        wireNumberEquals(entryId, currentSelectedEntryId)
+      )
     ) {
       selectionRequestId += 1;
       pendingSelectionEntryId = null;
@@ -272,8 +291,12 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     }
   }
 
-  function setManualOverride(shindenId: number, databaseId: number) {
-    if (databaseId === automaticWinnerIdForEntry(shindenId, matchResult)) {
+  function setManualOverride(shindenId: WireNumber, databaseId: WireNumber) {
+    const automaticWinnerId = automaticWinnerIdForEntry(shindenId, matchResult);
+    if (
+      automaticWinnerId !== null &&
+      wireNumberEquals(databaseId, automaticWinnerId)
+    ) {
       restoreAutomaticWinner(shindenId);
       return;
     }
@@ -288,20 +311,24 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     );
     const nextOverrides = {
       ...manualOverrides,
-      [shindenId]: databaseId
+      [wireNumberKey(shindenId)]: databaseId
     };
     const nextIgnoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
 
     for (const ownerId of duplicateOwnerIds) {
-      if (nextOverrides[ownerId] === databaseId) {
-        delete nextOverrides[ownerId];
+      const ownerKey = wireNumberKey(ownerId);
+      if (
+        nextOverrides[ownerKey] !== undefined &&
+        wireNumberEquals(nextOverrides[ownerKey], databaseId)
+      ) {
+        delete nextOverrides[ownerKey];
       }
     }
 
     replaceManualState({ ...nextOverrides }, nextIgnoredEntryIds);
   }
 
-  function clearManualOverride(shindenId: number) {
+  function clearManualOverride(shindenId: WireNumber) {
     if (automaticWinnerIdForEntry(shindenId, matchResult) !== null) {
       restoreAutomaticWinner(shindenId);
       return;
@@ -313,8 +340,8 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     );
   }
 
-  function setIgnored(shindenId: number) {
-    if (ignoredEntryIds[shindenId] === true) {
+  function setIgnored(shindenId: WireNumber) {
+    if (ignoredEntryIds[wireNumberKey(shindenId)] === true) {
       replaceManualState(
         manualOverrides,
         omitRecordKey(ignoredEntryIds, shindenId)
@@ -324,11 +351,11 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
 
     replaceManualState(omitRecordKey(manualOverrides, shindenId), {
       ...ignoredEntryIds,
-      [shindenId]: true
+      [wireNumberKey(shindenId)]: true
     });
   }
 
-  function setMatchSelectorQuery(shindenId: number, query: string) {
+  function setMatchSelectorQuery(shindenId: WireNumber, query: string) {
     if (query.length === 0) {
       resetMatchSelectorQuery(shindenId);
       return;
@@ -336,15 +363,15 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
 
     matchSelectorQueries = {
       ...matchSelectorQueries,
-      [shindenId]: query
+      [wireNumberKey(shindenId)]: query
     };
   }
 
-  function resetMatchSelectorQuery(shindenId: number) {
+  function resetMatchSelectorQuery(shindenId: WireNumber) {
     matchSelectorQueries = omitRecordKey(matchSelectorQueries, shindenId);
   }
 
-  function restoreAutomaticWinner(shindenId: number) {
+  function restoreAutomaticWinner(shindenId: WireNumber) {
     const automaticWinnerId = automaticWinnerIdForEntry(shindenId, matchResult);
 
     if (automaticWinnerId === null) {
@@ -363,8 +390,12 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     const nextIgnoredEntryIds = omitRecordKey(ignoredEntryIds, shindenId);
 
     for (const ownerId of duplicateOwnerIds) {
-      if (nextOverrides[ownerId] === automaticWinnerId) {
-        delete nextOverrides[ownerId];
+      const ownerKey = wireNumberKey(ownerId);
+      if (
+        nextOverrides[ownerKey] !== undefined &&
+        wireNumberEquals(nextOverrides[ownerKey], automaticWinnerId)
+      ) {
+        delete nextOverrides[ownerKey];
       }
     }
 
@@ -376,8 +407,8 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   }
 
   function replaceManualState(
-    nextManualOverrides: Record<number, number>,
-    nextIgnoredEntryIds: Record<number, true>,
+    nextManualOverrides: WireNumberRecord<WireNumber>,
+    nextIgnoredEntryIds: WireNumberRecord<true>,
     resetExportState = true
   ) {
     const nextDisplacedAutomaticEntryIds = buildDisplacedAutomaticEntryIds(
@@ -491,21 +522,23 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
 }
 
 function winnerIdForEntry(
-  entryId: number,
+  entryId: WireNumber,
   matchEntry: ShindenMatchResult | null,
-  manualOverrides: Record<number, number>,
-  ignoredEntryIds: Record<number, true>,
-  displacedAutomaticEntryIds: Record<number, true>
+  manualOverrides: WireNumberRecord<WireNumber>,
+  ignoredEntryIds: WireNumberRecord<true>,
+  displacedAutomaticEntryIds: WireNumberRecord<true>
 ) {
-  if (ignoredEntryIds[entryId] === true) {
+  const entryKey = wireNumberKey(entryId);
+
+  if (ignoredEntryIds[entryKey] === true) {
     return null;
   }
 
-  if (manualOverrides[entryId] !== undefined) {
-    return manualOverrides[entryId];
+  if (manualOverrides[entryKey] !== undefined) {
+    return manualOverrides[entryKey];
   }
 
-  if (displacedAutomaticEntryIds[entryId] === true) {
+  if (displacedAutomaticEntryIds[entryKey] === true) {
     return null;
   }
 
@@ -514,9 +547,9 @@ function winnerIdForEntry(
 
 function buildEffectiveSelections(
   matchResult: MatchListResult | null,
-  manualOverrides: Record<number, number>,
-  ignoredEntryIds: Record<number, true>,
-  displacedAutomaticEntryIds: Record<number, true>
+  manualOverrides: WireNumberRecord<WireNumber>,
+  ignoredEntryIds: WireNumberRecord<true>,
+  displacedAutomaticEntryIds: WireNumberRecord<true>
 ): MatchSelection[] {
   const selections: MatchSelection[] = [];
 
@@ -543,11 +576,11 @@ function buildEffectiveSelections(
 
 function buildWinnerClaimsByDatabaseId(
   matchResult: MatchListResult | null,
-  manualOverrides: Record<number, number>,
-  ignoredEntryIds: Record<number, true>,
-  displacedAutomaticEntryIds: Record<number, true>
+  manualOverrides: WireNumberRecord<WireNumber>,
+  ignoredEntryIds: WireNumberRecord<true>,
+  displacedAutomaticEntryIds: WireNumberRecord<true>
 ) {
-  const claims = new Map<number, number[]>();
+  const claims = new Map<WireNumber, WireNumber[]>();
 
   for (const entry of matchResult?.entries ?? []) {
     const databaseId = winnerIdForEntry(
@@ -573,9 +606,9 @@ function buildWinnerClaimsByDatabaseId(
 
 function buildEntryIdsByView(
   state: WorkspaceState,
-  manualOverrides: Record<number, number>,
-  ignoredEntryIds: Record<number, true>,
-  displacedAutomaticEntryIds: Record<number, true>
+  manualOverrides: WireNumberRecord<WireNumber>,
+  ignoredEntryIds: WireNumberRecord<true>,
+  displacedAutomaticEntryIds: WireNumberRecord<true>
 ): ShindenListViews {
   if (state.status !== 'active') {
     return {
@@ -587,20 +620,22 @@ function buildEntryIdsByView(
   }
 
   const ignoredIds = state.entryIdsByView.all.filter(
-    (entryId) => ignoredEntryIds[entryId] === true
+    (entryId) => ignoredEntryIds[wireNumberKey(entryId)] === true
   );
   const baseManualIds = state.entryIdsByView.manual;
-  const baseManualIdSet = new Set(baseManualIds);
+  const baseManualIdSet = new Set(baseManualIds.map(wireNumberKey));
   const automaticManualIds = state.entryIdsByView.automatic.filter(
     (entryId) =>
-      displacedAutomaticEntryIds[entryId] === true ||
-      manualOverrides[entryId] !== undefined
+      displacedAutomaticEntryIds[wireNumberKey(entryId)] === true ||
+      manualOverrides[wireNumberKey(entryId)] !== undefined
   );
 
   return {
     manual: [
       ...baseManualIds,
-      ...automaticManualIds.filter((entryId) => !baseManualIdSet.has(entryId))
+      ...automaticManualIds.filter(
+        (entryId) => !baseManualIdSet.has(wireNumberKey(entryId))
+      )
     ],
     automatic: state.entryIdsByView.automatic,
     ignored: ignoredIds,
@@ -609,17 +644,17 @@ function buildEntryIdsByView(
 }
 
 function activeWinnerOwnerIdsForDatabase(
-  databaseId: number,
-  excludedShindenId: number,
+  databaseId: WireNumber,
+  excludedShindenId: WireNumber,
   matchResult: MatchListResult | null,
-  manualOverrides: Record<number, number>,
-  ignoredEntryIds: Record<number, true>,
-  displacedAutomaticEntryIds: Record<number, true>
+  manualOverrides: WireNumberRecord<WireNumber>,
+  ignoredEntryIds: WireNumberRecord<true>,
+  displacedAutomaticEntryIds: WireNumberRecord<true>
 ) {
-  const ownerIds: number[] = [];
+  const ownerIds: WireNumber[] = [];
 
   for (const entry of matchResult?.entries ?? []) {
-    if (entry.shindenId === excludedShindenId) {
+    if (wireNumberEquals(entry.shindenId, excludedShindenId)) {
       continue;
     }
 
@@ -631,7 +666,7 @@ function activeWinnerOwnerIdsForDatabase(
       displacedAutomaticEntryIds
     );
 
-    if (winnerId === databaseId) {
+    if (winnerId !== null && wireNumberEquals(winnerId, databaseId)) {
       ownerIds.push(entry.shindenId);
     }
   }
@@ -641,13 +676,16 @@ function activeWinnerOwnerIdsForDatabase(
 
 function buildDisplacedAutomaticEntryIds(
   matchResult: MatchListResult | null,
-  manualOverrides: Record<number, number>,
-  ignoredEntryIds: Record<number, true>
+  manualOverrides: WireNumberRecord<WireNumber>,
+  ignoredEntryIds: WireNumberRecord<true>
 ) {
-  const displacedEntryIds: Record<number, true> = {};
+  const displacedEntryIds: WireNumberRecord<true> = {};
 
   for (const [rawShindenId, databaseId] of Object.entries(manualOverrides)) {
-    const shindenId = Number(rawShindenId);
+    const shindenId = parseWireNumber(rawShindenId);
+    if (shindenId === null) {
+      continue;
+    }
 
     for (const ownerId of activeWinnerOwnerIdsForDatabase(
       databaseId,
@@ -657,8 +695,12 @@ function buildDisplacedAutomaticEntryIds(
       ignoredEntryIds,
       {}
     )) {
-      if (automaticWinnerIdForEntry(ownerId, matchResult) === databaseId) {
-        displacedEntryIds[ownerId] = true;
+      const automaticWinnerId = automaticWinnerIdForEntry(ownerId, matchResult);
+      if (
+        automaticWinnerId !== null &&
+        wireNumberEquals(automaticWinnerId, databaseId)
+      ) {
+        displacedEntryIds[wireNumberKey(ownerId)] = true;
       }
     }
   }
@@ -667,57 +709,54 @@ function buildDisplacedAutomaticEntryIds(
 }
 
 function automaticWinnerIdForEntry(
-  shindenId: number,
+  shindenId: WireNumber,
   matchResult: MatchListResult | null
 ) {
   return (
-    matchResult?.entries.find((entry) => entry.shindenId === shindenId)?.result
-      .winner?.id ?? null
+    matchResult?.entries.find((entry) =>
+      wireNumberEquals(entry.shindenId, shindenId)
+    )?.result.winner?.id ?? null
   );
 }
 
-function omitRecordKey<T>(record: Record<number, T>, key: number) {
-  const { [key]: _removed, ...nextRecord } = record;
+function omitRecordKey<T>(record: WireNumberRecord<T>, key: WireNumber) {
+  const { [wireNumberKey(key)]: _removed, ...nextRecord } = record;
 
   return nextRecord;
 }
 
 function pruneUnavailableListOverrides(
   listOverrides: PersistedListOverrides,
-  availableShindenIds: readonly number[],
-  hasDatabaseEntry: (databaseId: number) => boolean
+  availableShindenIds: readonly WireNumber[],
+  hasDatabaseEntry: (databaseId: WireNumber) => boolean
 ) {
-  const availableShindenIdSet = new Set(availableShindenIds);
+  const availableShindenIdSet = new Set(availableShindenIds.map(wireNumberKey));
   const manualOverrides = listOverrides.manualOverrides;
   const ignoredEntryIds = listOverrides.ignoredEntryIds;
-  const nextManualOverrides: Record<number, number> = {};
-  const nextIgnoredEntryIds: Record<number, true> = {};
+  const nextManualOverrides: WireNumberRecord<WireNumber> = {};
+  const nextIgnoredEntryIds: WireNumberRecord<true> = {};
   let manualOverridesChanged = false;
   let ignoredEntryIdsChanged = false;
 
   for (const [rawShindenId, databaseId] of Object.entries(manualOverrides)) {
-    const shindenId = Number(rawShindenId);
-
     if (
-      !availableShindenIdSet.has(shindenId) ||
+      !availableShindenIdSet.has(rawShindenId) ||
       !hasDatabaseEntry(databaseId)
     ) {
       manualOverridesChanged = true;
       continue;
     }
 
-    nextManualOverrides[shindenId] = databaseId;
+    nextManualOverrides[rawShindenId] = databaseId;
   }
 
   for (const rawShindenId of Object.keys(ignoredEntryIds)) {
-    const shindenId = Number(rawShindenId);
-
-    if (!availableShindenIdSet.has(shindenId)) {
+    if (!availableShindenIdSet.has(rawShindenId)) {
       ignoredEntryIdsChanged = true;
       continue;
     }
 
-    nextIgnoredEntryIds[shindenId] = true;
+    nextIgnoredEntryIds[rawShindenId] = true;
   }
 
   return {
@@ -772,7 +811,7 @@ function writeListOverrides(
     storage.setItem(
       storageKey,
       JSON.stringify({
-        overrides: listOverrides.manualOverrides,
+        overrides: stringifyWireNumberRecord(listOverrides.manualOverrides),
         ignoredEntryIds: listOverrides.ignoredEntryIds
       })
     );
@@ -792,37 +831,39 @@ function normalizeListOverrides(value: unknown): PersistedListOverrides {
   };
 }
 
-function normalizeManualOverrides(value: unknown): Record<number, number> {
+function normalizeManualOverrides(
+  value: unknown
+): WireNumberRecord<WireNumber> {
   const overrides =
     isRecord(value) && isRecord(value.overrides) ? value.overrides : value;
   if (!isRecord(overrides)) {
     return {};
   }
 
-  const normalized: Record<number, number> = {};
+  const normalized: WireNumberRecord<WireNumber> = {};
   for (const [rawShindenId, rawDatabaseId] of Object.entries(overrides)) {
-    const shindenId = Number(rawShindenId);
-    const databaseId = Number(rawDatabaseId);
+    const shindenId = parseWireNumber(rawShindenId);
+    const databaseId = parseWireNumber(rawDatabaseId);
 
-    if (Number.isSafeInteger(shindenId) && Number.isSafeInteger(databaseId)) {
-      normalized[shindenId] = databaseId;
+    if (shindenId !== null && databaseId !== null) {
+      normalized[wireNumberKey(shindenId)] = databaseId;
     }
   }
 
   return normalized;
 }
 
-function normalizeTrueRecord(value: unknown): Record<number, true> {
+function normalizeTrueRecord(value: unknown): WireNumberRecord<true> {
   if (!isRecord(value)) {
     return {};
   }
 
-  const normalized: Record<number, true> = {};
+  const normalized: WireNumberRecord<true> = {};
   for (const [rawEntryId, flag] of Object.entries(value)) {
-    const entryId = Number(rawEntryId);
+    const entryId = parseWireNumber(rawEntryId);
 
-    if (flag === true && Number.isSafeInteger(entryId)) {
-      normalized[entryId] = true;
+    if (flag === true && entryId !== null) {
+      normalized[wireNumberKey(entryId)] = true;
     }
   }
 
@@ -844,7 +885,7 @@ function getLocalStorage() {
   return typeof localStorage === 'undefined' ? null : localStorage;
 }
 
-function recordsEqual<T>(left: Record<number, T>, right: Record<number, T>) {
+function recordsEqual<T>(left: WireNumberRecord<T>, right: WireNumberRecord<T>) {
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
 
@@ -852,7 +893,13 @@ function recordsEqual<T>(left: Record<number, T>, right: Record<number, T>) {
     return false;
   }
 
-  return leftKeys.every((key) => left[Number(key)] === right[Number(key)]);
+  return leftKeys.every((key) => left[key] === right[key]);
+}
+
+function stringifyWireNumberRecord(record: WireNumberRecord<WireNumber>) {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [key, value.toString()])
+  );
 }
 
 function errorMessage(error: unknown) {

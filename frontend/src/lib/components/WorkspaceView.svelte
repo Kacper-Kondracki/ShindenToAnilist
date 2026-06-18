@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { LoadedAnimeData } from '../data/loadedAnimeData.svelte';
+  import type { WireNumber } from '../domain/anime';
+  import { wireNumberEquals, wireNumberKey } from '../domain/anime';
   import { createAnimeListPaneController } from '../features/workspace/animeListPaneController.svelte';
   import type { WorkspaceController } from '../features/workspace/workspaceController.svelte';
   import AnimeListPane from './workspace/AnimeListPane.svelte';
@@ -41,7 +43,9 @@
 
     const containingSpecificTabs = specificTabIds.filter((tabId) =>
       workspace.entryIdsByView[tabId].some(
-        (entryId) => entryId === workspace.selectedEntryId
+        (entryId) =>
+          workspace.selectedEntryId !== null &&
+          wireNumberEquals(entryId, workspace.selectedEntryId)
       )
     );
 
@@ -51,7 +55,9 @@
 
     if (
       listPane.visibleEntryIds.some(
-        (entryId) => entryId === workspace.selectedEntryId
+        (entryId) =>
+          workspace.selectedEntryId !== null &&
+          wireNumberEquals(entryId, workspace.selectedEntryId)
       )
     ) {
       return new Set<AnimeListTabId>();
@@ -62,7 +68,9 @@
       priorityTabId !== undefined
         ? [priorityTabId]
         : workspace.entryIdsByView.all.some(
-              (entryId) => entryId === workspace.selectedEntryId
+              (entryId) =>
+                workspace.selectedEntryId !== null &&
+                wireNumberEquals(entryId, workspace.selectedEntryId)
             )
           ? ['all']
           : [];
@@ -73,7 +81,9 @@
     Object.keys(workspace.manualOverrides).length +
       Object.keys(workspace.ignoredEntryIds).length
   );
-  let observedSelectedEntryId = $state<number | null | undefined>(undefined);
+  let observedSelectedEntryId = $state<WireNumber | null | undefined>(
+    undefined
+  );
 
   $effect(() => {
     const selectedEntryId = workspace.selectedEntryId;
@@ -83,7 +93,13 @@
       return;
     }
 
-    if (selectedEntryId === observedSelectedEntryId) {
+    if (
+      selectedEntryId === observedSelectedEntryId ||
+      (selectedEntryId !== null &&
+        observedSelectedEntryId !== null &&
+        observedSelectedEntryId !== undefined &&
+        wireNumberEquals(selectedEntryId, observedSelectedEntryId))
+    ) {
       return;
     }
 
@@ -91,21 +107,23 @@
     closeContextMenu();
   });
 
-  function resetEntry(entryId: number) {
+  function resetEntry(entryId: WireNumber) {
     workspace.resetMatchSelectorQuery(entryId);
     workspace.clearManualOverride(entryId);
   }
 
-  function canResetEntry(entryId: number) {
+  function canResetEntry(entryId: WireNumber) {
+    const entryKey = wireNumberKey(entryId);
+
     return (
-      workspace.matchSelectorQueries[entryId] !== undefined ||
-      workspace.manualOverrides[entryId] !== undefined ||
-      workspace.ignoredEntryIds[entryId] === true ||
-      workspace.displacedAutomaticEntryIds[entryId] === true
+      workspace.matchSelectorQueries[entryKey] !== undefined ||
+      workspace.manualOverrides[entryKey] !== undefined ||
+      workspace.ignoredEntryIds[entryKey] === true ||
+      workspace.displacedAutomaticEntryIds[entryKey] === true
     );
   }
 
-  function goToEntry(entryId: number) {
+  function goToEntry(entryId: WireNumber) {
     listPane.revealEntry(entryId, listPane.activeTab);
     void workspace.selectEntry(entryId);
   }

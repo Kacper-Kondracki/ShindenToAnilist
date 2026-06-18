@@ -1,4 +1,9 @@
-import type { MatchListResult } from '../../domain/anime';
+import type {
+  MatchListResult,
+  WireNumber,
+  WireNumberRecord
+} from '../../domain/anime';
+import { wireNumberKey } from '../../domain/anime';
 import { percentageFromRatio } from '../../domain/animeView';
 import type { ExportState } from './workspaceController.svelte';
 
@@ -11,28 +16,28 @@ export type WorkspaceStatusSummary = {
 };
 
 export function buildWorkspaceStatusSummary(
-  entryIds: number[],
+  entryIds: WireNumber[],
   matchResult: MatchListResult | null,
-  manualSelections: Record<number, number>,
-  ignoredEntryIds: Record<number, true>,
-  displacedAutomaticEntryIds: Record<number, true>
+  manualSelections: WireNumberRecord<WireNumber>,
+  ignoredEntryIds: WireNumberRecord<true>,
+  displacedAutomaticEntryIds: WireNumberRecord<true>
 ): WorkspaceStatusSummary {
-  const automaticallySelectedEntryIds = new Set<number>();
-  const resolvedEntryIds = new Set<number>();
+  const automaticallySelectedEntryIds = new Set<WireNumber>();
+  const resolvedEntryIds = new Set<WireNumber>();
 
   for (const entry of matchResult?.entries ?? []) {
-    if (ignoredEntryIds[entry.shindenId] === true) {
+    if (ignoredEntryIds[wireNumberKey(entry.shindenId)] === true) {
       resolvedEntryIds.add(entry.shindenId);
       continue;
     }
 
-    if (manualSelections[entry.shindenId] !== undefined) {
+    if (manualSelections[wireNumberKey(entry.shindenId)] !== undefined) {
       resolvedEntryIds.add(entry.shindenId);
       continue;
     }
 
     if (
-      displacedAutomaticEntryIds[entry.shindenId] !== true &&
+      displacedAutomaticEntryIds[wireNumberKey(entry.shindenId)] !== true &&
       entry.result.winner !== null
     ) {
       automaticallySelectedEntryIds.add(entry.shindenId);
@@ -43,7 +48,7 @@ export function buildWorkspaceStatusSummary(
   let manuallySelectedCount = 0;
 
   for (const entryId of entryIds) {
-    if (manualSelections[entryId] !== undefined) {
+    if (manualSelections[wireNumberKey(entryId)] !== undefined) {
       manuallySelectedCount += 1;
     }
   }
