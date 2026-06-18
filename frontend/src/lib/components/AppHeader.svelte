@@ -11,6 +11,7 @@
     userQuery,
     databaseState,
     databaseStatusText,
+    isUserListLoading,
     isLoadButtonBusy,
     hasUserListError,
     userListErrorMessage,
@@ -25,6 +26,7 @@
     userQuery: string;
     databaseState: DatabaseState;
     databaseStatusText: string;
+    isUserListLoading: boolean;
     isLoadButtonBusy: boolean;
     hasUserListError: boolean;
     userListErrorMessage: string | null;
@@ -46,12 +48,18 @@
         <DatabaseStatus state={databaseState} text={databaseStatusText} />
       </div>
 
-      <ProviderSelector {providers} {selectedProvider} {onSelectProvider} />
+      <ProviderSelector
+        {providers}
+        {selectedProvider}
+        locked={isUserListLoading}
+        {onSelectProvider}
+      />
     </div>
 
     <UserListForm
       value={userQuery}
       busy={isLoadButtonBusy}
+      readonly={isUserListLoading}
       {canSubmit}
       hasError={hasUserListError}
       errorMessage={userListErrorMessage}

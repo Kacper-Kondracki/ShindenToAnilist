@@ -100,11 +100,19 @@ export function createAppController() {
   }
 
   function setSelectedProvider(provider: Provider) {
+    if (isUserListLoading) {
+      return;
+    }
+
     selectedProvider = provider;
     clearUserListError();
   }
 
   function setUserQuery(value: string) {
+    if (isUserListLoading) {
+      return;
+    }
+
     userQuery = value;
     clearUserListError();
 
@@ -402,6 +410,9 @@ export function createAppController() {
     },
     get isLoadButtonBusy() {
       return isLoadButtonBusy;
+    },
+    get isUserListLoading() {
+      return isUserListLoading;
     },
     get hasUserListError() {
       return hasUserListError;

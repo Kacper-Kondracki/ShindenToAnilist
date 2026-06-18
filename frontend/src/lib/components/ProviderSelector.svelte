@@ -4,12 +4,22 @@
   let {
     providers,
     selectedProvider,
+    locked,
     onSelectProvider
   }: {
     providers: readonly ProviderOption[];
     selectedProvider: Provider;
+    locked: boolean;
     onSelectProvider: (provider: Provider) => void;
   } = $props();
+
+  function handleSelect(provider: Provider, disabled: boolean) {
+    if (locked || disabled) {
+      return;
+    }
+
+    onSelectProvider(provider);
+  }
 </script>
 
 <div class="join shrink-0">
@@ -21,9 +31,11 @@
       class="provider-button btn join-item border-0 btn-soft"
       style:--provider-button-accent={provider.accent}
       disabled={provider.disabled}
+      aria-disabled={locked || undefined}
       aria-pressed={selectedProvider === provider.id}
       title={provider.site}
-      onclick={() => onSelectProvider(provider.id as Provider)}
+      onclick={() =>
+        handleSelect(provider.id as Provider, Boolean(provider.disabled))}
     >
       {provider.label}
     </button>
