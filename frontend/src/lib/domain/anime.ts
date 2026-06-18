@@ -7,17 +7,19 @@ import type {
   WatchStatus
 } from '../gen/shinden_to_anilist/v1/common_pb';
 
+export type WireNumber = bigint | number;
+
 export type DatabaseInfo = {
   lastUpdate: string;
   release: string;
   sha256: string;
   path: string;
   needsUpdate: boolean;
-  databaseVersion: number;
+  databaseVersion: WireNumber;
 };
 
 export type SourceEntry = {
-  id: number;
+  id: WireNumber;
   provider: SourceProvider;
   title: string;
   animeStatus: AnimeStatus;
@@ -30,7 +32,7 @@ export type SourceEntry = {
   watchedEpisodes: number;
   score: number | null;
   sourceUrl: string;
-  malId: number | null;
+  malId: WireNumber | null;
   coverId?: number | null;
   isFavourite?: boolean;
 };
@@ -38,7 +40,7 @@ export type SourceEntry = {
 export type ShindenEntry = SourceEntry;
 
 export type DatabaseEntry = {
-  id: number;
+  id: WireNumber;
   sources: string[];
   title: string;
   animeType: AnimeType;
@@ -53,14 +55,14 @@ export type DatabaseEntry = {
 };
 
 export type ShindenListIndex = {
-  entryIds: number[];
-  shindenVersion: number;
-  sourceVersion?: number;
+  entryIds: WireNumber[];
+  shindenVersion: WireNumber;
+  sourceVersion?: WireNumber;
 };
 
 export type ShindenListView = 'manual' | 'automatic' | 'ignored' | 'all';
 
-export type ShindenListViews = Record<ShindenListView, number[]>;
+export type ShindenListViews = Record<ShindenListView, WireNumber[]>;
 
 export type SearchOptions = {
   limit?: number;
@@ -68,17 +70,17 @@ export type SearchOptions = {
 };
 
 export type SearchItem = {
-  id: number;
+  id: WireNumber;
   score: number;
 };
 
 export type SearchResult = {
   items: SearchItem[];
-  databaseVersion: number;
+  databaseVersion: WireNumber;
 };
 
 export type ScoredCandidate = {
-  id: number;
+  id: WireNumber;
   score: number;
 };
 
@@ -89,8 +91,8 @@ export type MatchResult = {
 };
 
 export type ShindenMatchResult = {
-  shindenId: number;
-  sourceId?: number;
+  shindenId: WireNumber;
+  sourceId?: WireNumber;
   result: MatchResult;
 };
 
@@ -100,22 +102,22 @@ export type MatchListResult = {
   winners: number;
   hasTop: number;
   unmatched: number;
-  shindenVersion: number;
-  sourceVersion?: number;
-  databaseVersion: number;
+  shindenVersion: WireNumber;
+  sourceVersion?: WireNumber;
+  databaseVersion: WireNumber;
 };
 
 export type MatchSelection = {
-  sourceId: number;
-  shindenId?: number;
-  databaseId: number;
+  sourceId: WireNumber;
+  shindenId?: WireNumber;
+  databaseId: WireNumber;
 };
 
 export type ExportResult = {
   path: string;
   exportedCount: number;
   cancelled: boolean;
-  shindenVersion: number;
+  shindenVersion: WireNumber;
 };
 
 export type LoadedUserList = {

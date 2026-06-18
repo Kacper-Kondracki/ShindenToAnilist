@@ -60,10 +60,9 @@ import type {
   SearchOptions,
   SearchResult,
   SourceEntry,
-  ShindenListIndex
+  ShindenListIndex,
+  WireNumber
 } from '../domain/anime';
-
-type WireNumber = bigint | number;
 
 type AppPaths = {
   base: string;
@@ -282,9 +281,11 @@ const appPathsPromise = resolveAppPaths();
 const clientPromise = isTauriRuntime() ? null : createAppClient();
 type AppClient = Awaited<ReturnType<typeof createAppClient>>;
 
-let shindenVersion = 0;
-let sourceVersion = 0;
-let databaseVersion = 0;
+const U64_MAX = (1n << 64n) - 1n;
+
+let shindenVersion: WireNumber = 0;
+let sourceVersion: WireNumber = 0;
+let databaseVersion: WireNumber = 0;
 
 async function createAppClient() {
   const transport = createGrpcWebTransport({
@@ -370,7 +371,7 @@ export async function fetchSourceList(
       { provider, user, onProgress: progressChannel }
     );
     observeSourceVersion(response.sourceVersion);
-    return { sourceVersion: toNumber(response.sourceVersion) };
+    return { sourceVersion: toWireNumber(response.sourceVersion) };
   }
 
   return callRpc(async (client) => {
@@ -389,7 +390,7 @@ export async function fetchSourceList(
     }
 
     observeSourceVersion(nextSourceVersion);
-    return { sourceVersion: toNumber(nextSourceVersion) };
+    return { sourceVersion: toWireNumber(nextSourceVersion) };
   });
 }
 
@@ -400,7 +401,7 @@ export async function fetchShindenList(userId: number) {
       { id: userId }
     );
     observeShindenVersion(response.shindenVersion);
-    return { shindenVersion: toNumber(response.shindenVersion) };
+    return { shindenVersion: toWireNumber(response.shindenVersion) };
   }
 
   return callRpc(async (client) => {
@@ -408,7 +409,7 @@ export async function fetchShindenList(userId: number) {
       create(FetchShindenListRequestSchema, { id: BigInt(userId) })
     );
     observeShindenVersion(response.shindenVersion);
-    return { shindenVersion: toNumber(response.shindenVersion) };
+    return { shindenVersion: toWireNumber(response.shindenVersion) };
   });
 }
 
@@ -421,9 +422,9 @@ export async function getSourceIds(sortedBy = AnimeListSortedBy.URGENCY) {
     observeSourceVersion(response.sourceVersion);
 
     return {
-      sourceVersion: toNumber(response.sourceVersion),
-      shindenVersion: toNumber(response.sourceVersion),
-      entryIds: response.ids.map(toNumber)
+      sourceVersion: toWireNumber(response.sourceVersion),
+      shindenVersion: toWireNumber(response.sourceVersion),
+      entryIds: response.ids.map(toWireNumber)
     };
   }
 
@@ -434,9 +435,9 @@ export async function getSourceIds(sortedBy = AnimeListSortedBy.URGENCY) {
     observeSourceVersion(response.sourceVersion);
 
     return {
-      sourceVersion: toNumber(response.sourceVersion),
-      shindenVersion: toNumber(response.sourceVersion),
-      entryIds: response.ids.map(toNumber)
+      sourceVersion: toWireNumber(response.sourceVersion),
+      shindenVersion: toWireNumber(response.sourceVersion),
+      entryIds: response.ids.map(toWireNumber)
     };
   });
 }
@@ -450,8 +451,8 @@ export async function getShindenIds(sortedBy = AnimeListSortedBy.URGENCY) {
     observeShindenVersion(response.shindenVersion);
 
     return {
-      shindenVersion: toNumber(response.shindenVersion),
-      entryIds: response.ids.map(toNumber)
+      shindenVersion: toWireNumber(response.shindenVersion),
+      entryIds: response.ids.map(toWireNumber)
     };
   }
 
@@ -462,8 +463,8 @@ export async function getShindenIds(sortedBy = AnimeListSortedBy.URGENCY) {
     observeShindenVersion(response.shindenVersion);
 
     return {
-      shindenVersion: toNumber(response.shindenVersion),
-      entryIds: response.ids.map(toNumber)
+      shindenVersion: toWireNumber(response.shindenVersion),
+      entryIds: response.ids.map(toWireNumber)
     };
   });
 }
@@ -474,8 +475,8 @@ export async function getSourceFull() {
       await callTauri<TauriGetSourceFullResponse>('get_source_full');
     observeSourceVersion(response.sourceVersion);
     return {
-      sourceVersion: toNumber(response.sourceVersion),
-      shindenVersion: toNumber(response.sourceVersion),
+      sourceVersion: toWireNumber(response.sourceVersion),
+      shindenVersion: toWireNumber(response.sourceVersion),
       entries: response.entries.map(toSourceEntry)
     };
   }
@@ -493,8 +494,8 @@ export async function getSourceFull() {
 
     observeSourceVersion(version);
     return {
-      sourceVersion: toNumber(version),
-      shindenVersion: toNumber(version),
+      sourceVersion: toWireNumber(version),
+      shindenVersion: toWireNumber(version),
       entries
     };
   });
@@ -506,7 +507,7 @@ export async function getShindenFull() {
       await callTauri<TauriGetShindenFullResponse>('get_shinden_full');
     observeShindenVersion(response.shindenVersion);
     return {
-      shindenVersion: toNumber(response.shindenVersion),
+      shindenVersion: toWireNumber(response.shindenVersion),
       entries: response.entries.map(toShindenEntry)
     };
   }
@@ -524,7 +525,7 @@ export async function getShindenFull() {
 
     observeShindenVersion(version);
     return {
-      shindenVersion: toNumber(version),
+      shindenVersion: toWireNumber(version),
       entries
     };
   });
@@ -597,7 +598,7 @@ export async function loadDatabase(path?: string) {
       { path: resolvedPath }
     );
     observeDatabaseVersion(response.databaseVersion);
-    return { databaseVersion: toNumber(response.databaseVersion) };
+    return { databaseVersion: toWireNumber(response.databaseVersion) };
   }
 
   return callRpc(async (client) => {
@@ -605,7 +606,7 @@ export async function loadDatabase(path?: string) {
       create(LoadDatabaseRequestSchema, { path: resolvedPath })
     );
     observeDatabaseVersion(response.databaseVersion);
-    return { databaseVersion: toNumber(response.databaseVersion) };
+    return { databaseVersion: toWireNumber(response.databaseVersion) };
   });
 }
 
@@ -644,7 +645,7 @@ export async function getDatabaseFull() {
       await callTauri<TauriGetDatabaseFullResponse>('get_database_full');
     observeDatabaseVersion(response.databaseVersion);
     return {
-      databaseVersion: toNumber(response.databaseVersion),
+      databaseVersion: toWireNumber(response.databaseVersion),
       entries: response.entries.map(toDatabaseEntry)
     };
   }
@@ -662,7 +663,7 @@ export async function getDatabaseFull() {
 
     observeDatabaseVersion(version);
     return {
-      databaseVersion: toNumber(version),
+      databaseVersion: toWireNumber(version),
       entries
     };
   });
@@ -677,9 +678,9 @@ export async function fuzzySearch(query: string, options: SearchOptions = {}) {
     observeDatabaseVersion(response.databaseVersion);
 
     return {
-      databaseVersion: toNumber(response.databaseVersion),
+      databaseVersion: toWireNumber(response.databaseVersion),
       items: response.results.map((item) => ({
-        id: toNumber(item.id),
+        id: toWireNumber(item.id),
         score: item.score
       }))
     };
@@ -695,9 +696,9 @@ export async function fuzzySearch(query: string, options: SearchOptions = {}) {
     observeDatabaseVersion(response.databaseVersion);
 
     return {
-      databaseVersion: toNumber(response.databaseVersion),
+      databaseVersion: toWireNumber(response.databaseVersion),
       items: response.results.map((item) => ({
-        id: toNumber(item.id),
+        id: toWireNumber(item.id),
         score: item.score
       }))
     };
@@ -707,7 +708,7 @@ export async function fuzzySearch(query: string, options: SearchOptions = {}) {
 export async function fuzzyMatch(
   query: string,
   options: SearchOptions = {},
-  shindenId?: number
+  shindenId?: WireNumber
 ) {
   if (isTauriRuntime()) {
     const response = await callTauri<TauriFuzzyMatchResponse>('fuzzy_match', {
@@ -719,7 +720,7 @@ export async function fuzzyMatch(
     observeDatabaseVersion(response.databaseVersion);
 
     return {
-      databaseVersion: toNumber(response.databaseVersion),
+      databaseVersion: toWireNumber(response.databaseVersion),
       result: toMatchResult(response.results)
     };
   }
@@ -736,7 +737,7 @@ export async function fuzzyMatch(
     observeDatabaseVersion(response.databaseVersion);
 
     return {
-      databaseVersion: toNumber(response.databaseVersion),
+      databaseVersion: toWireNumber(response.databaseVersion),
       result: toMatchResult(response.results)
     };
   });
@@ -843,7 +844,7 @@ export async function exportXml(matches: MatchSelection[], path?: string) {
       path: response.path,
       exportedCount: matches.length,
       cancelled: false,
-      shindenVersion: toNumber(response.sourceVersion)
+      shindenVersion: toWireNumber(response.sourceVersion)
     };
   }
 
@@ -876,7 +877,7 @@ export async function exportXml(matches: MatchSelection[], path?: string) {
       path: response.path,
       exportedCount: matches.length,
       cancelled: false,
-      shindenVersion: toNumber(response.sourceVersion)
+      shindenVersion: toWireNumber(response.sourceVersion)
     };
   });
 }
@@ -923,23 +924,23 @@ async function callTauri<T>(command: string, args?: Record<string, unknown>) {
 }
 
 function observeShindenVersion(version: WireNumber) {
-  const nextVersion = toNumber(version);
-  if (nextVersion > shindenVersion) {
+  const nextVersion = toWireNumber(version);
+  if (isGreaterWireNumber(nextVersion, shindenVersion)) {
     shindenVersion = nextVersion;
   }
 }
 
 function observeSourceVersion(version: WireNumber) {
-  const nextVersion = toNumber(version);
-  if (nextVersion > sourceVersion) {
+  const nextVersion = toWireNumber(version);
+  if (isGreaterWireNumber(nextVersion, sourceVersion)) {
     sourceVersion = nextVersion;
   }
   observeShindenVersion(version);
 }
 
 function observeDatabaseVersion(version: WireNumber) {
-  const nextVersion = toNumber(version);
-  if (nextVersion > databaseVersion) {
+  const nextVersion = toWireNumber(version);
+  if (isGreaterWireNumber(nextVersion, databaseVersion)) {
     databaseVersion = nextVersion;
   }
 }
@@ -968,7 +969,7 @@ function toDatabaseInfo(input: {
   release: AppDatabaseReleaseInfo | null;
   metadata: AppDatabaseMetadata;
   needsUpdate: boolean;
-  databaseVersion: number;
+  databaseVersion: WireNumber;
 }): DatabaseInfo {
   return {
     path: input.path,
@@ -984,7 +985,7 @@ function toShindenEntry(
   entry: ProtoShindenEntry | TauriShindenEntry
 ): SourceEntry {
   return {
-    id: toNumber(entry.id),
+    id: toWireNumber(entry.id),
     provider: SourceProvider.SHINDEN,
     coverId: entry.coverId ?? null,
     title: entry.title,
@@ -998,7 +999,7 @@ function toShindenEntry(
     watchStatus: entry.watchStatus,
     watchedEpisodes: entry.watchedEpisodes,
     score: entry.score ?? null,
-    sourceUrl: `https://shinden.pl/series/${toNumber(entry.id)}`,
+    sourceUrl: `https://shinden.pl/series/${entry.id.toString()}`,
     malId: null
   };
 }
@@ -1007,7 +1008,7 @@ function toSourceEntry(
   entry: ProtoSourceEntry | TauriSourceEntry
 ): SourceEntry {
   return {
-    id: toNumber(entry.id),
+    id: toWireNumber(entry.id),
     provider: entry.provider,
     title: entry.title,
     animeStatus: entry.animeStatus,
@@ -1020,7 +1021,7 @@ function toSourceEntry(
     watchedEpisodes: entry.watchedEpisodes,
     score: entry.score ?? null,
     sourceUrl: entry.sourceUrl,
-    malId: entry.malId == null ? null : toNumber(entry.malId),
+    malId: entry.malId == null ? null : toWireNumber(entry.malId),
     coverId: 'coverId' in entry ? (entry.coverId ?? null) : null,
     isFavourite: 'isFavourite' in entry ? (entry.isFavourite ?? false) : false
   };
@@ -1030,7 +1031,7 @@ function toDatabaseEntry(
   entry: ProtoDatabaseEntry | TauriDatabaseEntry
 ): DatabaseEntry {
   return {
-    id: toNumber(entry.id),
+    id: toWireNumber(entry.id),
     sources: entry.sources,
     title: entry.title,
     animeType: entry.animeType,
@@ -1051,7 +1052,7 @@ function toMatchListResult(
   nextDatabaseVersion: WireNumber
 ): MatchListResult {
   const mappedEntries = entries.map((entry) => ({
-    shindenId: toNumber(entry.shindenId),
+    shindenId: toWireNumber(entry.shindenId),
     result: toMatchResult(entry.candidates, entry.topCandidates, entry.winner)
   }));
 
@@ -1064,9 +1065,9 @@ function toMatchListResult(
     unmatched: mappedEntries.filter(
       (entry) => entry.result.winner === null && entry.result.top.length === 0
     ).length,
-    shindenVersion: toNumber(nextShindenVersion),
-    sourceVersion: toNumber(nextShindenVersion),
-    databaseVersion: toNumber(nextDatabaseVersion)
+    shindenVersion: toWireNumber(nextShindenVersion),
+    sourceVersion: toWireNumber(nextShindenVersion),
+    databaseVersion: toWireNumber(nextDatabaseVersion)
   };
 }
 
@@ -1076,8 +1077,8 @@ function toSourceMatchListResult(
   nextDatabaseVersion: WireNumber
 ): MatchListResult {
   const mappedEntries = entries.map((entry) => ({
-    shindenId: toNumber(entry.sourceId),
-    sourceId: toNumber(entry.sourceId),
+    shindenId: toWireNumber(entry.sourceId),
+    sourceId: toWireNumber(entry.sourceId),
     result: toMatchResult(entry.candidates, entry.topCandidates, entry.winner)
   }));
 
@@ -1090,9 +1091,9 @@ function toSourceMatchListResult(
     unmatched: mappedEntries.filter(
       (entry) => entry.result.winner === null && entry.result.top.length === 0
     ).length,
-    shindenVersion: toNumber(nextSourceVersion),
-    sourceVersion: toNumber(nextSourceVersion),
-    databaseVersion: toNumber(nextDatabaseVersion)
+    shindenVersion: toWireNumber(nextSourceVersion),
+    sourceVersion: toWireNumber(nextSourceVersion),
+    databaseVersion: toWireNumber(nextDatabaseVersion)
   };
 }
 
@@ -1102,8 +1103,8 @@ function toSourceFetchProgress(
   return {
     provider: progress.provider,
     phase: progress.phase,
-    current: toNumber(progress.current),
-    total: toNumber(progress.total),
+    current: toSafeNumber(progress.current),
+    total: toSafeNumber(progress.total),
     latestTitle: progress.latestTitle
   };
 }
@@ -1122,7 +1123,7 @@ function toMatchResult(
 
 function toScoredCandidate(candidate: WireMatchResult) {
   return {
-    id: toNumber(candidate.id),
+    id: toWireNumber(candidate.id),
     score: candidate.finalScore
   };
 }
@@ -1137,13 +1138,45 @@ function formatProtoDate(date: WireDate) {
   return `${date.year}-${month}-${day}`;
 }
 
-function toNumber(value: WireNumber) {
-  const numberValue = Number(value);
-  if (!Number.isSafeInteger(numberValue)) {
-    throw new Error(`Id lub wersja poza bezpiecznym zakresem: ${value}`);
+function toWireNumber(value: WireNumber): WireNumber {
+  if (typeof value === 'number') {
+    if (!Number.isInteger(value)) {
+      throw new Error(`Id lub wersja nie jest liczbą całkowitą: ${value}`);
+    }
+
+    if (!Number.isSafeInteger(value)) {
+      throw new Error(
+        `Id lub wersja poza bezpiecznym zakresem number: ${value}`
+      );
+    }
+
+    if (value < 0) {
+      throw new Error(`Id lub wersja poza zakresem u64: ${value}`);
+    }
+
+    return value;
   }
 
-  return numberValue;
+  if (value < 0n || value > U64_MAX) {
+    throw new Error(`Id lub wersja poza zakresem u64: ${value}`);
+  }
+
+  const numberValue = Number(value);
+  return Number.isSafeInteger(numberValue) ? numberValue : value;
+}
+
+function toSafeNumber(value: WireNumber): number {
+  const normalized = toWireNumber(value);
+
+  if (typeof normalized === 'bigint') {
+    throw new Error(`Id lub wersja poza bezpiecznym zakresem number: ${value}`);
+  }
+
+  return normalized;
+}
+
+function isGreaterWireNumber(left: WireNumber, right: WireNumber) {
+  return BigInt(left) > BigInt(right);
 }
 
 function normalizeRpcError(error: unknown) {
