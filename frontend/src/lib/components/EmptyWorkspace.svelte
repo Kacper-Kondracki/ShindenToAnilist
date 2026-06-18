@@ -18,16 +18,18 @@
 </script>
 
 <section class="grid flex-1 p-4">
-  <AnimatedGridPanel
-    class="grid place-items-center overflow-hidden surface-panel"
-  >
-    {#if userListRequestState.status === 'loading' && provider.supportsSourceImportProgress}
+  {#if userListRequestState.status === 'loading' && provider.supportsSourceImportProgress}
+    <div class="source-import-stage">
       <SourceImportProgress
         providerLabel={provider.label}
         progress={userListRequestState.progress}
         onCancel={onCancelLoad}
       />
-    {:else}
+    </div>
+  {:else}
+    <AnimatedGridPanel
+      class="empty-workspace-panel grid place-items-center overflow-hidden surface-panel"
+    >
       <div
         class="isolate grid max-w-3xl justify-items-center gap-2 px-6 text-center"
       >
@@ -46,6 +48,49 @@
           {/if}
         </p>
       </div>
-    {/if}
-  </AnimatedGridPanel>
+    </AnimatedGridPanel>
+  {/if}
 </section>
+
+<style>
+  .source-import-stage {
+    display: grid;
+    min-height: 0;
+    place-items: center;
+    border: var(--border) solid
+      color-mix(in oklab, var(--color-base-content) 9%, transparent);
+    border-radius: var(--radius-box);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--color-base-300) 72%, var(--color-base-200)),
+        var(--color-base-300)
+    );
+    overflow: hidden;
+  }
+
+  :global(.empty-workspace-panel) {
+    animation: empty-workspace-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    will-change: transform, opacity;
+  }
+
+  @keyframes empty-workspace-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 4rem, 0);
+    }
+
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.empty-workspace-panel) {
+      animation: none;
+    }
+  }
+</style>
