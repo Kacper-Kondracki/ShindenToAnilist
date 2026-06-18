@@ -67,6 +67,7 @@ use tokio_stream::{
         UnboundedReceiverStream,
     },
 };
+use tokio_util::sync::CancellationToken;
 use tonic::{
     Request,
     Response,
@@ -138,6 +139,7 @@ impl ShindenToAnilist {
     pub async fn fetch_source_list_with_progress(
         &self,
         request: FetchSourceListRequest,
+        cancellation_token: CancellationToken,
         mut emit_progress: impl FnMut(SourceFetchProgress) -> Result<(), Status>,
     ) -> Result<FetchSourceListResponse, Status> {
         let provider = request.provider();
@@ -215,7 +217,18 @@ impl ShindenToAnilist {
                     AnimeZoneList::stream_from_animezone(self.http_client.clone(), username.to_string());
 
                 let mut total_entries = 0u64;
-                while let Some(event) = stream.next().await {
+                loop {
+                    let event = tokio::select! {
+                        () = cancellation_token.cancelled() => {
+                            return Err(Status::cancelled("source fetch cancelled"));
+                        },
+                        event = stream.next() => event,
+                    };
+
+                    let Some(event) = event else {
+                        break;
+                    };
+
                     match event.map_err(IntoStatus::into_status)? {
                         AnimeZoneFetchEvent::Started { total_entries: total } => {
                             total_entries = total as u64;
@@ -1101,27 +1114,35 @@ impl ShindenToAnilistService for ShindenToAnilist {
         let service = self.clone();
         let request = request.into_inner();
         let (tx, rx) = mpsc::unbounded_channel();
+        let cancellation_token = CancellationToken::new();
 
         tokio::spawn(async move {
             let progress_tx = tx.clone();
-            let result = service
-                .fetch_source_list_with_progress(request, move |progress| {
-                    progress_tx
-                        .send(Ok(FetchSourceListResponse {
-                            source_version: 0,
-                            progress: Some(progress),
-                            done: false,
-                        }))
-                        .map_err(|_| Status::cancelled("source fetch stream receiver dropped"))
-                })
-                .await;
+            let fetch_token = cancellation_token.clone();
+            let fetch = service.fetch_source_list_with_progress(request, fetch_token, move |progress| {
+                progress_tx
+                    .send(Ok(FetchSourceListResponse {
+                        source_version: 0,
+                        progress: Some(progress),
+                        done: false,
+                    }))
+                    .map_err(|_| Status::cancelled("source fetch stream receiver dropped"))
+            });
+            tokio::pin!(fetch);
 
-            match result {
-                Ok(response) => {
-                    let _ = tx.send(Ok(response));
+            tokio::select! {
+                result = &mut fetch => {
+                    match result {
+                        Ok(response) => {
+                            let _ = tx.send(Ok(response));
+                        },
+                        Err(status) => {
+                            let _ = tx.send(Err(status));
+                        },
+                    }
                 },
-                Err(status) => {
-                    let _ = tx.send(Err(status));
+                () = tx.closed() => {
+                    cancellation_token.cancel();
                 },
             }
         });

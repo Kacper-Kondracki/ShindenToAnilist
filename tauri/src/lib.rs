@@ -1,6 +1,8 @@
 use std::{
+    collections::HashMap,
     fs,
     path::Path,
+    sync::Mutex,
 };
 
 use serde::{
@@ -17,10 +19,12 @@ use tauri::{
     State,
     ipc::Channel,
 };
+use tokio_util::sync::CancellationToken;
 use tonic::Status;
 
 struct AppState {
     service: ShindenToAnilist,
+    source_fetch_cancellations: Mutex<HashMap<u64, CancellationToken>>,
 }
 
 const PRODUCT_NAME: &str = "ShindenToAnilist";
@@ -510,22 +514,61 @@ fn app_paths(app: AppHandle) -> Result<AppPathsDto, String> {
 #[tauri::command(rename_all = "camelCase")]
 async fn fetch_source_list(
     state: State<'_, AppState>,
+    request_id: u64,
     provider: i32,
     user: String,
     on_progress: Channel<SourceFetchProgressDto>,
 ) -> Result<FetchSourceListResponseDto, String> {
-    state
+    let cancellation_token = CancellationToken::new();
+    {
+        let mut cancellations = state
+            .source_fetch_cancellations
+            .lock()
+            .map_err(|err| err.to_string())?;
+
+        if let Some(previous) = cancellations.insert(request_id, cancellation_token.clone()) {
+            previous.cancel();
+        }
+    }
+
+    let result = state
         .service
-        .fetch_source_list_with_progress(pb::FetchSourceListRequest { provider, user }, move |progress| {
-            on_progress
-                .send(progress.into())
-                .map_err(|err| Status::internal(err.to_string()))
-        })
+        .fetch_source_list_with_progress(
+            pb::FetchSourceListRequest { provider, user },
+            cancellation_token,
+            move |progress| {
+                on_progress
+                    .send(progress.into())
+                    .map_err(|err| Status::internal(err.to_string()))
+            },
+        )
         .await
         .map(|response| FetchSourceListResponseDto {
             source_version: response.source_version,
         })
-        .map_err(command_error)
+        .map_err(command_error);
+
+    state
+        .source_fetch_cancellations
+        .lock()
+        .map_err(|err| err.to_string())?
+        .remove(&request_id);
+
+    result
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn cancel_source_list_fetch(state: State<'_, AppState>, request_id: u64) -> Result<(), String> {
+    if let Some(cancellation_token) = state
+        .source_fetch_cancellations
+        .lock()
+        .map_err(|err| err.to_string())?
+        .remove(&request_id)
+    {
+        cancellation_token.cancel();
+    }
+
+    Ok(())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -835,10 +878,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
             service: ShindenToAnilist::new(reqwest::Client::new()),
+            source_fetch_cancellations: Mutex::new(HashMap::new()),
         })
         .invoke_handler(tauri::generate_handler![
             app_paths,
             fetch_source_list,
+            cancel_source_list_fetch,
             get_source_ids,
             get_source_full,
             fetch_shinden_list,

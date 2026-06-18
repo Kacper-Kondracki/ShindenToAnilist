@@ -60,13 +60,13 @@ pub struct AnimeZoneFetchOptions {
     base_url: String,
     #[builder(default = AnimeZoneSection::default_sections().to_vec())]
     sections: Vec<AnimeZoneSection>,
-    #[builder(default = 160)]
+    #[builder(default = 120)]
     requests_per_second: u32,
-    #[builder(default = 20)]
+    #[builder(default = 5)]
     burst_size: u32,
-    #[builder(default = 20)]
+    #[builder(default = 10)]
     max_concurrent_detail_requests: usize,
-    #[builder(default = 3)]
+    #[builder(default = 2)]
     request_attempts: usize,
     #[builder(default = true)]
     fail_on_detail_error: bool,

@@ -360,7 +360,8 @@ export async function ensureDatabase() {
 export async function fetchSourceList(
   provider: SourceProvider,
   user: string,
-  onProgress?: (progress: SourceFetchProgress) => void
+  onProgress?: (progress: SourceFetchProgress) => void,
+  options?: { requestId?: number; signal?: AbortSignal }
 ) {
   if (isTauriRuntime()) {
     const progressChannel = new Channel<TauriSourceFetchProgress>();
@@ -370,7 +371,12 @@ export async function fetchSourceList(
 
     const response = await callTauri<TauriFetchSourceListResponse>(
       'fetch_source_list',
-      { provider, user, onProgress: progressChannel }
+      {
+        requestId: options?.requestId ?? 0,
+        provider,
+        user,
+        onProgress: progressChannel
+      }
     );
     observeSourceVersion(response.sourceVersion);
     return { sourceVersion: toWireNumber(response.sourceVersion) };
@@ -378,9 +384,12 @@ export async function fetchSourceList(
 
   return callRpc(async (client) => {
     let nextSourceVersion = 0n;
+    const callOptions =
+      options?.signal === undefined ? undefined : { signal: options.signal };
 
     for await (const chunk of client.fetchSourceList(
-      create(FetchSourceListRequestSchema, { provider, user })
+      create(FetchSourceListRequestSchema, { provider, user }),
+      callOptions
     )) {
       if (chunk.progress !== undefined) {
         onProgress?.(toSourceFetchProgress(chunk.progress));
@@ -394,6 +403,14 @@ export async function fetchSourceList(
     observeSourceVersion(nextSourceVersion);
     return { sourceVersion: toWireNumber(nextSourceVersion) };
   });
+}
+
+export async function cancelSourceListFetch(requestId: number) {
+  if (!isTauriRuntime()) {
+    return;
+  }
+
+  await callTauri<void>('cancel_source_list_fetch', { requestId });
 }
 
 export async function fetchShindenList(userId: number) {
