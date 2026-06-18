@@ -1,16 +1,6 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
-
-  import { SourceFetchPhase } from '../gen/shinden_to_anilist/v1/source_pb';
   import type { SourceImportProgress as SourceImportProgressState } from '../domain/anime';
-
-  const recentTitleCount = 5;
-
-  type RecentTitle = {
-    id: number;
-    title: string;
-    tone: string;
-  };
+  import { createSourceImportProgressController } from '../features/source/sourceImportProgressController.svelte';
 
   let {
     providerLabel,
@@ -22,129 +12,23 @@
     onCancel: () => void;
   } = $props();
 
-  let now = $state(performance.now());
-  let progressPercent = $derived(
-    progress === null || progress.total === 0
-      ? 0
-      : Math.min(100, Math.round((progress.current / progress.total) * 100))
-  );
-  let elapsedSeconds = $derived(
-    progress === null
-      ? 0
-      : Math.max(0, Math.floor((now - progress.startedAt) / 1000))
-  );
-  let phaseText = $derived(translatePhase(progress?.phase));
-  let progressCountText = $derived(
-    progress === null || progress.total === 0
-      ? 'Oczekiwanie na dane'
-      : `${progress.current} / ${progress.total}`
-  );
-  let progressTone = $derived(
-    `color-mix(in oklab, var(--ctp-mocha-red) ${100 - progressPercent}%, var(--ctp-mocha-green) ${progressPercent}%)`
-  );
-  let elapsedText = $derived(formatElapsed(elapsedSeconds));
-  let recentTitles = $state<RecentTitle[]>([]);
-  let recentTitleRows = $derived(recentTitles.slice(-recentTitleCount));
-
-  let lastProgressKey = '';
-  let lastRecordedStep = -1;
-  let lastRecordedTitle = '';
-  let recentTitleId = 0;
-
-  $effect(() => {
-    const interval = window.setInterval(() => {
-      now = performance.now();
-    }, 500);
-
-    return () => window.clearInterval(interval);
+  const controller = createSourceImportProgressController({
+    getProviderLabel: () => providerLabel,
+    getProgress: () => progress
   });
-
-  $effect(() => {
-    if (progress === null) {
-      recentTitles = [];
-      lastProgressKey = '';
-      lastRecordedStep = -1;
-      lastRecordedTitle = '';
-      recentTitleId = 0;
-      return;
-    }
-
-    const progressKey = `${providerLabel}:${progress.startedAt}`;
-
-    if (progressKey !== lastProgressKey) {
-      recentTitles = [];
-      lastProgressKey = progressKey;
-      lastRecordedStep = -1;
-      lastRecordedTitle = '';
-      recentTitleId = 0;
-    }
-
-    const latestTitle = progress.latestTitle.trim();
-
-    if (
-      latestTitle === '' ||
-      (progress.current === lastRecordedStep &&
-        latestTitle === lastRecordedTitle)
-    ) {
-      return;
-    }
-
-    recentTitleId += 1;
-    recentTitles = untrack(() =>
-      [
-        ...recentTitles,
-        {
-          id: recentTitleId,
-          title: latestTitle,
-          tone: progressTone
-        }
-      ].slice(-recentTitleCount)
-    );
-    lastRecordedStep = progress.current;
-    lastRecordedTitle = latestTitle;
-  });
-
-  function translatePhase(phase: number | undefined) {
-    if (phase === SourceFetchPhase.FETCHING_LIST) {
-      return 'Pobieranie listy';
-    }
-
-    if (phase === SourceFetchPhase.FETCHING_DETAILS) {
-      return 'Pobieranie szczegółów';
-    }
-
-    if (phase === SourceFetchPhase.STORING) {
-      return 'Zapisywanie listy';
-    }
-
-    if (phase === SourceFetchPhase.DONE) {
-      return 'Kończenie importu';
-    }
-
-    return 'Łączenie ze źródłem';
-  }
-
-  function formatElapsed(seconds: number) {
-    if (seconds < 60) {
-      return `${seconds}s`;
-    }
-
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  }
 </script>
 
-<div class="source-progress" style:--source-progress-tone={progressTone}>
+<div
+  class="source-progress"
+  style:--source-progress-tone={controller.progressTone}
+>
   <div class="source-progress__header">
     <div class="source-progress__title-group">
       <div class="source-progress__icon" aria-hidden="true">
         <span class="icon-[lucide--download-cloud]"></span>
       </div>
       <div class="source-progress__title-copy">
-        <p class="source-progress__eyebrow">Import źródła</p>
-        <h2 title={phaseText}>{phaseText}</h2>
+        <h2 title={controller.phaseText}>{controller.phaseText}</h2>
         <p
           class="source-progress__provider"
           title={`Importowanie listy z ${providerLabel}`}
@@ -172,36 +56,33 @@
       aria-label={`Postęp importu ${providerLabel}`}
       aria-valuemin="0"
       aria-valuemax="100"
-      aria-valuenow={progressPercent}
-      style:--source-progress-percent={`${progressPercent}%`}
+      aria-valuenow={controller.progressPercent}
+      style:--source-progress-percent={`${controller.progressPercent}%`}
     >
       <span class="source-progress__fill"></span>
     </div>
 
     <div class="source-progress__bar-meta">
-      <span>{elapsedText}</span>
+      <span>{controller.elapsedText}</span>
     </div>
   </div>
 
   <section
     class="source-progress__recent"
-    class:source-progress__recent--waiting={recentTitles.length === 0}
-    class:skeleton={recentTitles.length === 0}
+    class:source-progress__recent--waiting={!controller.hasRecentTitles}
+    class:skeleton={!controller.hasRecentTitles}
     aria-label="Postęp importu"
   >
-    {#if recentTitles.length > 0}
+    {#if controller.hasRecentTitles}
       <div class="source-progress__recent-header">
-        <span>{progressPercent}%</span>
-        <span>{progressCountText}</span>
+        <span>{controller.progressPercent}%</span>
+        <span>{controller.progressCountText}</span>
       </div>
       <div class="source-progress__recent-stream" role="log" aria-live="polite">
-        {#each recentTitleRows as row, index (row.id)}
+        {#each controller.recentTitleRows as row (row.id)}
           <div
             class="source-progress__recent-line"
-            style:grid-row={recentTitleCount -
-              recentTitleRows.length +
-              index +
-              1}
+            style:grid-row={row.gridRow}
             style:--source-entry-tone={row.tone}
             title={row.title}
           >
@@ -287,7 +168,6 @@
   }
 
   .source-progress__title-copy > h2,
-  .source-progress__eyebrow,
   .source-progress__provider,
   .source-progress__bar-meta,
   .source-progress__recent-header,
@@ -302,15 +182,6 @@
     font-size: clamp(1.25rem, 1.5vw, 1.65rem);
     font-weight: 800;
     line-height: 1.1;
-  }
-
-  .source-progress__eyebrow {
-    color: color-mix(in oklab, var(--color-base-content) 62%, transparent);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0;
-    line-height: 1;
-    text-transform: uppercase;
   }
 
   .source-progress__provider {
