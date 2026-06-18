@@ -88,14 +88,11 @@ pub(super) struct AnimeZoneDetail {
 }
 
 impl AnimeZoneList {
-    pub(super) fn from_scraped(items: Vec<(AnimeZoneListItem, Option<AnimeZoneDetail>)>) -> Self {
-        let mut entries = IndexMap::new();
+    pub fn from_entries(entries: impl IntoIterator<Item = AnimeZoneEntry>) -> Self {
+        let mut map = IndexMap::new();
 
-        for (item, detail) in items {
-            let entry = AnimeZoneEntry::from_scraped(item, detail);
-
-            entries
-                .entry(entry.id)
+        for entry in entries {
+            map.entry(entry.id)
                 .and_modify(|existing: &mut AnimeZoneEntry| {
                     if entry.section.precedence() > existing.section.precedence() {
                         *existing = entry.clone();
@@ -106,8 +103,8 @@ impl AnimeZoneList {
                 .or_insert(entry);
         }
 
-        entries.sort_unstable_keys();
-        Self { entries }
+        map.sort_unstable_keys();
+        Self { entries: map }
     }
 
     pub fn direct_mal_matches(&self) -> impl Iterator<Item = (AnimeId, AnimeId)> + '_ {
@@ -137,7 +134,7 @@ impl AnimeZoneEntry {
     pub fn section(&self) -> AnimeZoneSection { self.section }
     pub fn score(&self) -> Option<i32> { self.score }
 
-    fn from_scraped(item: AnimeZoneListItem, detail: Option<AnimeZoneDetail>) -> Self {
+    pub(super) fn from_scraped(item: AnimeZoneListItem, detail: Option<AnimeZoneDetail>) -> Self {
         let detail = detail.unwrap_or_default();
         let metadata = title_processor::process(&item.title);
         let normalized_title = normalize_str(&item.title);

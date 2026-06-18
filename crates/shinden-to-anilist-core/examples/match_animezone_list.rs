@@ -3,6 +3,7 @@ use std::{
     time::Instant,
 };
 
+use futures_util::StreamExt;
 use shinden_to_anilist_core::{
     HttpClient,
     common::AnimeList,
@@ -17,6 +18,7 @@ use shinden_to_anilist_core::{
     },
     providers::animezone::{
         AnimeZoneEntry,
+        AnimeZoneFetchEvent,
         AnimeZoneList,
         AnimeZoneListLoad,
     },
@@ -34,9 +36,29 @@ async fn main() {
     let matcher = DefaultMatcher::strict_preset();
 
     let now = Instant::now();
-    let animezone = AnimeZoneList::get_from_animezone(HttpClient::new(), "JestemOtaku")
-        .await
-        .unwrap();
+    let mut entries = Vec::new();
+    let stream = AnimeZoneList::stream_from_animezone(HttpClient::new(), "JestemOtaku");
+
+    futures_util::pin_mut!(stream);
+    while let Some(event) = stream.next().await {
+        match event.unwrap() {
+            AnimeZoneFetchEvent::Started { total_entries } => {
+                println!("discovered {total_entries} AnimeZone entries");
+            },
+            AnimeZoneFetchEvent::Entry {
+                current,
+                total_entries,
+                entry,
+            } => {
+                if current == 1 || current % 50 == 0 || current == total_entries {
+                    println!("fetched AnimeZone details {current}/{total_entries}");
+                }
+                entries.push(entry);
+            },
+        }
+    }
+
+    let animezone = AnimeZoneList::from_entries(entries);
 
     let direct_matches = animezone
         .direct_mal_matches()
