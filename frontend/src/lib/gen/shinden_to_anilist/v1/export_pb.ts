@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shinden_to_anilist/v1/export.proto.
  */
 export const file_shinden_to_anilist_v1_export: GenFile = /*@__PURE__*/
-  fileDesc("CiJzaGluZGVuX3RvX2FuaWxpc3QvdjEvZXhwb3J0LnByb3RvEhVzaGluZGVuX3RvX2FuaWxpc3QudjEiNgoLQW5pbWVJZFBhaXISEgoKc2hpbmRlbl9pZBgBIAEoBBITCgtkYXRhYmFzZV9pZBgCIAEoBGIGcHJvdG8z");
+  fileDesc("CiJzaGluZGVuX3RvX2FuaWxpc3QvdjEvZXhwb3J0LnByb3RvEhVzaGluZGVuX3RvX2FuaWxpc3QudjEiNgoLQW5pbWVJZFBhaXISEgoKc2hpbmRlbl9pZBgBIAEoBBITCgtkYXRhYmFzZV9pZBgCIAEoBCI2CgxTb3VyY2VJZFBhaXISEQoJc291cmNlX2lkGAEgASgEEhMKC2RhdGFiYXNlX2lkGAIgASgEYgZwcm90bzM");
 
 /**
  * @generated from message shinden_to_anilist.v1.AnimeIdPair
@@ -33,4 +33,26 @@ export type AnimeIdPair = Message<"shinden_to_anilist.v1.AnimeIdPair"> & {
  */
 export const AnimeIdPairSchema: GenMessage<AnimeIdPair> = /*@__PURE__*/
   messageDesc(file_shinden_to_anilist_v1_export, 0);
+
+/**
+ * @generated from message shinden_to_anilist.v1.SourceIdPair
+ */
+export type SourceIdPair = Message<"shinden_to_anilist.v1.SourceIdPair"> & {
+  /**
+   * @generated from field: uint64 source_id = 1;
+   */
+  sourceId: bigint;
+
+  /**
+   * @generated from field: uint64 database_id = 2;
+   */
+  databaseId: bigint;
+};
+
+/**
+ * Describes the message shinden_to_anilist.v1.SourceIdPair.
+ * Use `create(SourceIdPairSchema)` to create a new message.
+ */
+export const SourceIdPairSchema: GenMessage<SourceIdPair> = /*@__PURE__*/
+  messageDesc(file_shinden_to_anilist_v1_export, 1);
 

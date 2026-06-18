@@ -1,8 +1,8 @@
 import {
-  fetchShindenList,
-  getShindenFull,
-  getShindenIds,
-  matchShindenList
+  fetchSourceList,
+  getSourceFull,
+  getSourceIds,
+  matchSourceList
 } from '../../api/appService';
 import { providerById, providers, type Provider } from '../../config/providers';
 import { createLoadedAnimeData } from '../../data/loadedAnimeData.svelte';
@@ -17,9 +17,9 @@ import {
   initializeDatabaseState
 } from '../database/initializeDatabase';
 import {
-  hasShindenProfileHost,
-  parseShindenUserId
-} from '../shinden/userInput';
+  parseSourceUser,
+  providerFromInput
+} from '../source/userInput';
 import { createWorkspaceController } from '../workspace/workspaceController.svelte';
 
 export type AppController = ReturnType<typeof createAppController>;
@@ -36,7 +36,6 @@ export function createAppController() {
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
 
   let trimmedQuery = $derived(userQuery.trim());
-  let parsedShindenUserId = $derived(parseShindenUserId(userQuery));
   let selectedProviderDetails = $derived(providerById(selectedProvider));
   let activeProviderDetails = $derived.by(() => {
     const workspaceState = workspace.state;
@@ -92,8 +91,9 @@ export function createAppController() {
     userQuery = value;
     clearUserListError();
 
-    if (hasShindenProfileHost(value)) {
-      selectedProvider = 'shinden';
+    const detectedProvider = providerFromInput(value);
+    if (detectedProvider !== null) {
+      selectedProvider = detectedProvider;
     }
   }
 
@@ -112,25 +112,47 @@ export function createAppController() {
 
     const provider = selectedProvider;
     const query = trimmedQuery;
-    const shindenUserId = parsedShindenUserId;
+    const sourceUser = parseSourceUser(provider, query);
 
-    if (provider !== 'shinden' || shindenUserId === null) {
+    if (sourceUser === null) {
       userListRequestState = {
         status: 'error',
         provider,
         query,
-        message: 'Nie udało się rozpoznać użytkownika Shinden'
+        message: `Nie udało się rozpoznać użytkownika ${selectedProviderDetails.label}`
       };
       return;
     }
 
     const requestId = activeRequestId + 1;
     activeRequestId = requestId;
-    userListRequestState = { status: 'loading', provider, query };
+    const startedAt = performance.now();
+    userListRequestState = { status: 'loading', provider, query, progress: null };
 
     try {
       const fetchStartedAt = performance.now();
-      const fetchedList = await fetchShindenList(shindenUserId);
+      const fetchedList = await fetchSourceList(
+        sourceUser.provider,
+        sourceUser.user,
+        (progress) => {
+          if (activeRequestId !== requestId) {
+            return;
+          }
+
+          userListRequestState = {
+            status: 'loading',
+            provider,
+            query,
+            progress: {
+              phase: progress.phase,
+              current: progress.current,
+              total: progress.total,
+              latestTitle: progress.latestTitle,
+              startedAt
+            }
+          };
+        }
+      );
 
       if (activeRequestId !== requestId) {
         return;
@@ -150,7 +172,7 @@ export function createAppController() {
         return;
       }
 
-      const shindenFull = await getShindenFull();
+      const sourceFull = await getSourceFull();
       const nextFetchDurationMs = performance.now() - fetchStartedAt;
 
       if (activeRequestId !== requestId) {
@@ -158,8 +180,8 @@ export function createAppController() {
       }
 
       const matchStartedAt = performance.now();
-      const nextMatchResult = await matchShindenList();
-      const allIds = await getShindenIds();
+      const nextMatchResult = await matchSourceList();
+      const allIds = await getSourceIds();
       const nextMatchDurationMs = performance.now() - matchStartedAt;
 
       if (activeRequestId !== requestId) {
@@ -167,11 +189,11 @@ export function createAppController() {
       }
 
       assertConsistentWorkspaceVersions(
-        fetchedList.shindenVersion,
-        shindenFull.shindenVersion,
+        fetchedList.sourceVersion,
+        sourceFull.sourceVersion,
         readyDatabaseState.info.databaseVersion,
         nextMatchResult,
-        allIds.shindenVersion
+        allIds.sourceVersion ?? allIds.shindenVersion
       );
 
       const entryIdsByView = buildEntryIdsByView(
@@ -179,7 +201,7 @@ export function createAppController() {
         allIds.entryIds
       );
 
-      animeData.replaceShindenFull(shindenFull);
+      animeData.replaceSourceFull(sourceFull);
 
       userListRequestState = {
         status: 'loaded',
@@ -194,14 +216,14 @@ export function createAppController() {
         matchResult: nextMatchResult,
         fetchDurationMs: nextFetchDurationMs,
         matchDurationMs: nextMatchDurationMs,
-        manualOverrideScopeKey: `${provider}:${shindenUserId}`
+        manualOverrideScopeKey: sourceUser.manualOverrideScopeKey
       });
     } catch (error) {
       if (activeRequestId !== requestId) {
         return;
       }
 
-      console.error('Unable to load Shinden user list', error);
+      console.error('Unable to load source user list', error);
       userListRequestState = {
         status: 'error',
         provider,
@@ -272,19 +294,19 @@ export function createAppController() {
 }
 
 function assertConsistentWorkspaceVersions(
-  fetchedShindenVersion: number,
-  fullShindenVersion: number,
+  fetchedSourceVersion: number,
+  fullSourceVersion: number,
   readyDatabaseVersion: number,
   matchResult: MatchListResult,
-  shindenIdsVersion: number
+  sourceIdsVersion: number
 ) {
   if (
-    fetchedShindenVersion !== matchResult.shindenVersion ||
-    fullShindenVersion !== matchResult.shindenVersion ||
-    shindenIdsVersion !== matchResult.shindenVersion
+    fetchedSourceVersion !== matchResult.shindenVersion ||
+    fullSourceVersion !== matchResult.shindenVersion ||
+    sourceIdsVersion !== matchResult.shindenVersion
   ) {
     throw new Error(
-      'Lista Shinden zmieniła się podczas dopasowywania. Spróbuj ponownie.'
+      'Lista źródłowa zmieniła się podczas dopasowywania. Spróbuj ponownie.'
     );
   }
 

@@ -16,8 +16,7 @@
   import RowMetadataBadges from './RowMetadataBadges.svelte';
   import {
     copyText,
-    openExternalUrl,
-    shindenEntryUrl
+    openExternalUrl
   } from './contextMenuActions';
   import type { ContextMenuItem } from './contextMenuState.svelte';
   import type { EntryRowTone } from './EntryRow.svelte';
@@ -85,10 +84,10 @@
       onSelect: () => copyText(entry.title)
     },
     {
-      id: 'open-shinden',
-      label: 'Otwórz stronę Shinden',
+      id: 'open-source',
+      label: 'Otwórz stronę źródłową',
       icon: 'icon-[lucide--external-link]',
-      onSelect: () => openExternalUrl(shindenEntryUrl(entry.id))
+      onSelect: () => openExternalUrl(entry.sourceUrl)
     },
     {
       id: 'reset-entry',

@@ -88,17 +88,20 @@ async fn main() {
         .iter()
         .map(|(entry_id, _)| *entry_id)
         .collect::<HashSet<_>>();
-    let unmatched = animezone
-        .keys()
-        .filter(|id| !direct_entry_ids.contains(id) && !fallback_entry_ids.contains(id))
-        .count();
+    let unmatched_entries = animezone
+        .iter()
+        .map(|(_, entry)| entry)
+        .filter(|&entry| !direct_entry_ids.contains(&entry.id()) && !fallback_entry_ids.contains(&entry.id()))
+        .collect::<Vec<_>>();
 
     println!("{} entries", animezone.len());
     println!("{} direct matches", direct_matches.len());
     println!("{} fallback matches", fallback_matches.len());
-    println!("{} unmatched", unmatched);
+    println!("{} unmatched", unmatched_entries.len());
     println!("took {:.2?}", now.elapsed());
 
+    println!();
+    println!("fallback matches:");
     for (entry, result) in fallback_results.iter().take(10) {
         if let Some((database_id, score)) = result.winner() {
             let database_entry = database.get_unwrap(database_id);
@@ -109,5 +112,11 @@ async fn main() {
                 database_entry.title()
             );
         }
+    }
+
+    println!();
+    println!("unmatched entries:");
+    for entry in unmatched_entries {
+        println!("[unmatched] {} ({})", entry.title(), entry.id());
     }
 }

@@ -44,6 +44,7 @@
         <EmptyWorkspace
           provider={app.selectedProviderDetails}
           canLoadProvider={app.isProviderSupported}
+          userListRequestState={app.userListRequestState}
         />
       </div>
     {:else}

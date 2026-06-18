@@ -29,7 +29,7 @@ export const providers = [
     label: 'AnimeZone',
     site: 'animezone.pl',
     accent: 'var(--ctp-mocha-red)',
-    supportsUserList: false,
+    supportsUserList: true,
     disabled: false
   }
 ] as const satisfies readonly ProviderOption[];

@@ -8,8 +8,13 @@ import "shinden_to_anilist/v1/export.proto";
 import "shinden_to_anilist/v1/matching.proto";
 import "shinden_to_anilist/v1/search.proto";
 import "shinden_to_anilist/v1/shinden.proto";
+import "shinden_to_anilist/v1/source.proto";
 
 service ShindenToAnilistService {
+  rpc FetchSourceList(FetchSourceListRequest) returns (stream FetchSourceListResponse);
+  rpc GetSourceIds(GetSourceIdsRequest) returns (GetSourceIdsResponse);
+  rpc GetSourceFull(GetSourceFullRequest) returns (stream GetSourceFullResponse);
+
   rpc FetchShindenList(FetchShindenListRequest) returns (FetchShindenListResponse);
   rpc GetShindenIds(GetShindenIdsRequest) returns (GetShindenIdsResponse);
   rpc GetShindenEntries(GetShindenEntriesRequest) returns (GetShindenEntriesResponse);
@@ -25,8 +30,35 @@ service ShindenToAnilistService {
 
   rpc FuzzySearch(FuzzySearchRequest) returns (FuzzySearchResponse);
   rpc FuzzyMatch(FuzzyMatchRequest) returns (FuzzyMatchResponse);
+  rpc MatchSourceList(MatchSourceListRequest) returns (stream MatchSourceListResponse);
   rpc MatchShindenList(MatchShindenListRequest) returns (stream MatchShindenListResponse);
   rpc ExportXml(ExportXmlRequest) returns (ExportXmlResponse);
+}
+
+// Source lists
+
+message FetchSourceListRequest {
+  SourceProvider provider = 1;
+  string user = 2;
+}
+message FetchSourceListResponse {
+  uint64 source_version = 1;
+  SourceFetchProgress progress = 2;
+  bool done = 3;
+}
+
+message GetSourceIdsRequest {
+  AnimeListSortedBy sorted_by = 1;
+}
+message GetSourceIdsResponse {
+  uint64 source_version = 1;
+  repeated uint64 ids = 2;
+}
+
+message GetSourceFullRequest {}
+message GetSourceFullResponse {
+  uint64 source_version = 1;
+  repeated SourceEntry entries = 2;
 }
 
 // Shinden
@@ -127,10 +159,20 @@ message FuzzyMatchRequest {
   string query = 1;
   SearchOptions options = 2;
   optional uint64 shinden_id = 3;
+  optional uint64 source_id = 4;
 }
 message FuzzyMatchResponse {
   uint64 database_version = 1;
   repeated MatchResult results = 2;
+}
+
+message MatchSourceListRequest {
+  SearchOptions options = 1;
+}
+message MatchSourceListResponse {
+  uint64 source_version = 1;
+  uint64 database_version = 2;
+  repeated SourceMatchResult results = 3;
 }
 
 message MatchShindenListRequest {
@@ -143,10 +185,11 @@ message MatchShindenListResponse {
 }
 
 message ExportXmlRequest {
-  repeated AnimeIdPair matches = 1;
+  repeated SourceIdPair matches = 1;
   string path = 2;
 }
 message ExportXmlResponse {
-  uint64 shinden_version = 1;
+  uint64 source_version = 1;
   string path = 2;
+  uint64 shinden_version = 3;
 }
