@@ -23,7 +23,7 @@ export const providers = [
     label: 'Oglądaj Anime',
     site: 'ogladajanime.pl',
     accent: 'var(--ctp-mocha-sky)',
-    supportsUserList: false,
+    supportsUserList: true,
     supportsSourceImportProgress: true,
     disabled: false
   },

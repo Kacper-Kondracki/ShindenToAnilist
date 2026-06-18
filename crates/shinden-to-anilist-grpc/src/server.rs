@@ -37,6 +37,11 @@ use shinden_to_anilist_core::{
             AnimeZoneList,
             AnimeZoneListLoad,
         },
+        ogladajanime::{
+            OgladajAnimeFetchEvent,
+            OgladajAnimeList,
+            OgladajAnimeListLoad,
+        },
         shinden::{
             ShindenList,
             ShindenListLoad,
@@ -292,9 +297,100 @@ impl ShindenToAnilist {
                     done: true,
                 })
             },
-            SourceProvider::OgladajAnime | SourceProvider::Unspecified => {
-                Err(Status::invalid_argument("source provider is not supported"))
+            SourceProvider::OgladajAnime => {
+                let user_id = request.user.trim().parse::<u64>().map_err(|_| {
+                    Status::invalid_argument("ogladajanime source user must be a numeric user id")
+                })?;
+
+                emit_progress(source_progress(
+                    SourceProvider::OgladajAnime,
+                    SourceFetchPhase::FetchingList,
+                    0,
+                    0,
+                    "",
+                ))?;
+
+                let mut entries = Vec::new();
+                let mut stream =
+                    OgladajAnimeList::stream_from_ogladajanime(self.http_client.clone(), user_id.to_string());
+
+                let mut total_entries = 0u64;
+                loop {
+                    let event = tokio::select! {
+                        () = cancellation_token.cancelled() => {
+                            return Err(Status::cancelled("source fetch cancelled"));
+                        },
+                        event = stream.next() => event,
+                    };
+
+                    let Some(event) = event else {
+                        break;
+                    };
+
+                    match event.map_err(IntoStatus::into_status)? {
+                        OgladajAnimeFetchEvent::Started { total_entries: total } => {
+                            total_entries = total as u64;
+                            emit_progress(source_progress(
+                                SourceProvider::OgladajAnime,
+                                SourceFetchPhase::FetchingDetails,
+                                0,
+                                total_entries,
+                                "",
+                            ))?;
+                        },
+                        OgladajAnimeFetchEvent::Entry {
+                            current,
+                            total_entries: total,
+                            entry,
+                        } => {
+                            total_entries = total as u64;
+                            let latest_title = entry.title().to_string();
+                            entries.push(entry);
+                            emit_progress(source_progress(
+                                SourceProvider::OgladajAnime,
+                                SourceFetchPhase::FetchingDetails,
+                                current as u64,
+                                total_entries,
+                                latest_title,
+                            ))?;
+                        },
+                    }
+                }
+
+                emit_progress(source_progress(
+                    SourceProvider::OgladajAnime,
+                    SourceFetchPhase::Storing,
+                    total_entries,
+                    total_entries,
+                    "",
+                ))?;
+
+                let ogladajanime = OgladajAnimeList::from_entries(entries);
+                let total_entries = ogladajanime.len() as u64;
+                let source_version = self.source_list.store(SourceList::OgladajAnime(ogladajanime));
+
+                emit_progress(source_progress(
+                    SourceProvider::OgladajAnime,
+                    SourceFetchPhase::Done,
+                    total_entries,
+                    total_entries,
+                    "",
+                ))?;
+
+                info!(source_version, total_entries, "source list fetched");
+                Ok(FetchSourceListResponse {
+                    source_version,
+                    progress: Some(source_progress(
+                        SourceProvider::OgladajAnime,
+                        SourceFetchPhase::Done,
+                        total_entries,
+                        total_entries,
+                        "",
+                    )),
+                    done: true,
+                })
             },
+            SourceProvider::Unspecified => Err(Status::invalid_argument("source provider is not supported")),
         }
     }
 
@@ -842,6 +938,45 @@ impl ShindenToAnilist {
                     results.sort_by_key(|result| order.get(&result.source_id).copied().unwrap_or(usize::MAX));
                     results
                 },
+                SourceList::OgladajAnime(ogladajanime) => {
+                    let direct_matches = ogladajanime
+                        .direct_mal_matches()
+                        .filter(|(_, mal_id)| database.database.get(*mal_id).is_some())
+                        .collect::<Vec<_>>();
+                    let direct_entry_ids = direct_matches
+                        .iter()
+                        .map(|(source_id, _)| *source_id)
+                        .collect::<std::collections::HashSet<_>>();
+
+                    let mut fallback_results = ogladajanime
+                        .par_values()
+                        .filter(|entry| !direct_entry_ids.contains(&entry.id()))
+                        .map(|entry| {
+                            entry.search_by_title_ref(&database.database, &database.searcher, options)
+                        })
+                        .map(|(entry, candidates)| {
+                            (entry.id(), matcher.score_candidates(entry, &candidates, 0.5))
+                        })
+                        .collect::<Vec<_>>();
+
+                    fallback_results
+                        .iter_mut()
+                        .map(|(_, result)| result)
+                        .finalize_matches();
+
+                    let mut results = direct_matches
+                        .into_iter()
+                        .map(|(source_id, database_id)| direct_source_match_result(source_id, database_id))
+                        .chain(fallback_results.into_iter().map(SourceMatchResult::from))
+                        .collect::<Vec<_>>();
+                    let order = ogladajanime
+                        .keys()
+                        .enumerate()
+                        .map(|(index, id)| (id, index))
+                        .collect::<std::collections::HashMap<_, _>>();
+                    results.sort_by_key(|result| order.get(&result.source_id).copied().unwrap_or(usize::MAX));
+                    results
+                },
             };
 
             Ok(results)
@@ -915,6 +1050,7 @@ fn source_entries(source: &SourceList) -> Vec<SourceEntry> {
     match source {
         SourceList::Shinden(list) => list.values().map(SourceEntry::from).collect(),
         SourceList::AnimeZone(list) => list.values().map(SourceEntry::from).collect(),
+        SourceList::OgladajAnime(list) => list.values().map(SourceEntry::from).collect(),
     }
 }
 
@@ -936,6 +1072,7 @@ fn source_ids_by_urgency(source: &SourceList) -> Vec<u64> {
             .map(|(id, _)| id)
             .collect(),
         SourceList::AnimeZone(list) => list.keys().collect(),
+        SourceList::OgladajAnime(list) => list.keys().collect(),
     }
 }
 

@@ -17,7 +17,16 @@ use governor::{
     Quota,
     RateLimiter,
 };
-use reqwest::Client;
+use reqwest::{
+    Client,
+    Response,
+    header::{
+        CONTENT_TYPE,
+        ORIGIN,
+        REFERER,
+        USER_AGENT,
+    },
+};
 use scraper::{
     ElementRef,
     Html,
@@ -25,6 +34,9 @@ use scraper::{
 };
 
 use crate::converter::common::AnimeId;
+
+const DEFAULT_USER_AGENT: &str =
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct ScrapeOptions {
@@ -93,23 +105,50 @@ impl ScrapeClient {
     pub(crate) fn url(&self, path: &str) -> String { join_url(&self.base_url, path) }
 
     pub(crate) async fn get_html(&self, path: &str) -> Result<String, RetryExhausted> {
+        self.request_html(path, |client, url| {
+            client.get(url).header(USER_AGENT, DEFAULT_USER_AGENT)
+        })
+        .await
+    }
+
+    pub(crate) async fn post_form_html(
+        &self,
+        path: &str,
+        referer_path: &str,
+        form_body: String,
+    ) -> Result<String, RetryExhausted> {
+        let origin = self.base_url.to_string();
+        let referer = self.url(referer_path);
+
+        self.request_html(path, |client, url| {
+            client
+                .post(url)
+                .header(USER_AGENT, DEFAULT_USER_AGENT)
+                .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .header(ORIGIN, origin.clone())
+                .header(REFERER, referer.clone())
+                .header("sec-fetch-mode", "cors")
+                .header("sec-fetch-site", "same-origin")
+                .header("x-requested-with", "XMLHttpRequest")
+                .body(form_body.clone())
+        })
+        .await
+    }
+
+    async fn request_html(
+        &self,
+        path: &str,
+        request: impl Fn(&Client, String) -> reqwest::RequestBuilder,
+    ) -> Result<String, RetryExhausted> {
         let path = path.to_compact_string();
         let mut last_error = None;
 
         for _ in 0..self.attempts {
             self.limiter.until_ready().await;
-            let result = self
-                .client
-                .get(self.url(&path))
+            let result = request(&self.client, self.url(&path))
                 .send()
                 .await
-                .and_then(|response| {
-                    if response.status().is_success() {
-                        Ok(response)
-                    } else {
-                        response.error_for_status()
-                    }
-                });
+                .and_then(successful_response);
 
             match result {
                 Ok(response) => match response.text().await {
@@ -125,6 +164,14 @@ impl ScrapeClient {
             attempts: self.attempts,
             source: last_error.expect("at least one request attempt is always made"),
         })
+    }
+}
+
+fn successful_response(response: Response) -> Result<Response, reqwest::Error> {
+    if response.status().is_success() {
+        Ok(response)
+    } else {
+        response.error_for_status()
     }
 }
 

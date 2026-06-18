@@ -7,9 +7,12 @@ import {
 
 const animeZoneUserPattern =
   /^(?:https?:\/\/)?(?:www\.)?animezone\.pl\/user\/([^/?#]+)(?:\/(?:rated|watching|plans))?\/?(?:[?#].*)?$/i;
+const ogladajAnimeUserPattern =
+  /^(?:https?:\/\/)?(?:www\.)?ogladajanime\.pl\/(?:anime_list|profile)\/(\d+)(?:\/[0-5])?\/?(?:[?#].*)?$/i;
 const sourceImportPreviewInput = 'shindentoanilist:source-import-preview';
 
 const usernamePattern = /^[A-Za-z0-9_-]+$/;
+const numericUserIdPattern = /^\d+$/;
 
 export type ParsedSourceUser = {
   provider: SourceProvider;
@@ -42,6 +45,18 @@ export function parseSourceUser(provider: Provider, value: string) {
         };
   }
 
+  if (provider === 'ogladaj-anime') {
+    const userId = parseOgladajAnimeUserId(value);
+
+    return userId === null
+      ? null
+      : {
+          provider: SourceProvider.OGLADAJ_ANIME,
+          user: userId,
+          manualOverrideScopeKey: `${provider}:${userId}`
+        };
+  }
+
   return null;
 }
 
@@ -56,6 +71,13 @@ export function providerFromInput(value: string): Provider | null {
 
   if (animeZoneUserPattern.test(value.trim())) {
     return 'anime-zone';
+  }
+
+  if (
+    ogladajAnimeUserPattern.test(value.trim()) ||
+    numericUserIdPattern.test(value.trim())
+  ) {
+    return 'ogladaj-anime';
   }
 
   return null;
@@ -73,4 +95,14 @@ function parseAnimeZoneUsername(value: string) {
   const username = urlMatch?.[1] ?? query;
 
   return usernamePattern.test(username) ? username : null;
+}
+
+function parseOgladajAnimeUserId(value: string) {
+  const query = value.trim();
+  if (!query) return null;
+
+  const urlMatch = query.match(ogladajAnimeUserPattern);
+  const userId = urlMatch?.[1] ?? query;
+
+  return numericUserIdPattern.test(userId) ? userId : null;
 }
