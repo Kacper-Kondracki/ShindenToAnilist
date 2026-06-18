@@ -42,8 +42,10 @@ use crate::{
 pub trait Matcher {
     /// Scores all `candidates` against `entry` and returns a [`MatchResult`].
     ///
-    /// `neutral` is the fallback score (typically `0.5`) used for any
-    /// scoring dimension where the entry provides no data (returns `None`).
+    /// `neutral` is the placeholder score (typically `0.5`) reported in the
+    /// breakdown for scoring dimensions where the entry provides no field at
+    /// all (returns `None`). Those unavailable dimensions are excluded from
+    /// the weighted `final_score`.
     fn score_candidates(
         &self,
         entry: &impl MatchView,
@@ -159,6 +161,31 @@ pub struct DefaultMatcher {
     pub delta_threshold: f32,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct MatchWeights {
+    search: f32,
+    season: f32,
+    year: f32,
+    anime_type: f32,
+    status: f32,
+    seasonal: f32,
+    episodes: f32,
+}
+
+impl MatchWeights {
+    fn from_array(weights: [f32; 7]) -> Self {
+        Self {
+            search: weights[0],
+            season: weights[1],
+            year: weights[2],
+            anime_type: weights[3],
+            status: weights[4],
+            seasonal: weights[5],
+            episodes: weights[6],
+        }
+    }
+}
+
 /// Normalizes a slice of priority values into weights that sum to `1.0`.
 ///
 /// Each value is raised to the power of `gamma` to control the contrast
@@ -198,6 +225,57 @@ pub fn generate_weights(priorities: &mut [f32], gamma: f32) {
     } else {
         for p in priorities.iter_mut() {
             *p /= sum;
+        }
+    }
+}
+
+/// Normalizes only the active priority values into weights.
+///
+/// Inactive values are forced to `0.0`, and active values are raised to the
+/// power of `gamma` then normalized so the active weights sum to `1.0`.
+///
+/// This is useful when a [`MatchView`] does not expose a field at all. A field
+/// that is exposed but has an empty/unknown value should stay active and let
+/// its scoring function decide the score.
+///
+/// # Panics
+///
+/// Panics when `priorities` and `active` have different lengths.
+pub fn generate_weights_with_mask(priorities: &mut [f32], active: &[bool], gamma: f32) {
+    assert_eq!(
+        priorities.len(),
+        active.len(),
+        "priorities and active mask must have the same length",
+    );
+
+    if priorities.is_empty() {
+        return;
+    }
+
+    let mut active_count = 0;
+    for (priority, is_active) in priorities.iter_mut().zip(active) {
+        if *is_active {
+            *priority = priority.powf(gamma);
+            active_count += 1;
+        } else {
+            *priority = 0.0;
+        }
+    }
+
+    if active_count == 0 {
+        return;
+    }
+
+    let sum: f32 = priorities.iter().sum();
+
+    if sum == 0.0 {
+        let equal_weight = 1.0 / active_count as f32;
+        for (priority, is_active) in priorities.iter_mut().zip(active) {
+            *priority = if *is_active { equal_weight } else { 0.0 };
+        }
+    } else {
+        for priority in priorities.iter_mut() {
+            *priority /= sum;
         }
     }
 }
@@ -445,6 +523,24 @@ impl DefaultMatcher {
         Self::from_weights(weights, 0.70, 0.075)
     }
 
+    fn weights_array(&self) -> [f32; 7] {
+        [
+            self.search_weight,
+            self.season_weight,
+            self.year_weight,
+            self.type_weight,
+            self.status_weight,
+            self.seasonal_weight,
+            self.episodes_weight,
+        ]
+    }
+
+    fn active_weights(&self, active: [bool; 7]) -> MatchWeights {
+        let mut weights = self.weights_array();
+        generate_weights_with_mask(&mut weights, &active, 1.0);
+        MatchWeights::from_array(weights)
+    }
+
     fn score_candidate(
         &self,
         entry: &impl MatchView,
@@ -455,38 +551,47 @@ impl DefaultMatcher {
 
         let (candidate, search_score) = candidate;
 
-        let season_score = entry
-            .title_metadata()
+        let title_metadata = entry.title_metadata();
+        let year = entry.year();
+        let anime_type = entry.anime_type();
+        let status = entry.status();
+        let date = entry.date();
+        let episodes = entry.episodes();
+
+        let weights = self.active_weights([
+            true,
+            title_metadata.is_some(),
+            year.is_some(),
+            anime_type.is_some(),
+            status.is_some(),
+            date.is_some(),
+            episodes.is_some(),
+        ]);
+
+        let season_score = title_metadata
             .map(|v| score_season(v, candidate.consolidated_metadata()))
             .unwrap_or(neutral);
-        let year_score = entry
-            .year()
-            .map(|v| score_year(v, candidate.year()))
-            .unwrap_or(neutral);
-        let type_score = entry
-            .anime_type()
+        let year_score = year.map(|v| score_year(v, candidate.year())).unwrap_or(neutral);
+        let type_score = anime_type
             .map(|v| score_type(v, candidate.anime_type()))
             .unwrap_or(neutral);
-        let status_score = entry
-            .status()
+        let status_score = status
             .map(|v| score_status(v, candidate.status()))
             .unwrap_or(neutral);
-        let seasonal_score = entry
-            .date()
+        let seasonal_score = date
             .map(|v| score_seasonal(v, candidate.season()))
             .unwrap_or(neutral);
-        let episodes_score = entry
-            .episodes()
+        let episodes_score = episodes
             .map(|v| score_episodes(v, candidate.episodes()))
             .unwrap_or(neutral);
 
-        let final_score = (search_score * self.search_weight
-            + season_score * self.season_weight
-            + year_score * self.year_weight
-            + type_score * self.type_weight
-            + status_score * self.status_weight
-            + seasonal_score * self.seasonal_weight
-            + episodes_score * self.episodes_weight)
+        let final_score = (search_score * weights.search
+            + season_score * weights.season
+            + year_score * weights.year
+            + type_score * weights.anime_type
+            + status_score * weights.status
+            + seasonal_score * weights.seasonal
+            + episodes_score * weights.episodes)
             .clamp(0.0, 1.0);
 
         let score_breakdown = ScoreBreakdown {
