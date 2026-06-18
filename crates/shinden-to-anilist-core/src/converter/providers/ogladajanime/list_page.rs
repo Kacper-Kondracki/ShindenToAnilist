@@ -109,14 +109,24 @@ fn parse_progress(value: &str) -> (i32, Option<i32>) {
     };
 
     (
-        watched.trim().parse().unwrap_or_default(),
-        total.trim().parse().ok(),
+        parse_first_i32(watched).unwrap_or_default(),
+        parse_first_i32(total),
     )
 }
 
 fn parse_score(value: &str) -> Option<i32> {
     let value = value.trim();
     (!value.is_empty()).then(|| value.parse().ok()).flatten()
+}
+
+fn parse_first_i32(value: &str) -> Option<i32> {
+    let start = value.find(|char: char| char.is_ascii_digit())?;
+    let digits = value[start..]
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect::<String>();
+
+    digits.parse().ok()
 }
 
 pub(super) fn parse_type(value: &str) -> Option<AnimeType> {
@@ -138,5 +148,65 @@ pub(super) fn parse_watch_status(value: &str) -> Option<WatchStatus> {
         "Wstrzymane" => Some(WatchStatus::OnHold),
         "Porzucone" => Some(WatchStatus::Dropped),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_douluo_dalu_progress_from_fixture() {
+        let html = include_str!("../../../../OGLADAJANIME/anime_list.html");
+        let (items, page_count) = parse_list_page("/anime_list/746170", html).unwrap();
+
+        assert_eq!(page_count, 1);
+
+        let douluo_dalu = items
+            .iter()
+            .find(|item| item.slug == "douluo-dalu")
+            .expect("Douluo Dalu row should be present in fixture");
+        assert_eq!(douluo_dalu.id, 8613);
+        assert_eq!(douluo_dalu.title, "Douluo Dalu");
+        assert_eq!(douluo_dalu.watch_status, WatchStatus::Completed);
+        assert_eq!(douluo_dalu.watched_episodes, 26);
+        assert_eq!(douluo_dalu.total_episodes, Some(26));
+        assert_eq!(douluo_dalu.anime_type, Some(AnimeType::Ona));
+
+        let douluo_dalu_second_season = items
+            .iter()
+            .find(|item| item.slug == "douluo-dalu-2nd-season")
+            .expect("Douluo Dalu 2nd Season row should be present in fixture");
+        assert_eq!(douluo_dalu_second_season.id, 12913);
+        assert_eq!(douluo_dalu_second_season.title, "Douluo Dalu 2nd Season");
+        assert_eq!(douluo_dalu_second_season.watch_status, WatchStatus::Completed);
+        assert_eq!(douluo_dalu_second_season.watched_episodes, 238);
+        assert_eq!(douluo_dalu_second_season.total_episodes, Some(238));
+        assert_eq!(douluo_dalu_second_season.anime_type, Some(AnimeType::Ona));
+    }
+
+    #[test]
+    fn parses_decorated_progress_values() {
+        let html = r#"
+            <table id="my_anime_table">
+                <tbody>
+                    <tr id="anime_list_item_12913">
+                        <td>43</td>
+                        <td></td>
+                        <td><a href="/anime/douluo-dalu-2nd-season">Douluo Dalu 2nd Season</a></td>
+                        <td>Obejrzane</td>
+                        <td>8</td>
+                        <td><span>238</span> / <span>238</span> odc.</td>
+                        <td>ONA</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let (items, _) = parse_list_page("/anime_list/746170", html).unwrap();
+        let item = items.first().expect("fixture row should parse");
+
+        assert_eq!(item.watched_episodes, 238);
+        assert_eq!(item.total_episodes, Some(238));
     }
 }
