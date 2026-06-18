@@ -873,11 +873,16 @@ async fn export_xml(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let client = reqwest::Client::builder()
+        .cookie_store(true)
+        .build()
+        .expect("failed to build HTTP client");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {
-            service: ShindenToAnilist::new(reqwest::Client::new()),
+            service: ShindenToAnilist::new(client),
             source_fetch_cancellations: Mutex::new(HashMap::new()),
         })
         .invoke_handler(tauri::generate_handler![

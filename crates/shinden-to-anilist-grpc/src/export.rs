@@ -73,6 +73,7 @@ fn write_source_xml(
     match source {
         SourceList::Shinden(list) => write_xml(list, matches, temp_file),
         SourceList::AnimeZone(list) => write_xml(list, matches, temp_file),
+        SourceList::OgladajAnime(list) => write_xml(list, matches, temp_file),
     }
 }
 

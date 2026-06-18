@@ -10,6 +10,7 @@ use shinden_to_anilist_core::{
     matcher,
     providers::{
         animezone,
+        ogladajanime,
         shinden,
     },
 };
@@ -94,6 +95,34 @@ impl From<&animezone::AnimeZoneEntry> for SourceEntry {
             watched_episodes: ExportView::watched_episodes(value),
             score: value.score(),
             source_url: format!("https://www.animezone.pl/anime/{}", value.slug()),
+            mal_id: value.mal_id(),
+        }
+    }
+}
+
+impl From<&ogladajanime::OgladajAnimeEntry> for SourceEntry {
+    fn from(value: &ogladajanime::OgladajAnimeEntry) -> Self {
+        Self {
+            id: value.id(),
+            provider: SourceProvider::OgladajAnime.into(),
+            title: value.title().to_string(),
+            anime_status: value
+                .anime_status()
+                .unwrap_or(database::AnimeStatus::Unknown)
+                .conv::<AnimeStatus>()
+                .into(),
+            anime_type: value
+                .anime_type()
+                .unwrap_or(database::AnimeType::Unknown)
+                .conv::<AnimeType>()
+                .into(),
+            premiere_date: value.premiere_date().map(Date::from),
+            year: value.year(),
+            episodes: value.episodes(),
+            watch_status: value.watch_status().conv::<WatchStatus>().into(),
+            watched_episodes: value.watched_episodes(),
+            score: value.score(),
+            source_url: format!("https://ogladajanime.pl/anime/{}", value.slug()),
             mal_id: value.mal_id(),
         }
     }

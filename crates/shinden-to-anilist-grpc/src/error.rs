@@ -9,6 +9,7 @@ use shinden_to_anilist_core::{
     exporter::xml::XmlExportError,
     providers::{
         animezone::AnimeZoneError,
+        ogladajanime::OgladajAnimeError,
         shinden::ShindenError,
     },
 };
@@ -52,6 +53,10 @@ impl IntoStatus for ShindenError {
 
 impl IntoStatus for AnimeZoneError {
     fn into_status(self) -> Status { animezone_error(self).into_status() }
+}
+
+impl IntoStatus for OgladajAnimeError {
+    fn into_status(self) -> Status { ogladajanime_error(self).into_status() }
 }
 
 impl IntoStatus for XmlExportError {
@@ -175,6 +180,40 @@ pub fn animezone_error(error: AnimeZoneError) -> AppError {
         AnimeZoneError::Parse { path, message } => AppError {
             kind: ErrorKind::AnimeZoneParse.into(),
             message: format!("animezone parse error at {path}: {message}"),
+            details: None,
+        },
+    }
+}
+
+pub fn ogladajanime_error(error: OgladajAnimeError) -> AppError {
+    match error {
+        OgladajAnimeError::Io(error) => io_error(
+            ErrorKind::OgladajAnimeIo,
+            error.to_string(),
+            None,
+            "ogladajanime",
+            Some(error.kind()),
+        ),
+        OgladajAnimeError::Request(error) => http_error(ErrorKind::OgladajAnimeHttp, error),
+        OgladajAnimeError::RetryExhausted {
+            path,
+            attempts,
+            source,
+        } => AppError {
+            kind: ErrorKind::OgladajAnimeRetryExhausted.into(),
+            message: format!("ogladajanime request to {path} failed after {attempts} attempts"),
+            details: Some(Details::Http(HttpError {
+                message: source.to_string(),
+                url: path,
+                status: source
+                    .status()
+                    .map(|status| status.as_u16().into())
+                    .unwrap_or_default(),
+            })),
+        },
+        OgladajAnimeError::Parse { path, message } => AppError {
+            kind: ErrorKind::OgladajAnimeParse.into(),
+            message: format!("ogladajanime parse error at {path}: {message}"),
             details: None,
         },
     }

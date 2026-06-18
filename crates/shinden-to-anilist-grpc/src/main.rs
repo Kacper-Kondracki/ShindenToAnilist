@@ -100,7 +100,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = config.listen_addr;
     let listener = TcpListener::bind(addr).await?;
     let addr = listener.local_addr()?;
-    let service = ShindenToAnilist::new(Client::new());
+    let client = Client::builder().cookie_store(true).build()?;
+    let service = ShindenToAnilist::new(client);
     let stdin_shutdown = config.exit_on_stdin_close.then(stdin_close_shutdown);
 
     info!(%addr, "ShindenToAnilist gRPC listening");
