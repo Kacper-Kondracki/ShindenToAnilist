@@ -3,7 +3,10 @@ use compact_str::{
     CompactString,
     ToCompactString,
 };
-use scraper::Html;
+use scraper::{
+    ElementRef,
+    Html,
+};
 use serde::Deserialize;
 
 use super::{
@@ -85,11 +88,7 @@ pub(super) fn parse_tooltip_page(path: &str, html: &str) -> Result<OgladajAnimeD
             .next()
             .map(element_text)
             .and_then(|value| parse_type(&value)),
-        episodes: document
-            .select(&episodes_selector)
-            .next()
-            .map(element_text)
-            .and_then(|value| parse_leading_i32(&value)),
+        episodes: parse_icon_parent_i32(&document, &episodes_selector),
         original_title: document
             .select(&original_title_selector)
             .next()
@@ -126,7 +125,7 @@ fn merge_labeled_value(detail: &mut OgladajAnimeDetail, label: &str, value: &str
             detail.original_title = detail.original_title.clone().or_else(|| clean_cell_text(value));
         },
         "Odcinki" => {
-            detail.episodes = detail.episodes.or_else(|| value.trim().parse().ok());
+            detail.episodes = detail.episodes.or_else(|| parse_first_i32(value));
         },
         "Status" => {
             detail.anime_status = detail.anime_status.or_else(|| parse_polish_status(value));
@@ -152,11 +151,22 @@ fn parse_polish_status(value: &str) -> Option<AnimeStatus> {
 
 fn parse_date(value: &str) -> Option<NaiveDate> { NaiveDate::parse_from_str(value.trim(), "%Y-%m-%d").ok() }
 
-fn parse_leading_i32(value: &str) -> Option<i32> {
-    let value = value.trim_start();
-    let digits = value.chars().take_while(char::is_ascii_digit).collect::<String>();
+fn parse_icon_parent_i32(document: &Html, selector: &scraper::Selector) -> Option<i32> {
+    document
+        .select(selector)
+        .filter_map(|icon| icon.parent().and_then(ElementRef::wrap))
+        .map(element_text)
+        .find_map(|value| parse_first_i32(&value))
+}
 
-    (!digits.is_empty()).then(|| digits.parse().ok()).flatten()
+fn parse_first_i32(value: &str) -> Option<i32> {
+    let start = value.find(|char: char| char.is_ascii_digit())?;
+    let digits = value[start..]
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect::<String>();
+
+    digits.parse().ok()
 }
 
 fn japanese_alias(value: &str) -> Option<CompactString> {
@@ -177,4 +187,67 @@ fn is_japanese_char(value: char) -> bool {
 #[derive(Deserialize)]
 struct TooltipResponse {
     data: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::converter::{
+        database::{
+            AnimeStatus,
+            AnimeType,
+        },
+        providers::ogladajanime::models::OgladajAnimeDetail,
+    };
+
+    #[test]
+    fn parses_episode_count_from_labeled_detail_value() {
+        let html = r#"
+            <html>
+                <body>
+                    <div class="outlines"><span class="btn-outline-warning">ONA</span></div>
+                    <p class="m-0">Odcinki: 238 odc.</p>
+                    <p class="m-0">Status: Zakończone</p>
+                    <p class="m-0">Start emisji: 2018-01-20</p>
+                </body>
+            </html>
+        "#;
+
+        let detail = parse_detail_page("/anime/douluo-dalu-2nd-season", html).unwrap();
+
+        assert_eq!(
+            detail,
+            OgladajAnimeDetail {
+                anime_type: Some(AnimeType::Ona),
+                anime_status: Some(AnimeStatus::Finished),
+                premiere_date: NaiveDate::from_ymd_opt(2018, 1, 20),
+                episodes: Some(238),
+                ..OgladajAnimeDetail::default()
+            }
+        );
+    }
+
+    #[test]
+    fn parses_tooltip_episode_count_from_play_icon_parent() {
+        let html = serde_json::json!({
+            "data": r#"
+                <div>
+                    <span class="badge-warning">ONA</span>
+                    <small class="text-trim">Douluo Dalu 2nd Season | 斗罗大陆 第二季</small>
+                    <small><i class="fa fa-play"></i> 238 odc.</small>
+                    <small>Status: Zakończone</small>
+                    <small>Start emisji: 2018-01-20</small>
+                </div>
+            "#
+        })
+        .to_string();
+
+        let detail = parse_tooltip_page("/manager.php?action=get_anime_tooltip", &html).unwrap();
+
+        assert_eq!(detail.anime_type, Some(AnimeType::Ona));
+        assert_eq!(detail.anime_status, Some(AnimeStatus::Finished));
+        assert_eq!(detail.premiere_date, NaiveDate::from_ymd_opt(2018, 1, 20));
+        assert_eq!(detail.episodes, Some(238));
+        assert_eq!(detail.original_title.as_deref(), Some("斗罗大陆 第二季"));
+    }
 }

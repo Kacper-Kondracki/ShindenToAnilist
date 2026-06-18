@@ -130,6 +130,7 @@ impl OgladajAnimeEntry {
         let detail = detail.unwrap_or_default();
         let metadata = title_processor::process(&item.title);
         let normalized_title = normalize_str(&item.title);
+        let episodes = detail.episodes.or(item.total_episodes);
 
         Self {
             id: item.id,
@@ -143,9 +144,9 @@ impl OgladajAnimeEntry {
             anime_type: detail.anime_type.or(item.anime_type),
             premiere_date: detail.premiere_date,
             finish_date: detail.finish_date,
-            episodes: detail.episodes.or(item.total_episodes),
+            episodes,
             watch_status: item.watch_status,
-            watched_episodes: item.watched_episodes,
+            watched_episodes: clamp_watched_episodes(item.watched_episodes, episodes),
             score: item.score,
         }
     }
@@ -161,7 +162,15 @@ impl OgladajAnimeEntry {
         self.premiere_date = self.premiere_date.or(other.premiere_date);
         self.finish_date = self.finish_date.or(other.finish_date);
         self.episodes = self.episodes.or(other.episodes);
+        self.watched_episodes = clamp_watched_episodes(self.watched_episodes, self.episodes);
         self.score = self.score.or(other.score);
+    }
+}
+
+fn clamp_watched_episodes(watched_episodes: i32, episodes: Option<i32>) -> i32 {
+    match episodes {
+        Some(episodes) if episodes >= 0 => watched_episodes.clamp(0, episodes),
+        _ => watched_episodes,
     }
 }
 
@@ -186,4 +195,33 @@ impl ExportView for OgladajAnimeEntry {
 pub(super) fn clean_cell_text(value: &str) -> Option<CompactString> {
     let value = value.trim();
     (!value.is_empty() && !value.eq_ignore_ascii_case("brak")).then(|| value.to_compact_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::converter::database::AnimeType;
+
+    #[test]
+    fn clamps_watched_episodes_to_detail_episode_count() {
+        let entry = OgladajAnimeEntry::from_scraped(
+            OgladajAnimeListItem {
+                id: 12913,
+                slug: "douluo-dalu-2nd-season".into(),
+                title: "Douluo Dalu 2nd Season".into(),
+                anime_type: Some(AnimeType::Ona),
+                watch_status: WatchStatus::Completed,
+                watched_episodes: 238,
+                total_episodes: Some(238),
+                score: Some(8),
+            },
+            Some(OgladajAnimeDetail {
+                episodes: Some(52),
+                ..OgladajAnimeDetail::default()
+            }),
+        );
+
+        assert_eq!(entry.episodes(), Some(52));
+        assert_eq!(entry.watched_episodes(), 52);
+    }
 }
