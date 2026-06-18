@@ -2,6 +2,7 @@
   let {
     value,
     busy,
+    readonly,
     canSubmit,
     hasError,
     errorMessage,
@@ -11,6 +12,7 @@
   }: {
     value: string;
     busy: boolean;
+    readonly: boolean;
     canSubmit: boolean;
     hasError: boolean;
     errorMessage: string | null;
@@ -37,6 +39,7 @@
       type="text"
       placeholder="ID, profil Shinden lub nazwa użytkownika"
       autocomplete="off"
+      {readonly}
       oninput={handleInput}
       aria-invalid={hasError}
     />

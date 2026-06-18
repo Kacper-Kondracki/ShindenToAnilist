@@ -6,7 +6,10 @@ use std::{
         BufReader,
         Read,
     },
-    path::Path,
+    path::{
+        Path,
+        PathBuf,
+    },
 };
 
 use indexmap::IndexMap;
@@ -92,10 +95,45 @@ pub fn root_metadata_from_path(path: impl AsRef<Path>) -> Result<DatabaseRootMet
     root_metadata_from_reader(file)
 }
 
+fn lock_database_path(path: &Path) -> Result<File, io::Error> {
+    let lock_path = database_lock_path(path)?;
+    let lock_file = File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(lock_path)?;
+
+    lock_file.lock()?;
+
+    Ok(lock_file)
+}
+
+fn database_lock_path(path: &Path) -> Result<PathBuf, io::Error> {
+    let file_name = path.file_name().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "database path must include a file name",
+        )
+    })?;
+
+    let mut lock_file_name = file_name.to_os_string();
+    lock_file_name.push(".lock");
+
+    Ok(path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .map(|parent| parent.join(&lock_file_name))
+        .unwrap_or_else(|| PathBuf::from(lock_file_name)))
+}
+
 impl AnimeDatabaseLoad for AnimeDatabase {
     fn get_from_mmap(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError> {
+        let path = path.as_ref();
         let file = File::open(path)?;
-        let mmap = unsafe { Mmap::map(&file)? }; // Safe if no writes to the file
+        let _path_lock = lock_database_path(path)?;
+        file.lock()?;
+        let mmap = unsafe { Mmap::map(&file)? }; // Safe while the exclusive file lock is held.
 
         let (header, after_header) = match mmap.iter().position(|&b| b == b'\n') {
             Some(pos) => mmap.split_at(pos + 1),

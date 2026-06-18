@@ -28,6 +28,7 @@
     userQuery={app.userQuery}
     databaseState={app.databaseState}
     databaseStatusText={app.databaseStatusText}
+    isUserListLoading={app.isUserListLoading}
     isLoadButtonBusy={app.isLoadButtonBusy}
     hasUserListError={app.hasUserListError}
     userListErrorMessage={app.userListErrorMessage}
