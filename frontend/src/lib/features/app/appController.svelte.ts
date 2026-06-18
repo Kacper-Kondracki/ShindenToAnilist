@@ -15,11 +15,13 @@ import type {
   WireNumber
 } from '../../domain/anime';
 import { wireNumberEquals } from '../../domain/anime';
+import { SourceFetchPhase } from '../../gen/shinden_to_anilist/v1/source_pb';
 import {
   errorMessage,
   initializeDatabaseState
 } from '../database/initializeDatabase';
 import {
+  isSourceImportPreviewInput,
   parseSourceUser,
   providerFromInput
 } from '../source/userInput';
@@ -38,6 +40,7 @@ export function createAppController() {
   let activeRequestId = 0;
   let activeUserListAbortController: AbortController | null = null;
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
+  let sourceImportPreviewInterval: number | null = null;
 
   let trimmedQuery = $derived(userQuery.trim());
   let selectedProviderDetails = $derived(providerById(selectedProvider));
@@ -118,6 +121,7 @@ export function createAppController() {
   }
 
   async function submitUserList() {
+    stopSourceImportPreview();
     clearUserListError();
 
     if (!trimmedQuery || isUserListLoading || !isProviderSupported) {
@@ -126,6 +130,12 @@ export function createAppController() {
 
     const provider = selectedProvider;
     const query = trimmedQuery;
+
+    if (isSourceImportPreviewInput(userQuery)) {
+      startSourceImportPreview(query);
+      return;
+    }
+
     const sourceUser = parseSourceUser(provider, query);
 
     if (sourceUser === null) {
@@ -263,6 +273,12 @@ export function createAppController() {
       return;
     }
 
+    if (sourceImportPreviewInterval !== null) {
+      stopSourceImportPreview();
+      userListRequestState = { status: 'idle' };
+      return;
+    }
+
     const requestId = activeRequestId;
     activeRequestId += 1;
     activeUserListAbortController?.abort();
@@ -271,6 +287,77 @@ export function createAppController() {
       console.warn('Unable to cancel source list fetch', error);
     });
     userListRequestState = { status: 'idle' };
+  }
+
+  function startSourceImportPreview(query = 'aurora-preview') {
+    stopSourceImportPreview();
+    activeRequestId += 1;
+    activeUserListAbortController?.abort();
+    activeUserListAbortController = null;
+
+    const provider: Provider = 'anime-zone';
+    const total = 180;
+    const startedAt = performance.now();
+    const previewTitles = [
+      'Frieren: Beyond Journey’s End',
+      'Dungeon Meshi',
+      'Cyberpunk: Edgerunners',
+      'Violet Evergarden',
+      'Mob Psycho 100',
+      'Bocchi the Rock!',
+      '86 Eighty-Six',
+      'Odd Taxi'
+    ];
+
+    function updatePreviewProgress() {
+      const elapsedMs = performance.now() - startedAt;
+      const loopMs = 28000;
+      const loopProgress = (elapsedMs % loopMs) / loopMs;
+      const current = Math.max(
+        1,
+        Math.min(total, Math.round(loopProgress * total))
+      );
+      const phase =
+        loopProgress < 0.14
+          ? SourceFetchPhase.FETCHING_LIST
+          : loopProgress < 0.82
+            ? SourceFetchPhase.FETCHING_DETAILS
+            : loopProgress < 0.94
+              ? SourceFetchPhase.STORING
+              : SourceFetchPhase.DONE;
+      const titleIndex =
+        Math.floor(loopProgress * previewTitles.length * 2) %
+        previewTitles.length;
+      const latestTitle = previewTitles[titleIndex] ?? previewTitles[0] ?? '';
+
+      userListRequestState = {
+        status: 'loading',
+        provider,
+        query,
+        progress: {
+          phase,
+          current,
+          total,
+          latestTitle,
+          startedAt
+        }
+      };
+    }
+
+    updatePreviewProgress();
+    sourceImportPreviewInterval = window.setInterval(
+      updatePreviewProgress,
+      900
+    );
+  }
+
+  function stopSourceImportPreview() {
+    if (sourceImportPreviewInterval === null) {
+      return;
+    }
+
+    window.clearInterval(sourceImportPreviewInterval);
+    sourceImportPreviewInterval = null;
   }
 
   async function waitForReadyDatabase() {
@@ -336,7 +423,9 @@ export function createAppController() {
     setUserQuery,
     clearUserListError,
     submitUserList,
-    cancelUserListLoad
+    cancelUserListLoad,
+    startSourceImportPreview,
+    stopSourceImportPreview
   };
 }
 

@@ -104,23 +104,93 @@
 <style>
   .source-progress {
     display: grid;
+    position: relative;
     width: min(100%, 42rem);
     height: 24rem;
     grid-template-rows: auto auto 1fr;
     gap: calc(var(--spacing) * 5);
     border: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 12%, transparent);
+      color-mix(
+        in oklab,
+        var(--provider-accent, var(--color-primary)) 38%,
+        white 12%
+      );
     border-radius: var(--radius-box);
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--color-base-100) 96%, white 4%),
-      var(--color-base-100)
-    );
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--color-base-100) 64%, transparent),
+        color-mix(in oklab, var(--color-base-100) 42%, transparent)
+      ),
+      linear-gradient(
+        135deg,
+        color-mix(
+          in oklab,
+          var(--provider-accent, var(--color-primary)) 15%,
+          transparent
+        ),
+        transparent 48%
+      );
+    backdrop-filter: blur(1.9rem) saturate(1.45) brightness(1.08);
+    -webkit-backdrop-filter: blur(1.9rem) saturate(1.45) brightness(1.08);
     padding: calc(var(--spacing) * 6);
     box-shadow:
-      0 1.5rem 4rem -2.75rem color-mix(in oklab, black 72%, transparent),
-      inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+      0 1.9rem 5.5rem -2.4rem color-mix(in oklab, black 92%, transparent),
+      0 0 5.5rem -2.35rem
+        color-mix(
+          in oklab,
+          var(--provider-accent, var(--color-primary)) 66%,
+          transparent
+        ),
+      inset 0 1px 0 color-mix(in oklab, white 32%, transparent),
+      inset 0 0 0 1px color-mix(in oklab, white 10%, transparent);
     overflow: hidden;
+  }
+
+  .source-progress::before,
+  .source-progress::after {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    content: '';
+    pointer-events: none;
+  }
+
+  .source-progress::before {
+    background:
+      linear-gradient(
+        120deg,
+        color-mix(in oklab, white 20%, transparent),
+        transparent 30%
+      ),
+      linear-gradient(
+        305deg,
+        color-mix(
+            in oklab,
+            var(--provider-accent, var(--color-primary)) 24%,
+            transparent
+          )
+          0%,
+        transparent 34%
+      );
+  }
+
+  .source-progress::after {
+    inset: 1px;
+    border-radius: calc(var(--radius-box) - 1px);
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, white 12%, transparent),
+      transparent 22%,
+      color-mix(in oklab, white 5%, transparent) 100%
+    );
+    opacity: 0.64;
+    mix-blend-mode: screen;
+  }
+
+  .source-progress > * {
+    position: relative;
+    z-index: 1;
   }
 
   .source-progress__header {
