@@ -4,6 +4,7 @@ export type ProviderOption = {
   site: string;
   accent: string;
   supportsUserList: boolean;
+  supportsSourceImportProgress: boolean;
   disabled?: boolean;
 };
 
@@ -14,6 +15,7 @@ export const providers = [
     site: 'shinden.pl',
     accent: 'var(--ctp-mocha-mauve)',
     supportsUserList: true,
+    supportsSourceImportProgress: false,
     disabled: false
   },
   {
@@ -22,6 +24,7 @@ export const providers = [
     site: 'ogladajanime.pl',
     accent: 'var(--ctp-mocha-sky)',
     supportsUserList: false,
+    supportsSourceImportProgress: true,
     disabled: false
   },
   {
@@ -30,6 +33,7 @@ export const providers = [
     site: 'animezone.pl',
     accent: 'var(--ctp-mocha-red)',
     supportsUserList: true,
+    supportsSourceImportProgress: true,
     disabled: false
   }
 ] as const satisfies readonly ProviderOption[];

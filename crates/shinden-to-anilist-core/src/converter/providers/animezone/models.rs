@@ -225,7 +225,7 @@ impl ExportView for AnimeZoneEntry {
 
 fn animezone_id(slug: &str) -> AnimeId {
     let digest = Sha256::digest(slug.as_bytes());
-    u64::from_be_bytes(
+    AnimeId::from_be_bytes(
         digest[..8]
             .try_into()
             .expect("sha256 digest always has at least eight bytes"),

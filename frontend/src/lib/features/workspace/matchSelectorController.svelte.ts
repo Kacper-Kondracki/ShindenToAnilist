@@ -3,21 +3,26 @@ import type {
   DatabaseEntry,
   MatchResult,
   ScoredCandidate,
-  ShindenEntry
+  ShindenEntry,
+  WireNumber
 } from '../../domain/anime';
+import { wireNumberEquals } from '../../domain/anime';
 
 type MatchSelectorControllerInput = {
   getSelectedEntry: () => ShindenEntry;
   getRememberedQuery: () => string;
-  getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
+  getDatabaseEntry: (entryId: WireNumber) => DatabaseEntry | null;
   getAutomaticMatchResult: () => MatchResult | null;
   getInitialSearch: () => MatchSelectorInitialSearch | null;
-  getWinnerClaimsByDatabaseId: () => ReadonlyMap<number, readonly number[]>;
-  setRememberedQuery: (shindenId: number, query: string) => void;
-  resetRememberedQuery: (shindenId: number) => void;
-  setManualOverride: (shindenId: number, databaseId: number) => void;
-  setIgnored: (shindenId: number) => void;
-  clearManualOverride: (shindenId: number) => void;
+  getWinnerClaimsByDatabaseId: () => ReadonlyMap<
+    WireNumber,
+    readonly WireNumber[]
+  >;
+  setRememberedQuery: (shindenId: WireNumber, query: string) => void;
+  resetRememberedQuery: (shindenId: WireNumber) => void;
+  setManualOverride: (shindenId: WireNumber, databaseId: WireNumber) => void;
+  setIgnored: (shindenId: WireNumber) => void;
+  clearManualOverride: (shindenId: WireNumber) => void;
 };
 
 export type MatchSelectorResult = ScoredCandidate & {
@@ -29,16 +34,16 @@ export type MatchSelectorController = ReturnType<
 >;
 
 export type MatchSelectorInitialSearch =
-  | { status: 'idle'; shindenId: number; query: string }
+  | { status: 'idle'; shindenId: WireNumber; query: string }
   | {
       status: 'ready';
-      shindenId: number;
+      shindenId: WireNumber;
       query: string;
       result: MatchResult;
     }
   | {
       status: 'error';
-      shindenId: number;
+      shindenId: WireNumber;
       query: string;
       message: string;
     };
@@ -61,19 +66,23 @@ export function createMatchSelectorController(
 
   let query = $state(initialQuery);
   let searchState = $state<MatchSearchState>(initialSearchState);
-  const automaticCandidateOrders = new WeakMap<MatchResult, number[]>();
-  const searchCandidateOrders = new WeakMap<MatchResult, number[]>();
+  const automaticCandidateOrders = new WeakMap<MatchResult, WireNumber[]>();
+  const searchCandidateOrders = new WeakMap<MatchResult, WireNumber[]>();
   let requestId = 0;
 
   let conflictingWinnerIds = $derived.by(() => {
     const selectedEntryId = input.getSelectedEntry().id;
-    const conflicts = new Set<number>();
+    const conflicts = new Set<WireNumber>();
 
     for (const [
       databaseId,
       shindenIds
     ] of input.getWinnerClaimsByDatabaseId()) {
-      if (shindenIds.some((shindenId) => shindenId !== selectedEntryId)) {
+      if (
+        shindenIds.some(
+          (shindenId) => !wireNumberEquals(shindenId, selectedEntryId)
+        )
+      ) {
         conflicts.add(databaseId);
       }
     }
@@ -122,13 +131,13 @@ export function createMatchSelectorController(
 
   function resolveCandidates(
     candidates: ScoredCandidate[],
-    excludedIds = new Set<number>()
+    excludedIds = new Set<WireNumber>()
   ) {
     const resolvedItems: MatchSelectorResult[] = [];
     const resolvedIds = new Set(excludedIds);
 
     for (const item of candidates) {
-      if (resolvedIds.has(item.id)) {
+      if ([...resolvedIds].some((id) => wireNumberEquals(id, item.id))) {
         continue;
       }
 
@@ -145,7 +154,7 @@ export function createMatchSelectorController(
   function orderCandidatesByInitialAvailability(
     candidates: MatchSelectorResult[],
     source: MatchResult,
-    candidateOrders: WeakMap<MatchResult, number[]>
+    candidateOrders: WeakMap<MatchResult, WireNumber[]>
   ) {
     if (candidates.length === 0) {
       return [];
@@ -250,7 +259,7 @@ export function createMatchSelectorController(
     );
   }
 
-  function applyManualOverride(databaseId: number) {
+  function applyManualOverride(databaseId: WireNumber) {
     input.setManualOverride(input.getSelectedEntry().id, databaseId);
   }
 
@@ -337,7 +346,7 @@ function getInitialSearchState(
 
   if (
     initialSearch === null ||
-    initialSearch.shindenId !== selectedEntry.id ||
+    !wireNumberEquals(initialSearch.shindenId, selectedEntry.id) ||
     initialSearch.query !== query
   ) {
     return { status: 'idle' };
@@ -380,7 +389,7 @@ function automaticCandidates(matchResult: MatchResult | null) {
   const winner = matchResult.winner;
   if (
     winner !== null &&
-    !candidates.some((candidate) => candidate.id === winner.id)
+    !candidates.some((candidate) => wireNumberEquals(candidate.id, winner.id))
   ) {
     candidates.unshift(winner);
   }
@@ -389,12 +398,13 @@ function automaticCandidates(matchResult: MatchResult | null) {
 }
 
 function uniqueCandidates(candidates: ScoredCandidate[]) {
-  const usedIds = new Set<number>();
+  const usedIds = new Set<string>();
   const unique: ScoredCandidate[] = [];
 
   for (const candidate of candidates) {
-    if (!usedIds.has(candidate.id)) {
-      usedIds.add(candidate.id);
+    const candidateKey = candidate.id.toString();
+    if (!usedIds.has(candidateKey)) {
+      usedIds.add(candidateKey);
       unique.push(candidate);
     }
   }
@@ -404,19 +414,19 @@ function uniqueCandidates(candidates: ScoredCandidate[]) {
 
 function orderCandidatesByIds(
   candidates: MatchSelectorResult[],
-  orderedIds: number[]
+  orderedIds: WireNumber[]
 ) {
   const candidatesById = new Map(
-    candidates.map((candidate) => [candidate.id, candidate])
+    candidates.map((candidate) => [candidate.id.toString(), candidate])
   );
   const orderedCandidates: MatchSelectorResult[] = [];
 
   for (const id of orderedIds) {
-    const candidate = candidatesById.get(id);
+    const candidate = candidatesById.get(id.toString());
 
     if (candidate !== undefined) {
       orderedCandidates.push(candidate);
-      candidatesById.delete(id);
+      candidatesById.delete(id.toString());
     }
   }
 

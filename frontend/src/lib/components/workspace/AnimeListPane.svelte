@@ -1,7 +1,8 @@
 <script lang="ts">
   import { VList } from 'virtua/svelte';
   import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
-  import type { ShindenEntry } from '../../domain/anime';
+  import type { ShindenEntry, WireNumber } from '../../domain/anime';
+  import { wireNumberEquals } from '../../domain/anime';
   import {
     animeListItemSize,
     type AnimeListPaneController
@@ -21,30 +22,30 @@
     providerLabel: string;
     animeData: LoadedAnimeData;
     listPane: AnimeListPaneController;
-    selectedEntryId: number | null;
-    onSelectEntry: (entryId: number) => void | Promise<void>;
-    onResetEntry: (entryId: number) => void;
-    canResetEntry: (entryId: number) => boolean;
-    onToggleIgnored: (entryId: number) => void;
+    selectedEntryId: WireNumber | null;
+    onSelectEntry: (entryId: WireNumber) => void | Promise<void>;
+    onResetEntry: (entryId: WireNumber) => void;
+    canResetEntry: (entryId: WireNumber) => boolean;
+    onToggleIgnored: (entryId: WireNumber) => void;
   } = $props();
 
   function handleListScroll() {
     listPane.handleScroll();
   }
 
-  function handleSelectEntry(entryId: number) {
+  function handleSelectEntry(entryId: WireNumber) {
     void onSelectEntry(entryId);
   }
 
-  function handleResetEntry(entryId: number) {
+  function handleResetEntry(entryId: WireNumber) {
     onResetEntry(entryId);
   }
 
-  function handleToggleIgnored(entryId: number) {
+  function handleToggleIgnored(entryId: WireNumber) {
     onToggleIgnored(entryId);
   }
 
-  function getLoadedShindenEntry(entryId: number): ShindenEntry {
+  function getLoadedShindenEntry(entryId: WireNumber): ShindenEntry {
     const entry = animeData.getShindenEntry(entryId);
     if (entry === null) {
       throw new Error(`Brak wczytanego wpisu Shinden #${entryId}`);
@@ -62,7 +63,7 @@
         data={listPane.visibleEntryIds}
         itemSize={animeListItemSize}
         class="anime-list size-full"
-        getKey={(entryId) => entryId}
+        getKey={(entryId) => entryId.toString()}
         bufferSize={0}
         onscroll={handleListScroll}
       >
@@ -70,7 +71,8 @@
           <AnimeRow
             entry={getLoadedShindenEntry(entryId)}
             matchStatus={listPane.matchStatuses.get(entryId) ?? 'unmatched'}
-            isSelected={entryId === selectedEntryId}
+            isSelected={selectedEntryId !== null &&
+              wireNumberEquals(entryId, selectedEntryId)}
             striped={index % 2 === 1}
             separated={false}
             onSelect={() => handleSelectEntry(entryId)}

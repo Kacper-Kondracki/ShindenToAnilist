@@ -3,8 +3,10 @@
   import type {
     DatabaseEntry,
     MatchResult,
-    ShindenEntry
+    ShindenEntry,
+    WireNumber
   } from '../../domain/anime';
+  import { wireNumberEquals } from '../../domain/anime';
   import type { EntryRowTone } from './EntryRow.svelte';
   import { formatPercentageFromRatio } from '../../domain/animeView';
   import {
@@ -40,22 +42,25 @@
     onGoToEntry
   }: {
     selectedEntry: ShindenEntry;
-    selectedDatabaseEntryId: number | null;
-    manualOverrideId: number | null;
+    selectedDatabaseEntryId: WireNumber | null;
+    manualOverrideId: WireNumber | null;
     isIgnored: boolean;
     isAutomaticWinnerSuppressed: boolean;
     rememberedQuery: string;
     automaticMatchResult: MatchResult | null;
     initialSearch: MatchSelectorInitialSearch | null;
-    winnerClaimsByDatabaseId: ReadonlyMap<number, readonly number[]>;
-    getDatabaseEntry: (entryId: number) => DatabaseEntry | null;
-    getShindenEntry: (entryId: number) => ShindenEntry | null;
-    onSetManualOverride: (shindenId: number, databaseId: number) => void;
-    onSetIgnored: (shindenId: number) => void;
-    onClearManualOverride: (shindenId: number) => void;
-    onSetMatchSelectorQuery: (shindenId: number, query: string) => void;
-    onResetMatchSelectorQuery: (shindenId: number) => void;
-    onGoToEntry: (entryId: number) => void;
+    winnerClaimsByDatabaseId: ReadonlyMap<WireNumber, readonly WireNumber[]>;
+    getDatabaseEntry: (entryId: WireNumber) => DatabaseEntry | null;
+    getShindenEntry: (entryId: WireNumber) => ShindenEntry | null;
+    onSetManualOverride: (
+      shindenId: WireNumber,
+      databaseId: WireNumber
+    ) => void;
+    onSetIgnored: (shindenId: WireNumber) => void;
+    onClearManualOverride: (shindenId: WireNumber) => void;
+    onSetMatchSelectorQuery: (shindenId: WireNumber, query: string) => void;
+    onResetMatchSelectorQuery: (shindenId: WireNumber) => void;
+    onGoToEntry: (entryId: WireNumber) => void;
   } = $props();
 
   const selector = createMatchSelectorController({
@@ -77,7 +82,7 @@
   let matchResultsElement = $state<HTMLUListElement | null>(null);
   let searchResultsAnchorElement = $state<HTMLLIElement | null>(null);
   let pendingSearchAlignmentQuery = $state<string | null>(null);
-  let pendingAlreadyUsedDatabaseId = $state<number | null>(null);
+  let pendingAlreadyUsedDatabaseId = $state<WireNumber | null>(null);
   let searchAlignmentSpacerHeight = $state(0);
   let pendingAlreadyUsedOwners = $derived.by(() =>
     pendingAlreadyUsedDatabaseId === null
@@ -150,22 +155,33 @@
     return formatPercentageFromRatio(score);
   }
 
-  function resultTone(databaseId: number): EntryRowTone {
-    if (databaseId === selectedDatabaseEntryId && manualOverrideId !== null) {
+  function resultTone(databaseId: WireNumber): EntryRowTone {
+    if (
+      selectedDatabaseEntryId !== null &&
+      wireNumberEquals(databaseId, selectedDatabaseEntryId) &&
+      manualOverrideId !== null
+    ) {
       return 'info';
     }
 
-    return databaseId === selectedDatabaseEntryId ? 'matched' : 'neutral';
+    return selectedDatabaseEntryId !== null &&
+      wireNumberEquals(databaseId, selectedDatabaseEntryId)
+      ? 'matched'
+      : 'neutral';
   }
 
-  function handleResultSelect(databaseId: number) {
-    if (databaseId === selectedDatabaseEntryId) {
+  function handleResultSelect(databaseId: WireNumber) {
+    if (
+      selectedDatabaseEntryId !== null &&
+      wireNumberEquals(databaseId, selectedDatabaseEntryId)
+    ) {
       handleReset({ clearQuery: false });
       return;
     }
 
     if (
-      databaseId !== selectedDatabaseEntryId &&
+      (selectedDatabaseEntryId === null ||
+        !wireNumberEquals(databaseId, selectedDatabaseEntryId)) &&
       conflictOwnerIdsForDatabase(databaseId).length > 0
     ) {
       pendingAlreadyUsedDatabaseId = databaseId;
@@ -190,9 +206,9 @@
     selector.applyManualOverride(databaseId);
   }
 
-  function conflictOwnerIdsForDatabase(databaseId: number) {
+  function conflictOwnerIdsForDatabase(databaseId: WireNumber) {
     return (winnerClaimsByDatabaseId.get(databaseId) ?? []).filter(
-      (ownerId) => ownerId !== selectedEntry.id
+      (ownerId) => !wireNumberEquals(ownerId, selectedEntry.id)
     );
   }
 

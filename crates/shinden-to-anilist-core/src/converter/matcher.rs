@@ -291,14 +291,15 @@ pub mod scoring {
             return 1.0;
         }
 
-        let similar_groups: &[&[AnimeType]] = &[
-            &[AnimeType::Ova, AnimeType::Ona, AnimeType::Special],
-            &[AnimeType::Tv, AnimeType::Ona],
+        let similar_groups: _ = [
+            (&[AnimeType::Ova, AnimeType::Special], 0.6),
+            (&[AnimeType::Tv, AnimeType::Ona], 0.4),
         ];
 
         for group in similar_groups {
+            let (group, score) = group;
             if group.contains(&type_a) && group.contains(&type_b) {
-                return 0.7;
+                return score;
             }
         }
 

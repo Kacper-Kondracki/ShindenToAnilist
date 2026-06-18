@@ -1,5 +1,9 @@
 <script lang="ts">
-  import type { MatchListResult } from '../../domain/anime';
+  import type {
+    MatchListResult,
+    WireNumber,
+    WireNumberRecord
+  } from '../../domain/anime';
   import { createStatusBarBadgeMeasurement } from '../../features/workspace/statusBarBadgeMeasurement.svelte';
   import {
     buildWorkspaceStatusSummary,
@@ -23,15 +27,15 @@
     canExport,
     onExport
   }: {
-    entryIds: number[];
+    entryIds: WireNumber[];
     matchResult: MatchListResult | null;
     matchErrorMessage: string | null;
     isMatching: boolean;
     fetchDurationMs: number | null;
     matchDurationMs: number | null;
-    manualSelections: Record<number, number>;
-    ignoredEntryIds: Record<number, true>;
-    displacedAutomaticEntryIds: Record<number, true>;
+    manualSelections: WireNumberRecord<WireNumber>;
+    ignoredEntryIds: WireNumberRecord<true>;
+    displacedAutomaticEntryIds: WireNumberRecord<true>;
     exportState: ExportState;
     canExport: boolean;
     onExport: () => void | Promise<void>;

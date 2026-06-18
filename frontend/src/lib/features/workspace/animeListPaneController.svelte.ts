@@ -1,7 +1,13 @@
 import { tick } from 'svelte';
 import type { VListHandle } from 'virtua/svelte';
 
-import type { MatchListResult, ShindenListViews } from '../../domain/anime';
+import type {
+  MatchListResult,
+  ShindenListViews,
+  WireNumber,
+  WireNumberRecord
+} from '../../domain/anime';
+import { wireNumberEquals, wireNumberKey } from '../../domain/anime';
 import type { AnimeMatchStatus } from '../../components/workspace/AnimeRow.svelte';
 import type { AnimeListTabId } from '../../components/workspace/tabs';
 
@@ -9,22 +15,22 @@ export const animeListItemSize = 72;
 
 type PendingScrollRestore = {
   tabId: AnimeListTabId;
-  selectedEntryId: number | null;
+  selectedEntryId: WireNumber | null;
   selectedViewportOffset: number | null;
 };
 
 type SelectedScrollAnchor = {
-  entryId: number;
+  entryId: WireNumber;
   viewportOffset: number;
 };
 
 type AnimeListPaneControllerInput = {
   getEntryIdsByView: () => ShindenListViews;
   getMatchResult: () => MatchListResult | null;
-  getManualOverrides: () => Record<number, number>;
-  getIgnoredEntryIds: () => Record<number, true>;
-  getDisplacedAutomaticEntryIds: () => Record<number, true>;
-  getSelectedEntryId: () => number | null;
+  getManualOverrides: () => WireNumberRecord<WireNumber>;
+  getIgnoredEntryIds: () => WireNumberRecord<true>;
+  getDisplacedAutomaticEntryIds: () => WireNumberRecord<true>;
+  getSelectedEntryId: () => WireNumber | null;
 };
 
 export type AnimeListPaneController = ReturnType<
@@ -45,17 +51,21 @@ export function createAnimeListPaneController(
   let pendingScrollRestore = $state<PendingScrollRestore | null>(null);
 
   let matchStatuses = $derived.by(() => {
-    const statuses = new Map<number, AnimeMatchStatus>();
+    const statuses = new Map<WireNumber, AnimeMatchStatus>();
     const manualOverrides = input.getManualOverrides();
     const ignoredEntryIds = input.getIgnoredEntryIds();
     const displacedAutomaticEntryIds = input.getDisplacedAutomaticEntryIds();
 
     for (const matchEntry of input.getMatchResult()?.entries ?? []) {
-      if (ignoredEntryIds[matchEntry.shindenId] === true) {
+      if (ignoredEntryIds[wireNumberKey(matchEntry.shindenId)] === true) {
         statuses.set(matchEntry.shindenId, 'ignored');
-      } else if (manualOverrides[matchEntry.shindenId] !== undefined) {
+      } else if (
+        manualOverrides[wireNumberKey(matchEntry.shindenId)] !== undefined
+      ) {
         statuses.set(matchEntry.shindenId, 'manual');
-      } else if (displacedAutomaticEntryIds[matchEntry.shindenId] === true) {
+      } else if (
+        displacedAutomaticEntryIds[wireNumberKey(matchEntry.shindenId)] === true
+      ) {
         statuses.set(matchEntry.shindenId, 'suppressed');
       } else if (matchEntry.result.winner !== null) {
         statuses.set(matchEntry.shindenId, 'matched');
@@ -118,7 +128,9 @@ export function createAnimeListPaneController(
     const currentSelectedIndex =
       selectedEntryId === null
         ? -1
-        : visibleEntryIds.findIndex((entryId) => entryId === selectedEntryId);
+        : visibleEntryIds.findIndex((entryId) =>
+            wireNumberEquals(entryId, selectedEntryId)
+          );
     const selectedViewportOffset = getSelectedRestoreOffset(
       nextTabId,
       currentSelectedIndex,
@@ -133,7 +145,7 @@ export function createAnimeListPaneController(
     activeTab = nextTabId;
   }
 
-  function revealEntry(entryId: number, preferredTabId: AnimeListTabId) {
+  function revealEntry(entryId: WireNumber, preferredTabId: AnimeListTabId) {
     const targetTabId = tabIdContainingEntry(
       entryId,
       preferredTabId,
@@ -173,7 +185,9 @@ export function createAnimeListPaneController(
       restore.selectedEntryId === null
         ? -1
         : visibleEntryIds.findIndex(
-            (entryId) => entryId === restore.selectedEntryId
+            (entryId) =>
+              restore.selectedEntryId !== null &&
+              wireNumberEquals(entryId, restore.selectedEntryId)
           );
 
     if (selectedIndex >= 0 && restore.selectedViewportOffset !== null) {
@@ -199,7 +213,9 @@ export function createAnimeListPaneController(
     const selectedIndex =
       selectedEntryId === null
         ? -1
-        : visibleEntryIds.findIndex((entryId) => entryId === selectedEntryId);
+        : visibleEntryIds.findIndex((entryId) =>
+            wireNumberEquals(entryId, selectedEntryId)
+          );
     const selectedAnchor =
       selectedEntryId !== null && selectedIndex >= 0
         ? {
@@ -239,9 +255,12 @@ export function createAnimeListPaneController(
     const nextTabAnchor = selectedScrollAnchors[nextTabId];
     const nextTabEntryIds = input.getEntryIdsByView()[nextTabId];
 
-    return nextTabAnchor?.entryId === selectedEntryId
+    return nextTabAnchor !== null &&
+      wireNumberEquals(nextTabAnchor.entryId, selectedEntryId)
       ? nextTabAnchor.viewportOffset
-      : nextTabEntryIds.some((entryId) => entryId === selectedEntryId)
+      : nextTabEntryIds.some((entryId) =>
+            wireNumberEquals(entryId, selectedEntryId)
+          )
         ? 0
         : null;
   }
@@ -289,27 +308,31 @@ export function createAnimeListPaneController(
 }
 
 function tabIdContainingEntry(
-  entryId: number,
+  entryId: WireNumber,
   preferredTabId: AnimeListTabId,
   entryIdsByView: ShindenListViews
 ): AnimeListTabId | null {
-  if (entryIdsByView[preferredTabId].some((id) => id === entryId)) {
+  if (
+    entryIdsByView[preferredTabId].some((id) => wireNumberEquals(id, entryId))
+  ) {
     return preferredTabId;
   }
 
-  if (entryIdsByView.manual.some((id) => id === entryId)) {
+  if (entryIdsByView.manual.some((id) => wireNumberEquals(id, entryId))) {
     return 'manual';
   }
 
-  if (entryIdsByView.automatic.some((id) => id === entryId)) {
+  if (entryIdsByView.automatic.some((id) => wireNumberEquals(id, entryId))) {
     return 'automatic';
   }
 
-  if (entryIdsByView.ignored.some((id) => id === entryId)) {
+  if (entryIdsByView.ignored.some((id) => wireNumberEquals(id, entryId))) {
     return 'ignored';
   }
 
-  return entryIdsByView.all.some((id) => id === entryId) ? 'all' : null;
+  return entryIdsByView.all.some((id) => wireNumberEquals(id, entryId))
+    ? 'all'
+    : null;
 }
 
 function initialTabScrollOffsets(): Record<AnimeListTabId, number> {

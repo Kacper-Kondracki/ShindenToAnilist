@@ -10,8 +10,10 @@ import type {
   DatabaseState,
   MatchListResult,
   ShindenListViews,
-  UserListRequestState
+  UserListRequestState,
+  WireNumber
 } from '../../domain/anime';
+import { wireNumberEquals } from '../../domain/anime';
 import {
   errorMessage,
   initializeDatabaseState
@@ -60,7 +62,17 @@ export function createAppController() {
     return 'Ładowanie bazy danych';
   });
   let isUserListLoading = $derived(userListRequestState.status === 'loading');
+  let userListRequestProviderDetails = $derived(
+    userListRequestState.status === 'loading' ||
+      userListRequestState.status === 'error'
+      ? providerById(userListRequestState.provider)
+      : selectedProviderDetails
+  );
   let isProviderSupported = $derived(selectedProviderDetails.supportsUserList);
+  let shouldShowSourceImportProgress = $derived(
+    userListRequestState.status === 'loading' &&
+      providerById(userListRequestState.provider).supportsSourceImportProgress
+  );
   let isWaitingForDatabase = $derived(
     userListRequestState.status === 'loading' &&
       databaseState.status !== 'ready'
@@ -264,6 +276,9 @@ export function createAppController() {
     get selectedProviderDetails() {
       return selectedProviderDetails;
     },
+    get userListRequestProviderDetails() {
+      return userListRequestProviderDetails;
+    },
     get activeProviderDetails() {
       return activeProviderDetails;
     },
@@ -285,6 +300,9 @@ export function createAppController() {
     get isProviderSupported() {
       return isProviderSupported;
     },
+    get shouldShowSourceImportProgress() {
+      return shouldShowSourceImportProgress;
+    },
     initializeDatabase,
     setSelectedProvider,
     setUserQuery,
@@ -294,23 +312,23 @@ export function createAppController() {
 }
 
 function assertConsistentWorkspaceVersions(
-  fetchedSourceVersion: number,
-  fullSourceVersion: number,
-  readyDatabaseVersion: number,
+  fetchedSourceVersion: WireNumber,
+  fullSourceVersion: WireNumber,
+  readyDatabaseVersion: WireNumber,
   matchResult: MatchListResult,
-  sourceIdsVersion: number
+  sourceIdsVersion: WireNumber
 ) {
   if (
-    fetchedSourceVersion !== matchResult.shindenVersion ||
-    fullSourceVersion !== matchResult.shindenVersion ||
-    sourceIdsVersion !== matchResult.shindenVersion
+    !wireNumberEquals(fetchedSourceVersion, matchResult.shindenVersion) ||
+    !wireNumberEquals(fullSourceVersion, matchResult.shindenVersion) ||
+    !wireNumberEquals(sourceIdsVersion, matchResult.shindenVersion)
   ) {
     throw new Error(
       'Lista źródłowa zmieniła się podczas dopasowywania. Spróbuj ponownie.'
     );
   }
 
-  if (readyDatabaseVersion !== matchResult.databaseVersion) {
+  if (!wireNumberEquals(readyDatabaseVersion, matchResult.databaseVersion)) {
     throw new Error(
       'Baza danych zmieniła się podczas dopasowywania. Spróbuj ponownie.'
     );
@@ -319,11 +337,11 @@ function assertConsistentWorkspaceVersions(
 
 function buildEntryIdsByView(
   matchResult: MatchListResult,
-  allEntryIds: number[]
+  allEntryIds: WireNumber[]
 ): ShindenListViews {
-  const unmatched = new Set<number>();
-  const review = new Set<number>();
-  const automatic = new Set<number>();
+  const unmatched = new Set<WireNumber>();
+  const review = new Set<WireNumber>();
+  const automatic = new Set<WireNumber>();
 
   for (const entry of matchResult.entries) {
     if (entry.result.winner !== null) {

@@ -1,6 +1,12 @@
 <script lang="ts">
   import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
-  import type { DatabaseEntry, ShindenMatchResult } from '../../domain/anime';
+  import type {
+    DatabaseEntry,
+    ShindenMatchResult,
+    WireNumber,
+    WireNumberRecord
+  } from '../../domain/anime';
+  import { wireNumberKey } from '../../domain/anime';
   import type { MatchSelectorInitialSearch } from '../../features/workspace/matchSelectorController.svelte';
   import type { SelectedWinnerState } from '../../features/workspace/workspaceController.svelte';
   import {
@@ -12,7 +18,7 @@
   import MatchSelector from './MatchSelector.svelte';
 
   const placeholderDatabaseEntry = {
-    id: 0,
+    id: 0n,
     sources: [],
     title: 'Placeholder database entry',
     animeType: AnimeType.UNSPECIFIED,
@@ -45,21 +51,21 @@
     onGoToEntry
   }: {
     animeData: LoadedAnimeData;
-    selectedEntryId: number | null;
+    selectedEntryId: WireNumber | null;
     selectedMatchEntry: ShindenMatchResult | null;
     selectedWinnerState: SelectedWinnerState;
-    manualOverrides: Record<number, number>;
-    ignoredEntryIds: Record<number, true>;
-    displacedAutomaticEntryIds: Record<number, true>;
-    matchSelectorQueries: Record<number, string>;
-    winnerClaimsByDatabaseId: ReadonlyMap<number, readonly number[]>;
+    manualOverrides: WireNumberRecord<WireNumber>;
+    ignoredEntryIds: WireNumberRecord<true>;
+    displacedAutomaticEntryIds: WireNumberRecord<true>;
+    matchSelectorQueries: WireNumberRecord<string>;
+    winnerClaimsByDatabaseId: ReadonlyMap<WireNumber, readonly WireNumber[]>;
     initialMatchSearch: MatchSelectorInitialSearch | null;
-    onSetManualOverride: (shindenId: number, databaseId: number) => void;
-    onSetIgnored: (shindenId: number) => void;
-    onClearManualOverride: (shindenId: number) => void;
-    onSetMatchSelectorQuery: (shindenId: number, query: string) => void;
-    onResetMatchSelectorQuery: (shindenId: number) => void;
-    onGoToEntry: (entryId: number) => void;
+    onSetManualOverride: (shindenId: WireNumber, databaseId: WireNumber) => void;
+    onSetIgnored: (shindenId: WireNumber) => void;
+    onClearManualOverride: (shindenId: WireNumber) => void;
+    onSetMatchSelectorQuery: (shindenId: WireNumber, query: string) => void;
+    onResetMatchSelectorQuery: (shindenId: WireNumber) => void;
+    onGoToEntry: (entryId: WireNumber) => void;
   } = $props();
 
   const compactPreviewPaneHeight = 42 * 16;
@@ -81,19 +87,22 @@
     return null;
   });
   let manualOverrideId = $derived(
-    selectedEntryId === null ? null : (manualOverrides[selectedEntryId] ?? null)
+    selectedEntryId === null
+      ? null
+      : (manualOverrides[wireNumberKey(selectedEntryId)] ?? null)
   );
   let isIgnored = $derived(
-    selectedEntryId !== null && ignoredEntryIds[selectedEntryId] === true
+    selectedEntryId !== null &&
+      ignoredEntryIds[wireNumberKey(selectedEntryId)] === true
   );
   let isAutomaticWinnerSuppressed = $derived(
     selectedEntryId !== null &&
-      displacedAutomaticEntryIds[selectedEntryId] === true
+      displacedAutomaticEntryIds[wireNumberKey(selectedEntryId)] === true
   );
   let matchSelectorQuery = $derived(
     selectedEntryId === null
       ? ''
-      : (matchSelectorQueries[selectedEntryId] ?? '')
+      : (matchSelectorQueries[wireNumberKey(selectedEntryId)] ?? '')
   );
   let automaticMatchResult = $derived(selectedMatchEntry?.result ?? null);
   let previewEntry = $derived(

@@ -1,5 +1,5 @@
 import { isTauri } from '@tauri-apps/api/core';
-import type { DatabaseEntry } from '../../domain/anime';
+import type { DatabaseEntry, WireNumber } from '../../domain/anime';
 
 export async function copyText(text: string) {
   if (navigator.clipboard !== undefined && window.isSecureContext) {
@@ -42,7 +42,7 @@ export function openExternalUrl(url: string) {
   window.open(externalUrl, '_blank', 'noopener,noreferrer');
 }
 
-export function shindenEntryUrl(entryId: number) {
+export function shindenEntryUrl(entryId: WireNumber) {
   return `https://shinden.pl/series/${entryId}`;
 }
 
