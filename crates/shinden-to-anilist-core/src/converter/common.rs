@@ -25,8 +25,10 @@ pub type AnimeId = u64;
 /// All methods except [`title`](MatchView::title) and
 /// [`normalized_title`](MatchView::normalized_title) have default
 /// implementations that return `None`, making them opt-in.  When a method
-/// returns `None` the matcher treats that dimension as neutral (uses the
-/// supplied neutral score).
+/// returns `None` the matcher treats that dimension as unavailable and removes
+/// it from the weighted final score. Values such as `Some(None)` or enum
+/// variants like `Unknown` mean the field exists but has no concrete value, so
+/// the relevant scoring function still participates.
 ///
 /// # Example
 ///
