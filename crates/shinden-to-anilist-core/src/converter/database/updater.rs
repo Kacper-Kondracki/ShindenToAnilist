@@ -363,6 +363,7 @@ where
 pub fn decompress_zstd_to_path(compressed: &[u8], path: &Path) -> Result<(), io::Error> {
     create_parent_dir(path)?;
 
+    let _path_lock = super::lock_database_path(path)?;
     let (mut output, tmp_path) = create_unique_temp_file(path)?;
     let mut decoder = Cursor::new(compressed);
     let result = zstd::stream::copy_decode(&mut decoder, &mut output)
