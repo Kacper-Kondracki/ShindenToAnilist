@@ -2,6 +2,7 @@
   import type { ProviderOption } from '../config/providers';
   import type { UserListRequestState } from '../domain/anime';
   import AnimatedGridPanel from './AnimatedGridPanel.svelte';
+  import AuroraPanel from './AuroraPanel.svelte';
   import SourceImportProgress from './SourceImportProgress.svelte';
 
   let {
@@ -19,13 +20,13 @@
 
 <section class="grid flex-1 p-4">
   {#if userListRequestState.status === 'loading' && provider.supportsSourceImportProgress}
-    <div class="source-import-stage">
+    <AuroraPanel>
       <SourceImportProgress
         providerLabel={provider.label}
         progress={userListRequestState.progress}
         onCancel={onCancelLoad}
       />
-    </div>
+    </AuroraPanel>
   {:else}
     <AnimatedGridPanel
       class="empty-workspace-panel grid place-items-center overflow-hidden surface-panel"
@@ -53,22 +54,6 @@
 </section>
 
 <style>
-  .source-import-stage {
-    display: grid;
-    min-height: 0;
-    place-items: center;
-    border: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 9%, transparent);
-    border-radius: var(--radius-box);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--color-base-300) 72%, var(--color-base-200)),
-        var(--color-base-300)
-    );
-    overflow: hidden;
-  }
-
   :global(.empty-workspace-panel) {
     animation: empty-workspace-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
     backface-visibility: hidden;

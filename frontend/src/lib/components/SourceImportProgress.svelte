@@ -70,7 +70,6 @@
   <section
     class="source-progress__recent"
     class:source-progress__recent--waiting={!controller.hasRecentTitles}
-    class:skeleton={!controller.hasRecentTitles}
     aria-label="Postęp importu"
   >
     {#if controller.hasRecentTitles}
@@ -103,24 +102,107 @@
 
 <style>
   .source-progress {
+    --source-glass-border-width: calc(var(--border) * 2);
+    --source-glass-border-color: color-mix(
+      in oklab,
+      var(--provider-accent, var(--color-primary)) 18%,
+      var(--ctp-mocha-surface1) 82%
+    );
+
     display: grid;
+    position: relative;
     width: min(100%, 42rem);
     height: 24rem;
     grid-template-rows: auto auto 1fr;
     gap: calc(var(--spacing) * 5);
-    border: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 12%, transparent);
+    border: var(--source-glass-border-width) solid
+      var(--source-glass-border-color);
     border-radius: var(--radius-box);
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--color-base-100) 96%, white 4%),
-      var(--color-base-100)
-    );
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 5%, transparent),
+        color-mix(in oklab, var(--ctp-mocha-surface0) 18%, transparent) 28%,
+        color-mix(in oklab, var(--ctp-mocha-base) 22%, transparent)
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--ctp-mocha-surface0) 84%, transparent),
+        color-mix(in oklab, var(--ctp-mocha-base) 80%, transparent)
+      ),
+      linear-gradient(
+        135deg,
+        color-mix(
+          in oklab,
+          var(--provider-accent, var(--color-primary)) 5%,
+          transparent
+        ),
+        color-mix(in oklab, var(--ctp-mocha-mantle) 24%, transparent) 56%,
+        transparent
+      );
+    backdrop-filter: blur(1.65rem) saturate(1.22) brightness(0.94);
+    -webkit-backdrop-filter: blur(1.65rem) saturate(1.22) brightness(0.94);
     padding: calc(var(--spacing) * 6);
     box-shadow:
-      0 1.5rem 4rem -2.75rem color-mix(in oklab, black 72%, transparent),
-      inset 0 1px 0 color-mix(in oklab, white 10%, transparent);
+      0 1.9rem 5.5rem -2.4rem color-mix(in oklab, black 92%, transparent),
+      0 0 5.5rem -2.35rem
+        color-mix(
+          in oklab,
+          var(--provider-accent, var(--color-primary)) 38%,
+          transparent
+        ),
+      inset 0 1px 0 color-mix(in oklab, white 24%, transparent),
+      inset 0 0 0 1px color-mix(in oklab, white 8%, transparent),
+      inset 0 0 3rem
+        color-mix(in oklab, var(--ctp-mocha-crust) 18%, transparent);
     overflow: hidden;
+  }
+
+  .source-progress::before,
+  .source-progress::after {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    content: '';
+    pointer-events: none;
+  }
+
+  .source-progress::before {
+    background:
+      linear-gradient(
+        120deg,
+        color-mix(in oklab, white 8%, transparent),
+        transparent 30%
+      ),
+      linear-gradient(
+        305deg,
+        color-mix(
+            in oklab,
+            var(--provider-accent, var(--color-primary)) 12%,
+            transparent
+          )
+          0%,
+        transparent 34%
+      );
+  }
+
+  .source-progress::after {
+    inset: var(--source-glass-border-width);
+    border: var(--border) solid color-mix(in oklab, white 7%, transparent);
+    border-radius: calc(var(--radius-box) - var(--source-glass-border-width));
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, white 7%, transparent),
+      transparent 22%,
+      color-mix(in oklab, var(--ctp-mocha-crust) 14%, transparent) 100%
+    );
+    opacity: 0.42;
+    mix-blend-mode: screen;
+  }
+
+  .source-progress > * {
+    position: relative;
+    z-index: 1;
   }
 
   .source-progress__header {
@@ -138,20 +220,35 @@
     height: 3.25rem;
     flex: 0 0 auto;
     place-items: center;
-    border: var(--border) solid
+    border: calc(var(--border) * 2) solid
       color-mix(
         in oklab,
-        var(--provider-accent, var(--color-primary)) 38%,
-        transparent
+        var(--provider-accent, var(--color-primary)) 44%,
+        white 14%
       );
     border-radius: var(--radius-box);
-    background-color: color-mix(
-      in oklab,
-      var(--provider-accent, var(--color-primary)) 18%,
-      transparent
-    );
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 18%, transparent),
+        transparent 62%
+      ),
+      color-mix(
+        in oklab,
+        var(--provider-accent, var(--color-primary)) 18%,
+        transparent
+      );
     color: var(--provider-accent, var(--color-primary));
     font-size: 1.5rem;
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 32%, transparent),
+      inset 0 0 0 1px color-mix(in oklab, white 10%, transparent),
+      0 0.8rem 1.75rem -1.45rem
+        color-mix(
+          in oklab,
+          var(--provider-accent, var(--color-primary)) 68%,
+          transparent
+        );
   }
 
   .source-progress__title-group {
@@ -193,6 +290,47 @@
 
   .source-progress__cancel {
     flex: 0 0 auto;
+    border: calc(var(--border) * 2) solid
+      color-mix(in oklab, var(--color-error) 36%, white 18%);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 20%, transparent),
+        transparent 62%
+      ),
+      color-mix(in oklab, var(--color-error) 16%, transparent);
+    color: color-mix(in oklab, var(--color-error) 86%, white 14%);
+    backdrop-filter: blur(1rem) saturate(1.28) brightness(1.04);
+    -webkit-backdrop-filter: blur(1rem) saturate(1.28) brightness(1.04);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 30%, transparent),
+      inset 0 0 0 1px color-mix(in oklab, white 10%, transparent),
+      0 0.8rem 1.8rem -1.45rem
+        color-mix(in oklab, var(--color-error) 62%, transparent);
+  }
+
+  .source-progress__cancel:hover {
+    border-color: color-mix(in oklab, var(--color-error) 46%, white 20%);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 24%, transparent),
+        transparent 58%
+      ),
+      color-mix(in oklab, var(--color-error) 22%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 36%, transparent),
+      inset 0 0 0 1px color-mix(in oklab, white 12%, transparent),
+      0 1rem 2rem -1.35rem
+        color-mix(in oklab, var(--color-error) 72%, transparent);
+  }
+
+  .source-progress__cancel:active {
+    box-shadow:
+      inset 0 0.16rem 0.55rem color-mix(in oklab, black 22%, transparent),
+      inset 0 1px 0 color-mix(in oklab, white 20%, transparent),
+      0 0.6rem 1.35rem -1.2rem
+        color-mix(in oklab, var(--color-error) 58%, transparent);
   }
 
   .source-progress__bar-section {
@@ -204,12 +342,19 @@
   .source-progress__track {
     position: relative;
     height: 1.4rem;
-    border: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 10%, transparent);
+    border: calc(var(--border) * 2) solid
+      color-mix(in oklab, white 18%, transparent);
     border-radius: 999px;
-    background-color: var(--color-base-300);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 10%, transparent),
+        transparent
+      ),
+      color-mix(in oklab, var(--color-base-300) 78%, transparent);
     box-shadow:
       inset 0 0.18rem 0.7rem color-mix(in oklab, black 28%, transparent),
+      inset 0 1px 0 color-mix(in oklab, white 18%, transparent),
       0 0.65rem 1.4rem -1.15rem
         color-mix(in oklab, var(--source-progress-tone) 86%, transparent);
     overflow: hidden;
@@ -252,14 +397,8 @@
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
     gap: calc(var(--spacing) * 3);
-    border: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 10%, transparent);
+    border: var(--border) solid color-mix(in oklab, white 8%, transparent);
     border-radius: var(--radius-box);
-    background-color: color-mix(
-      in oklab,
-      var(--color-base-200) 74%,
-      transparent
-    );
     padding: calc(var(--spacing) * 3);
     box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
   }
@@ -267,7 +406,6 @@
   .source-progress__recent--waiting {
     position: relative;
     grid-template-rows: minmax(0, 1fr);
-    border-color: transparent;
   }
 
   .source-progress__recent-header {
@@ -301,23 +439,15 @@
     min-height: 2.75rem;
     align-items: center;
     justify-content: center;
-    border: var(--border) solid
-      color-mix(in oklab, var(--color-base-content) 18%, transparent);
+    border: var(--border) solid color-mix(in oklab, white 10%, transparent);
     border-radius: 999px;
-    background-color: color-mix(
-      in oklab,
-      var(--color-base-100) 78%,
-      transparent
-    );
-    color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+    color: color-mix(in oklab, var(--color-base-content) 62%, transparent);
     font-size: 1.05rem;
     font-weight: 800;
     line-height: 1;
     overflow: hidden;
     padding-inline: calc(var(--spacing) * 6);
-    box-shadow:
-      0 0.85rem 1.7rem -1.45rem color-mix(in oklab, black 68%, transparent),
-      inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -337,11 +467,13 @@
     min-width: 0;
     align-items: center;
     gap: calc(var(--spacing) * 2);
+    border: var(--border) solid
+      color-mix(in oklab, var(--source-entry-tone) 12%, transparent);
     border-radius: calc(var(--radius-field) * 0.75);
     background-color: color-mix(
       in oklab,
-      var(--source-entry-tone) 12%,
-      var(--color-base-200)
+      var(--source-entry-tone) 11%,
+      transparent
     );
     padding-inline: calc(var(--spacing) * 2);
     color: var(--source-entry-tone);
@@ -357,8 +489,7 @@
     flex: 0 0 auto;
     border-radius: 999px;
     background-color: var(--source-entry-tone);
-    box-shadow: 0 0 0.7rem
-      color-mix(in oklab, var(--source-entry-tone) 58%, transparent);
+    opacity: 0.86;
   }
 
   @media (width <= 42rem) {

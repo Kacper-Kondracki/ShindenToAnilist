@@ -7,6 +7,7 @@ import {
 
 const animeZoneUserPattern =
   /^(?:https?:\/\/)?(?:www\.)?animezone\.pl\/user\/([^/?#]+)(?:\/(?:rated|watching|plans))?\/?(?:[?#].*)?$/i;
+const sourceImportPreviewInput = 'shindentoanilist:source-import-preview';
 
 const usernamePattern = /^[A-Za-z0-9_-]+$/;
 
@@ -45,6 +46,10 @@ export function parseSourceUser(provider: Provider, value: string) {
 }
 
 export function providerFromInput(value: string): Provider | null {
+  if (isSourceImportPreviewInput(value)) {
+    return 'anime-zone';
+  }
+
   if (hasShindenProfileHost(value)) {
     return 'shinden';
   }
@@ -54,6 +59,10 @@ export function providerFromInput(value: string): Provider | null {
   }
 
   return null;
+}
+
+export function isSourceImportPreviewInput(value: string) {
+  return value === sourceImportPreviewInput;
 }
 
 function parseAnimeZoneUsername(value: string) {
