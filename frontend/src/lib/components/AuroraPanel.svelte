@@ -18,11 +18,11 @@
     isolation: isolate;
     min-height: 0;
     place-items: center;
-    border: var(--border) solid
+    border: calc(var(--border) * 2) solid
       color-mix(
         in oklab,
-        var(--provider-accent, var(--ctp-mocha-sky)) 28%,
-        transparent
+        var(--provider-accent, var(--ctp-mocha-sky)) 34%,
+        white 8%
       );
     border-radius: var(--radius-box);
     background:
@@ -42,8 +42,15 @@
         color-mix(in oklab, var(--ctp-mocha-base) 92%, black)
       );
     box-shadow:
-      inset 0 1px 0 color-mix(in oklab, white 8%, transparent),
-      inset 0 0 0 1px color-mix(in oklab, black 28%, transparent);
+      inset 0 1px 0 color-mix(in oklab, white 24%, transparent),
+      inset 0 0 0 1px color-mix(in oklab, white 10%, transparent),
+      inset 0 0 2.75rem color-mix(in oklab, white 5%, transparent),
+      0 1.25rem 4rem -2.35rem
+        color-mix(
+          in oklab,
+          var(--provider-accent, var(--ctp-mocha-sky)) 52%,
+          transparent
+        );
     overflow: hidden;
   }
 
