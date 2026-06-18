@@ -48,6 +48,7 @@
           provider={app.userListRequestProviderDetails}
           canLoadProvider={app.isProviderSupported}
           userListRequestState={app.userListRequestState}
+          onCancelLoad={app.cancelUserListLoad}
         />
       </div>
     {:else}

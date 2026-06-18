@@ -4,10 +4,12 @@
 
   let {
     providerLabel,
-    progress
+    progress,
+    onCancel
   }: {
     providerLabel: string;
     progress: SourceImportProgressState | null;
+    onCancel: () => void;
   } = $props();
 
   let now = $state(performance.now());
@@ -61,8 +63,19 @@
   </div>
   <div class="source-progress__body">
     <div class="source-progress__header">
-      <p class="text-lg font-bold md:text-2xl">Import z {providerLabel}</p>
-      <span class="badge badge-primary">{countText}</span>
+      <div class="source-progress__title-group">
+        <p class="text-lg font-bold md:text-2xl">Import z {providerLabel}</p>
+        <span class="badge badge-primary">{countText}</span>
+      </div>
+      <button
+        class="btn btn-error btn-soft btn-sm source-progress__cancel"
+        type="button"
+        aria-label={`Anuluj import z ${providerLabel}`}
+        onclick={onCancel}
+      >
+        <span aria-hidden="true" class="icon-[lucide--circle-x] size-4"></span>
+        <span>Anuluj</span>
+      </button>
     </div>
     <progress
       class="progress progress-primary h-2 w-full"
@@ -133,6 +146,21 @@
     gap: calc(var(--spacing) * 3);
   }
 
+  .source-progress__title-group {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: calc(var(--spacing) * 3);
+  }
+
+  .source-progress__title-group > p {
+    min-width: 0;
+  }
+
+  .source-progress__cancel {
+    flex-shrink: 0;
+  }
+
   @media (width <= 36rem) {
     .source-progress {
       grid-template-columns: minmax(0, 1fr);
@@ -141,7 +169,8 @@
     }
 
     .source-progress__header,
-    .source-progress__meta {
+    .source-progress__meta,
+    .source-progress__title-group {
       justify-content: center;
       flex-wrap: wrap;
     }

@@ -7,11 +7,13 @@
   let {
     provider,
     canLoadProvider,
-    userListRequestState
+    userListRequestState,
+    onCancelLoad
   }: {
     provider: ProviderOption;
     canLoadProvider: boolean;
     userListRequestState: UserListRequestState;
+    onCancelLoad: () => void;
   } = $props();
 </script>
 
@@ -23,6 +25,7 @@
       <SourceImportProgress
         providerLabel={provider.label}
         progress={userListRequestState.progress}
+        onCancel={onCancelLoad}
       />
     {:else}
       <div

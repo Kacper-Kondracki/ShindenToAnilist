@@ -1,4 +1,5 @@
 import {
+  cancelSourceListFetch,
   fetchSourceList,
   getSourceFull,
   getSourceIds,
@@ -35,6 +36,7 @@ export function createAppController() {
   let databaseState = $state<DatabaseState>({ status: 'loading' });
   let userListRequestState = $state<UserListRequestState>({ status: 'idle' });
   let activeRequestId = 0;
+  let activeUserListAbortController: AbortController | null = null;
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
 
   let trimmedQuery = $derived(userQuery.trim());
@@ -138,6 +140,9 @@ export function createAppController() {
 
     const requestId = activeRequestId + 1;
     activeRequestId = requestId;
+    activeUserListAbortController?.abort();
+    const abortController = new AbortController();
+    activeUserListAbortController = abortController;
     const startedAt = performance.now();
     userListRequestState = { status: 'loading', provider, query, progress: null };
 
@@ -163,6 +168,10 @@ export function createAppController() {
               startedAt
             }
           };
+        },
+        {
+          requestId,
+          signal: abortController.signal
         }
       );
 
@@ -242,7 +251,26 @@ export function createAppController() {
         query,
         message: errorMessage(error)
       };
+    } finally {
+      if (activeRequestId === requestId) {
+        activeUserListAbortController = null;
+      }
     }
+  }
+
+  function cancelUserListLoad() {
+    if (userListRequestState.status !== 'loading') {
+      return;
+    }
+
+    const requestId = activeRequestId;
+    activeRequestId += 1;
+    activeUserListAbortController?.abort();
+    activeUserListAbortController = null;
+    void cancelSourceListFetch(requestId).catch((error) => {
+      console.warn('Unable to cancel source list fetch', error);
+    });
+    userListRequestState = { status: 'idle' };
   }
 
   async function waitForReadyDatabase() {
@@ -307,7 +335,8 @@ export function createAppController() {
     setSelectedProvider,
     setUserQuery,
     clearUserListError,
-    submitUserList
+    submitUserList,
+    cancelUserListLoad
   };
 }
 

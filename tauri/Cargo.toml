@@ -18,4 +18,5 @@ shinden-to-anilist-grpc = { path = "../crates/shinden-to-anilist-grpc" }
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
+tokio-util = "0.7"
 tonic = "0.14"
