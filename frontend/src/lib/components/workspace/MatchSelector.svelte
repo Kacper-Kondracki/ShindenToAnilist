@@ -371,7 +371,7 @@
       aria-label="Resetuj wpis"
       title="Resetuj wpis"
       disabled={!canReset}
-      onclick={handleReset}
+      onclick={() => handleReset()}
     >
       <span aria-hidden="true" class="icon-[lucide--rotate-ccw] size-4"></span>
     </button>

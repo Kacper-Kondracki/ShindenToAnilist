@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package shinden_to_anilist.v1;
+
+import "shinden_to_anilist/v1/common.proto";
+
+message SourceEntry {
+  uint64 id = 1;
+  SourceProvider provider = 2;
+  string title = 3;
+  AnimeStatus anime_status = 4;
+  AnimeType anime_type = 5;
+  optional Date premiere_date = 6;
+  optional int32 year = 7;
+  optional int32 episodes = 8;
+  WatchStatus watch_status = 9;
+  int32 watched_episodes = 10;
+  optional int32 score = 11;
+  string source_url = 12;
+  optional uint64 mal_id = 13;
+}
+
+enum SourceFetchPhase {
+  SOURCE_FETCH_PHASE_UNSPECIFIED = 0;
+
+  SOURCE_FETCH_PHASE_FETCHING_LIST = 1;
+  SOURCE_FETCH_PHASE_FETCHING_DETAILS = 2;
+  SOURCE_FETCH_PHASE_STORING = 3;
+  SOURCE_FETCH_PHASE_DONE = 4;
+}
+
+message SourceFetchProgress {
+  SourceProvider provider = 1;
+  SourceFetchPhase phase = 2;
+  uint64 current = 3;
+  uint64 total = 4;
+  string latest_title = 5;
+}

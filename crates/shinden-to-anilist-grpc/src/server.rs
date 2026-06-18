@@ -11,6 +11,7 @@ use std::{
         Path,
         PathBuf,
     },
+    sync::Arc,
     time::Duration,
 };
 
@@ -30,9 +31,16 @@ use shinden_to_anilist_core::{
         Matcher,
         MatcherFinalizer,
     },
-    providers::shinden::{
-        ShindenList,
-        ShindenListLoad,
+    providers::{
+        animezone::{
+            AnimeZoneFetchEvent,
+            AnimeZoneList,
+            AnimeZoneListLoad,
+        },
+        shinden::{
+            ShindenList,
+            ShindenListLoad,
+        },
     },
     searcher::{
         SearchMode,
@@ -52,7 +60,13 @@ use tokio::{
     },
     time::timeout,
 };
-use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::{
+    StreamExt,
+    wrappers::{
+        ReceiverStream,
+        UnboundedReceiverStream,
+    },
+};
 use tonic::{
     Request,
     Response,
@@ -80,6 +94,7 @@ use crate::{
         export_xml_to_path,
         sync_parent_dir,
     },
+    mapper::direct_source_match_result,
     matching::{
         FuzzyMatchView,
         search_options,
@@ -88,6 +103,7 @@ use crate::{
         shinden_to_anilist_service_server::ShindenToAnilistService,
         *,
     },
+    source::SourceList,
 };
 
 type CoreDatabaseReleaseInfo = database::updater::DatabaseReleaseInfo;
@@ -97,12 +113,13 @@ const DATABASE_DOWNLOAD_LOCK_TIMEOUT: Duration = Duration::from_secs(10);
 const SHINDEN_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 const STREAM_CHUNK_SIZE: usize = 500;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ShindenToAnilist {
     http_client: reqwest::Client,
     shinden_list: VersionedArcOption<ShindenList>,
+    source_list: VersionedArcOption<SourceList>,
     database: VersionedArcOption<DatabaseState>,
-    database_download_lock: Mutex<()>,
+    database_download_lock: Arc<Mutex<()>>,
 }
 
 impl ShindenToAnilist {
@@ -110,9 +127,210 @@ impl ShindenToAnilist {
         Self {
             http_client,
             shinden_list: VersionedArcOption::empty(),
+            source_list: VersionedArcOption::empty(),
             database: VersionedArcOption::empty(),
-            database_download_lock: Mutex::new(()),
+            database_download_lock: Arc::new(Mutex::new(())),
         }
+    }
+
+    // Source lists
+    #[instrument(skip_all, name = "app.fetch_source_list")]
+    pub async fn fetch_source_list_with_progress(
+        &self,
+        request: FetchSourceListRequest,
+        mut emit_progress: impl FnMut(SourceFetchProgress) -> Result<(), Status>,
+    ) -> Result<FetchSourceListResponse, Status> {
+        let provider = request.provider();
+        info!(?provider, user = %request.user, "fetching source list");
+
+        match provider {
+            SourceProvider::Shinden => {
+                let user_id = request
+                    .user
+                    .parse::<u64>()
+                    .map_err(|_| Status::invalid_argument("shinden source user must be a numeric user id"))?;
+
+                emit_progress(source_progress(
+                    SourceProvider::Shinden,
+                    SourceFetchPhase::FetchingList,
+                    0,
+                    0,
+                    "",
+                ))?;
+
+                let shinden = ShindenList::get_from_shinden(self.http_client.clone(), user_id);
+                let shinden = timeout(SHINDEN_FETCH_TIMEOUT, shinden)
+                    .await
+                    .map_err(|_| {
+                        Status::deadline_exceeded(format!(
+                            "shinden list could not be fetched within {} seconds",
+                            SHINDEN_FETCH_TIMEOUT.as_secs()
+                        ))
+                    })?
+                    .map_err(IntoStatus::into_status)?;
+                let total_entries = shinden.len() as u64;
+                let source_version = self.source_list.store(SourceList::Shinden(shinden.clone()));
+                let shinden_version = self.shinden_list.store(shinden);
+                debug_assert_eq!(source_version, shinden_version);
+
+                emit_progress(source_progress(
+                    SourceProvider::Shinden,
+                    SourceFetchPhase::Done,
+                    total_entries,
+                    total_entries,
+                    "",
+                ))?;
+
+                info!(source_version, total_entries, "source list fetched");
+                Ok(FetchSourceListResponse {
+                    source_version,
+                    progress: Some(source_progress(
+                        SourceProvider::Shinden,
+                        SourceFetchPhase::Done,
+                        total_entries,
+                        total_entries,
+                        "",
+                    )),
+                    done: true,
+                })
+            },
+            SourceProvider::AnimeZone => {
+                let username = request.user.trim();
+                if username.is_empty() {
+                    return Err(Status::invalid_argument(
+                        "animezone source user must not be empty",
+                    ));
+                }
+
+                emit_progress(source_progress(
+                    SourceProvider::AnimeZone,
+                    SourceFetchPhase::FetchingList,
+                    0,
+                    0,
+                    "",
+                ))?;
+
+                let mut entries = Vec::new();
+                let mut stream =
+                    AnimeZoneList::stream_from_animezone(self.http_client.clone(), username.to_string());
+
+                let mut total_entries = 0u64;
+                while let Some(event) = stream.next().await {
+                    match event.map_err(IntoStatus::into_status)? {
+                        AnimeZoneFetchEvent::Started { total_entries: total } => {
+                            total_entries = total as u64;
+                            emit_progress(source_progress(
+                                SourceProvider::AnimeZone,
+                                SourceFetchPhase::FetchingDetails,
+                                0,
+                                total_entries,
+                                "",
+                            ))?;
+                        },
+                        AnimeZoneFetchEvent::Entry {
+                            current,
+                            total_entries: total,
+                            entry,
+                        } => {
+                            total_entries = total as u64;
+                            let latest_title = entry.title().to_string();
+                            entries.push(entry);
+                            emit_progress(source_progress(
+                                SourceProvider::AnimeZone,
+                                SourceFetchPhase::FetchingDetails,
+                                current as u64,
+                                total_entries,
+                                latest_title,
+                            ))?;
+                        },
+                    }
+                }
+
+                emit_progress(source_progress(
+                    SourceProvider::AnimeZone,
+                    SourceFetchPhase::Storing,
+                    total_entries,
+                    total_entries,
+                    "",
+                ))?;
+
+                let animezone = AnimeZoneList::from_entries(entries);
+                let total_entries = animezone.len() as u64;
+                let source_version = self.source_list.store(SourceList::AnimeZone(animezone));
+
+                emit_progress(source_progress(
+                    SourceProvider::AnimeZone,
+                    SourceFetchPhase::Done,
+                    total_entries,
+                    total_entries,
+                    "",
+                ))?;
+
+                info!(source_version, total_entries, "source list fetched");
+                Ok(FetchSourceListResponse {
+                    source_version,
+                    progress: Some(source_progress(
+                        SourceProvider::AnimeZone,
+                        SourceFetchPhase::Done,
+                        total_entries,
+                        total_entries,
+                        "",
+                    )),
+                    done: true,
+                })
+            },
+            SourceProvider::OgladajAnime | SourceProvider::Unspecified => {
+                Err(Status::invalid_argument("source provider is not supported"))
+            },
+        }
+    }
+
+    #[instrument(skip_all, name = "app.get_source_ids")]
+    pub async fn get_source_ids(&self, request: GetSourceIdsRequest) -> Result<GetSourceIdsResponse, Status> {
+        let sorted_by = request.sorted_by();
+        let guard = self.source_list.load();
+        let source = guard
+            .get()
+            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+
+        let source_version = guard.version();
+        let mut ids = source.ids();
+        if sorted_by == AnimeListSortedBy::Urgency {
+            ids = source_ids_by_urgency(source);
+        }
+
+        info!(
+            source_version,
+            provider = ?source.provider(),
+            ids = ids.len(),
+            "source ids loaded"
+        );
+        Ok(GetSourceIdsResponse { source_version, ids })
+    }
+
+    #[instrument(skip_all, name = "app.get_source_full")]
+    pub async fn get_source_full(
+        &self,
+        _request: GetSourceFullRequest,
+    ) -> Result<GetSourceFullResponse, Status> {
+        let guard = self.source_list.load();
+        let source = guard
+            .get()
+            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+
+        let source_version = guard.version();
+        let entries = source_entries(source);
+        info!(
+            source_version,
+            provider = ?source.provider(),
+            entries = entries.len(),
+            "loading full source list"
+        );
+
+        Ok(GetSourceFullResponse {
+            source_version,
+            entries,
+        })
     }
 
     // Shinden
@@ -135,8 +353,10 @@ impl ShindenToAnilist {
             .map_err(IntoStatus::into_status)?;
         let entries = shinden.len();
 
+        let source_version = self.source_list.store(SourceList::Shinden(shinden.clone()));
         let shinden_version = self.shinden_list.store(shinden);
         info!(shinden_version, entries, "shinden list fetched");
+        debug_assert_eq!(source_version, shinden_version);
 
         Ok(FetchShindenListResponse { shinden_version })
     }
@@ -414,20 +634,26 @@ impl ShindenToAnilist {
     #[instrument(skip_all, name = "app.fuzzy_match")]
     pub async fn fuzzy_match(&self, request: FuzzyMatchRequest) -> Result<FuzzyMatchResponse, Status> {
         let query_len = request.query.len();
-        info!(query_len, shinden_id = request.shinden_id, "running fuzzy match");
+        info!(
+            query_len,
+            shinden_id = request.shinden_id,
+            source_id = request.source_id,
+            "running fuzzy match"
+        );
         let database_guard = self.database.load();
 
         let database_version = database_guard.version();
         let database = database_guard
             .get()
             .ok_or_else(|| database_not_loaded().into_status())?;
-        let shinden_guard = self.shinden_list.load();
-        let shinden_entry = request
-            .shinden_id
-            .and_then(|id| shinden_guard.get().and_then(|shinden| shinden.get(id)));
-        let query = FuzzyMatchView::new(request.query, shinden_entry);
+        let source_guard = self.source_list.load();
+        let source_entry = request
+            .source_id
+            .or(request.shinden_id)
+            .and_then(|id| source_guard.get().and_then(|source| source.match_view(id)));
+        let query = FuzzyMatchView::new(request.query, source_entry);
         let options = search_options(request.options, SearchMode::Fuzzy);
-        let matcher = if shinden_entry.is_some() {
+        let matcher = if source_entry.is_some() {
             DefaultMatcher {
                 search_weight: 0.8,
                 season_weight: 0.1,
@@ -522,34 +748,181 @@ impl ShindenToAnilist {
         })
     }
 
+    #[instrument(skip_all, name = "app.match_source_list")]
+    pub async fn match_source_list(
+        &self,
+        request: MatchSourceListRequest,
+    ) -> Result<MatchSourceListResponse, Status> {
+        info!("matching source list");
+        let source_guard = self.source_list.load();
+        let database_guard = self.database.load();
+
+        let source_version = source_guard.version();
+        let database_version = database_guard.version();
+        let source = source_guard
+            .get_arc()
+            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+        let database = database_guard
+            .get_arc()
+            .ok_or_else(|| database_not_loaded().into_status())?;
+        let options = search_options(request.options, SearchMode::Strict);
+        let source_entries = source.len();
+        let database_entries = database.database.len();
+
+        let results = spawn_blocking_status("source list matching", move || {
+            let matcher = DefaultMatcher::strict_preset();
+
+            let results = match source.as_ref() {
+                SourceList::Shinden(shinden) => {
+                    let mut results = shinden
+                        .par_values()
+                        .map(|entry| {
+                            entry.search_by_title_ref(&database.database, &database.searcher, options)
+                        })
+                        .map(|(entry, candidates)| {
+                            (entry.id(), matcher.score_candidates(entry, &candidates, 0.5))
+                        })
+                        .collect::<Vec<_>>();
+
+                    results.iter_mut().map(|(_, result)| result).finalize_matches();
+                    results
+                        .into_iter()
+                        .map(SourceMatchResult::from)
+                        .collect::<Vec<_>>()
+                },
+                SourceList::AnimeZone(animezone) => {
+                    let direct_matches = animezone
+                        .direct_mal_matches()
+                        .filter(|(_, mal_id)| database.database.get(*mal_id).is_some())
+                        .collect::<Vec<_>>();
+                    let direct_entry_ids = direct_matches
+                        .iter()
+                        .map(|(source_id, _)| *source_id)
+                        .collect::<std::collections::HashSet<_>>();
+
+                    let mut fallback_results = animezone
+                        .par_values()
+                        .filter(|entry| !direct_entry_ids.contains(&entry.id()))
+                        .map(|entry| {
+                            entry.search_by_title_ref(&database.database, &database.searcher, options)
+                        })
+                        .map(|(entry, candidates)| {
+                            (entry.id(), matcher.score_candidates(entry, &candidates, 0.5))
+                        })
+                        .collect::<Vec<_>>();
+
+                    fallback_results
+                        .iter_mut()
+                        .map(|(_, result)| result)
+                        .finalize_matches();
+
+                    let mut results = direct_matches
+                        .into_iter()
+                        .map(|(source_id, database_id)| direct_source_match_result(source_id, database_id))
+                        .chain(fallback_results.into_iter().map(SourceMatchResult::from))
+                        .collect::<Vec<_>>();
+                    let order = animezone
+                        .keys()
+                        .enumerate()
+                        .map(|(index, id)| (id, index))
+                        .collect::<std::collections::HashMap<_, _>>();
+                    results.sort_by_key(|result| order.get(&result.source_id).copied().unwrap_or(usize::MAX));
+                    results
+                },
+            };
+
+            Ok(results)
+        })
+        .await?;
+        info!(
+            source_version,
+            database_version,
+            source_entries,
+            database_entries,
+            results = results.len(),
+            "source list matched"
+        );
+
+        Ok(MatchSourceListResponse {
+            source_version,
+            database_version,
+            results,
+        })
+    }
+
     #[instrument(skip_all, name = "app.export_xml")]
     pub async fn export_xml(&self, request: ExportXmlRequest) -> Result<ExportXmlResponse, Status> {
         let requested_matches = request.matches.len();
         info!(path = %request.path, requested_matches, "exporting xml");
-        let guard = self.shinden_list.load();
+        let guard = self.source_list.load();
 
-        let shinden_version = guard.version();
-        let shinden = guard
+        let source_version = guard.version();
+        let source = guard
             .get_arc()
             .ok_or_else(|| shinden_list_not_loaded().into_status())?;
         let path = request.path;
         let matches = request
             .matches
             .into_iter()
-            .map(|pair| (pair.shinden_id, pair.database_id))
+            .map(|pair| (pair.source_id, pair.database_id))
             .collect::<Vec<_>>();
 
         let path = spawn_blocking_status("xml export", move || {
-            export_xml_to_path(&shinden, matches.into_iter(), &path)?;
+            export_xml_to_path(&source, matches.into_iter(), &path)?;
             Ok(path)
         })
         .await?;
-        info!(shinden_version, path = %path, requested_matches, "xml exported");
+        info!(source_version, path = %path, requested_matches, "xml exported");
 
         Ok(ExportXmlResponse {
-            shinden_version,
+            source_version,
+            shinden_version: source_version,
             path,
         })
+    }
+}
+
+fn source_progress(
+    provider: SourceProvider,
+    phase: SourceFetchPhase,
+    current: u64,
+    total: u64,
+    latest_title: impl Into<String>,
+) -> SourceFetchProgress {
+    SourceFetchProgress {
+        provider: provider.into(),
+        phase: phase.into(),
+        current,
+        total,
+        latest_title: latest_title.into(),
+    }
+}
+
+fn source_entries(source: &SourceList) -> Vec<SourceEntry> {
+    match source {
+        SourceList::Shinden(list) => list.values().map(SourceEntry::from).collect(),
+        SourceList::AnimeZone(list) => list.values().map(SourceEntry::from).collect(),
+    }
+}
+
+fn source_ids_by_urgency(source: &SourceList) -> Vec<u64> {
+    match source {
+        SourceList::Shinden(list) => list
+            .iter()
+            .map(|(id, entry)| (id, entry.premiere_date()))
+            .collect::<Vec<_>>()
+            .tap_mut(|v| {
+                v.sort_by(|(_, date_a), (_, date_b)| match (date_a, date_b) {
+                    (None, None) => Ordering::Equal,
+                    (None, Some(_)) => Ordering::Less,
+                    (Some(_), None) => Ordering::Greater,
+                    (Some(date_a), Some(date_b)) => date_b.cmp(date_a),
+                })
+            })
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect(),
+        SourceList::AnimeZone(list) => list.keys().collect(),
     }
 }
 
@@ -719,6 +1092,69 @@ where
 
 #[async_trait]
 impl ShindenToAnilistService for ShindenToAnilist {
+    type FetchSourceListStream = UnboundedReceiverStream<Result<FetchSourceListResponse, Status>>;
+
+    async fn fetch_source_list(
+        &self,
+        request: Request<FetchSourceListRequest>,
+    ) -> Result<Response<Self::FetchSourceListStream>, Status> {
+        let service = self.clone();
+        let request = request.into_inner();
+        let (tx, rx) = mpsc::unbounded_channel();
+
+        tokio::spawn(async move {
+            let progress_tx = tx.clone();
+            let result = service
+                .fetch_source_list_with_progress(request, move |progress| {
+                    progress_tx
+                        .send(Ok(FetchSourceListResponse {
+                            source_version: 0,
+                            progress: Some(progress),
+                            done: false,
+                        }))
+                        .map_err(|_| Status::cancelled("source fetch stream receiver dropped"))
+                })
+                .await;
+
+            match result {
+                Ok(response) => {
+                    let _ = tx.send(Ok(response));
+                },
+                Err(status) => {
+                    let _ = tx.send(Err(status));
+                },
+            }
+        });
+
+        Ok(Response::new(UnboundedReceiverStream::new(rx)))
+    }
+
+    async fn get_source_ids(
+        &self,
+        request: Request<GetSourceIdsRequest>,
+    ) -> Result<Response<GetSourceIdsResponse>, Status> {
+        ShindenToAnilist::get_source_ids(self, request.into_inner())
+            .await
+            .map(Response::new)
+    }
+
+    type GetSourceFullStream = ReceiverStream<Result<GetSourceFullResponse, Status>>;
+
+    async fn get_source_full(
+        &self,
+        request: Request<GetSourceFullRequest>,
+    ) -> Result<Response<Self::GetSourceFullStream>, Status> {
+        let response = ShindenToAnilist::get_source_full(self, request.into_inner()).await?;
+        Ok(Response::new(stream_batches(
+            response.source_version,
+            response.entries,
+            |source_version, entries| GetSourceFullResponse {
+                source_version,
+                entries,
+            },
+        )))
+    }
+
     async fn fetch_shinden_list(
         &self,
         request: Request<FetchShindenListRequest>,
@@ -850,6 +1286,25 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::fuzzy_match(self, request.into_inner())
             .await
             .map(Response::new)
+    }
+
+    type MatchSourceListStream = ReceiverStream<Result<MatchSourceListResponse, Status>>;
+
+    async fn match_source_list(
+        &self,
+        request: Request<MatchSourceListRequest>,
+    ) -> Result<Response<Self::MatchSourceListStream>, Status> {
+        let response = ShindenToAnilist::match_source_list(self, request.into_inner()).await?;
+        let database_version = response.database_version;
+        Ok(Response::new(stream_batches(
+            response.source_version,
+            response.results,
+            move |source_version, results| MatchSourceListResponse {
+                source_version,
+                database_version,
+                results,
+            },
+        )))
     }
 
     type MatchShindenListStream = ReceiverStream<Result<MatchShindenListResponse, Status>>;

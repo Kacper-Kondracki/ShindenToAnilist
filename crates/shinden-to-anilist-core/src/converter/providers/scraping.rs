@@ -184,7 +184,6 @@ pub(crate) trait ScrapedListProvider {
     type Section: Copy + Send + Sync;
     type ListItem: Send;
     type Detail: Send;
-    type Output;
     type Error;
 
     fn section_path(username: &str, section: Self::Section, page: usize) -> String;
@@ -195,15 +194,13 @@ pub(crate) trait ScrapedListProvider {
         html: &str,
     ) -> Result<(Vec<Self::ListItem>, usize), Self::Error>;
     fn parse_detail(path: &str, html: &str) -> Result<Self::Detail, Self::Error>;
-    fn build(items: Vec<(Self::ListItem, Option<Self::Detail>)>) -> Self::Output;
 }
 
-pub(crate) async fn fetch_scraped_list<P>(
-    client: ScrapeClient,
-    username: String,
+pub(crate) async fn collect_scraped_list_items<P>(
+    client: &ScrapeClient,
+    username: &str,
     sections: Vec<P::Section>,
-    options: ScrapeOptions,
-) -> Result<P::Output, P::Error>
+) -> Result<Vec<P::ListItem>, P::Error>
 where
     P: ScrapedListProvider,
     P::Error: From<RetryExhausted>,
@@ -211,20 +208,34 @@ where
     let mut items = Vec::new();
 
     for section in sections {
-        let first_path = P::section_path(&username, section, 1);
+        let first_path = P::section_path(username, section, 1);
         let first_html = client.get_html(&first_path).await?;
         let (mut page_items, page_count) = P::parse_list(&first_path, section, &first_html)?;
         items.append(&mut page_items);
 
         for page in 2..=page_count {
-            let path = P::section_path(&username, section, page);
+            let path = P::section_path(username, section, page);
             let html = client.get_html(&path).await?;
             let (mut page_items, _) = P::parse_list(&path, section, &html)?;
             items.append(&mut page_items);
         }
     }
 
-    let detail_items = stream::iter(items.into_iter().map(|item| {
+    Ok(items)
+}
+
+pub(crate) fn fetch_scraped_details<P>(
+    client: ScrapeClient,
+    items: Vec<P::ListItem>,
+    options: ScrapeOptions,
+) -> impl futures_util::Stream<Item = Result<(P::ListItem, Option<P::Detail>), P::Error>> + Send
+where
+    P: ScrapedListProvider,
+    P::ListItem: 'static,
+    P::Detail: 'static,
+    P::Error: From<RetryExhausted> + Send + 'static,
+{
+    stream::iter(items.into_iter().map(move |item| {
         let client = client.clone();
         async move {
             let path = P::detail_path(&item);
@@ -242,12 +253,6 @@ where
         }
     }))
     .buffer_unordered(options.max_concurrent_detail_requests)
-    .collect::<Vec<Result<_, P::Error>>>()
-    .await
-    .into_iter()
-    .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(P::build(detail_items))
 }
 
 fn query_page(url: &str) -> Option<usize> {

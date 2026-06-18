@@ -2,6 +2,7 @@ import type { Provider } from '../config/providers';
 import type {
   AnimeStatus,
   AnimeType,
+  SourceProvider,
   Season,
   WatchStatus
 } from '../gen/shinden_to_anilist/v1/common_pb';
@@ -15,20 +16,26 @@ export type DatabaseInfo = {
   databaseVersion: number;
 };
 
-export type ShindenEntry = {
+export type SourceEntry = {
   id: number;
-  coverId: number | null;
+  provider: SourceProvider;
   title: string;
   animeStatus: AnimeStatus;
   animeType: AnimeType;
   premiereDate: string | null;
+  year: number | null;
   finishDate: string | null;
   episodes: number | null;
-  isFavourite: boolean;
   watchStatus: WatchStatus;
   watchedEpisodes: number;
   score: number | null;
+  sourceUrl: string;
+  malId: number | null;
+  coverId?: number | null;
+  isFavourite?: boolean;
 };
+
+export type ShindenEntry = SourceEntry;
 
 export type DatabaseEntry = {
   id: number;
@@ -48,6 +55,7 @@ export type DatabaseEntry = {
 export type ShindenListIndex = {
   entryIds: number[];
   shindenVersion: number;
+  sourceVersion?: number;
 };
 
 export type ShindenListView = 'manual' | 'automatic' | 'ignored' | 'all';
@@ -82,6 +90,7 @@ export type MatchResult = {
 
 export type ShindenMatchResult = {
   shindenId: number;
+  sourceId?: number;
   result: MatchResult;
 };
 
@@ -92,11 +101,13 @@ export type MatchListResult = {
   hasTop: number;
   unmatched: number;
   shindenVersion: number;
+  sourceVersion?: number;
   databaseVersion: number;
 };
 
 export type MatchSelection = {
-  shindenId: number;
+  sourceId: number;
+  shindenId?: number;
   databaseId: number;
 };
 
@@ -118,9 +129,22 @@ export type DatabaseState =
   | { status: 'ready'; info: DatabaseInfo }
   | { status: 'error'; message: string };
 
+export type SourceImportProgress = {
+  phase: number;
+  current: number;
+  total: number;
+  latestTitle: string;
+  startedAt: number;
+};
+
 export type UserListRequestState =
   | { status: 'idle' }
-  | { status: 'loading'; provider: Provider; query: string }
+  | {
+      status: 'loading';
+      provider: Provider;
+      query: string;
+      progress: SourceImportProgress | null;
+    }
   | ({ status: 'loaded' } & LoadedUserList)
   | { status: 'error'; provider: Provider; query: string; message: string };
 

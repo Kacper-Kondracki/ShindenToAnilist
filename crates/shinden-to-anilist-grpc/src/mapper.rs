@@ -1,11 +1,17 @@
 use shinden_to_anilist_core::{
     Datelike,
     NaiveDate,
-    common::AnimeId,
+    common::{
+        AnimeId,
+        ExportView,
+    },
     database,
     exporter,
     matcher,
-    providers::shinden,
+    providers::{
+        animezone,
+        shinden,
+    },
 };
 use tap::prelude::Conv;
 
@@ -20,6 +26,9 @@ use crate::pb::{
     Season,
     ShindenEntry,
     ShindenMatchResult,
+    SourceEntry,
+    SourceMatchResult,
+    SourceProvider,
     WatchStatus,
 };
 
@@ -38,6 +47,54 @@ impl From<&shinden::AnimeEntry> for ShindenEntry {
             watch_status: value.watch_status().conv::<WatchStatus>().into(),
             watched_episodes: value.watched_episodes(),
             score: value.score(),
+        }
+    }
+}
+
+impl From<&shinden::AnimeEntry> for SourceEntry {
+    fn from(value: &shinden::AnimeEntry) -> Self {
+        Self {
+            id: value.id(),
+            provider: SourceProvider::Shinden.into(),
+            title: value.title().to_string(),
+            anime_status: value.anime_status().conv::<AnimeStatus>().into(),
+            anime_type: value.anime_type().conv::<AnimeType>().into(),
+            premiere_date: value.premiere_date().map(Date::from),
+            year: value.premiere_date().map(|date| date.year()),
+            episodes: value.episodes(),
+            watch_status: value.watch_status().conv::<WatchStatus>().into(),
+            watched_episodes: value.watched_episodes(),
+            score: value.score(),
+            source_url: format!("https://shinden.pl/series/{}", value.id()),
+            mal_id: None,
+        }
+    }
+}
+
+impl From<&animezone::AnimeZoneEntry> for SourceEntry {
+    fn from(value: &animezone::AnimeZoneEntry) -> Self {
+        Self {
+            id: value.id(),
+            provider: SourceProvider::AnimeZone.into(),
+            title: value.title().to_string(),
+            anime_status: value
+                .anime_status()
+                .unwrap_or(database::AnimeStatus::Unknown)
+                .conv::<AnimeStatus>()
+                .into(),
+            anime_type: value
+                .anime_type()
+                .unwrap_or(database::AnimeType::Unknown)
+                .conv::<AnimeType>()
+                .into(),
+            premiere_date: None,
+            year: value.year(),
+            episodes: value.episodes(),
+            watch_status: value.watch_status().conv::<WatchStatus>().into(),
+            watched_episodes: ExportView::watched_episodes(value),
+            score: value.score(),
+            source_url: format!("https://www.animezone.pl/anime/{}", value.slug()),
+            mal_id: value.mal_id(),
         }
     }
 }
@@ -78,6 +135,31 @@ impl From<(AnimeId, matcher::MatchResult)> for ShindenMatchResult {
             top_candidates: result.top().iter().copied().map(MatchResult::from).collect(),
             winner: result.winner().map(MatchResult::from),
         }
+    }
+}
+
+impl From<(AnimeId, matcher::MatchResult)> for SourceMatchResult {
+    fn from((source_id, result): (AnimeId, matcher::MatchResult)) -> Self {
+        Self {
+            source_id,
+            candidates: result.items().iter().copied().map(MatchResult::from).collect(),
+            top_candidates: result.top().iter().copied().map(MatchResult::from).collect(),
+            winner: result.winner().map(MatchResult::from),
+        }
+    }
+}
+
+pub(crate) fn direct_source_match_result(source_id: AnimeId, database_id: AnimeId) -> SourceMatchResult {
+    let direct_match = MatchResult {
+        id: database_id,
+        final_score: 1.0,
+    };
+
+    SourceMatchResult {
+        source_id,
+        candidates: vec![direct_match.clone()],
+        top_candidates: vec![direct_match.clone()],
+        winner: Some(direct_match),
     }
 }
 

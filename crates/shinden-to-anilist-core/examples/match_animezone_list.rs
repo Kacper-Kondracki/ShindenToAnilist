@@ -3,6 +3,7 @@ use std::{
     time::Instant,
 };
 
+use futures_util::StreamExt;
 use shinden_to_anilist_core::{
     HttpClient,
     common::AnimeList,
@@ -17,6 +18,7 @@ use shinden_to_anilist_core::{
     },
     providers::animezone::{
         AnimeZoneEntry,
+        AnimeZoneFetchEvent,
         AnimeZoneList,
         AnimeZoneListLoad,
     },
@@ -34,9 +36,29 @@ async fn main() {
     let matcher = DefaultMatcher::strict_preset();
 
     let now = Instant::now();
-    let animezone = AnimeZoneList::get_from_animezone(HttpClient::new(), "JestemOtaku")
-        .await
-        .unwrap();
+    let mut entries = Vec::new();
+    let stream = AnimeZoneList::stream_from_animezone(HttpClient::new(), "JestemOtaku");
+
+    futures_util::pin_mut!(stream);
+    while let Some(event) = stream.next().await {
+        match event.unwrap() {
+            AnimeZoneFetchEvent::Started { total_entries } => {
+                println!("discovered {total_entries} AnimeZone entries");
+            },
+            AnimeZoneFetchEvent::Entry {
+                current,
+                total_entries,
+                entry,
+            } => {
+                if current == 1 || current % 50 == 0 || current == total_entries {
+                    println!("fetched AnimeZone details {current}/{total_entries}");
+                }
+                entries.push(entry);
+            },
+        }
+    }
+
+    let animezone = AnimeZoneList::from_entries(entries);
 
     let direct_matches = animezone
         .direct_mal_matches()
@@ -66,17 +88,20 @@ async fn main() {
         .iter()
         .map(|(entry_id, _)| *entry_id)
         .collect::<HashSet<_>>();
-    let unmatched = animezone
-        .keys()
-        .filter(|id| !direct_entry_ids.contains(id) && !fallback_entry_ids.contains(id))
-        .count();
+    let unmatched_entries = animezone
+        .iter()
+        .map(|(_, entry)| entry)
+        .filter(|&entry| !direct_entry_ids.contains(&entry.id()) && !fallback_entry_ids.contains(&entry.id()))
+        .collect::<Vec<_>>();
 
     println!("{} entries", animezone.len());
     println!("{} direct matches", direct_matches.len());
     println!("{} fallback matches", fallback_matches.len());
-    println!("{} unmatched", unmatched);
+    println!("{} unmatched", unmatched_entries.len());
     println!("took {:.2?}", now.elapsed());
 
+    println!();
+    println!("fallback matches:");
     for (entry, result) in fallback_results.iter().take(10) {
         if let Some((database_id, score)) = result.winner() {
             let database_entry = database.get_unwrap(database_id);
@@ -87,5 +112,11 @@ async fn main() {
                 database_entry.title()
             );
         }
+    }
+
+    println!();
+    println!("unmatched entries:");
+    for entry in unmatched_entries {
+        println!("[unmatched] {} ({})", entry.title(), entry.id());
     }
 }

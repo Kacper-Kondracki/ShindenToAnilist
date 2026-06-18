@@ -1,4 +1,4 @@
-import type { DatabaseEntry, ShindenEntry } from '../domain/anime';
+import type { DatabaseEntry, SourceEntry } from '../domain/anime';
 
 type DatabaseFullLoad = {
   databaseVersion: number;
@@ -6,26 +6,33 @@ type DatabaseFullLoad = {
 };
 
 type ShindenFullLoad = {
-  shindenVersion: number;
-  entries: ShindenEntry[];
+  sourceVersion: number;
+  entries: SourceEntry[];
 };
 
 export type LoadedAnimeData = ReturnType<typeof createLoadedAnimeData>;
 
 export function createLoadedAnimeData() {
   let databaseVersion = $state(0);
-  let shindenVersion = $state(0);
+  let sourceVersion = $state(0);
   let databaseEntriesById = $state<Map<number, DatabaseEntry>>(new Map());
-  let shindenEntriesById = $state<Map<number, ShindenEntry>>(new Map());
+  let sourceEntriesById = $state<Map<number, SourceEntry>>(new Map());
 
   function replaceDatabaseFull(load: DatabaseFullLoad) {
     databaseEntriesById = entriesById(load.entries);
     databaseVersion = load.databaseVersion;
   }
 
-  function replaceShindenFull(load: ShindenFullLoad) {
-    shindenEntriesById = entriesById(load.entries);
-    shindenVersion = load.shindenVersion;
+  function replaceSourceFull(load: ShindenFullLoad) {
+    sourceEntriesById = entriesById(load.entries);
+    sourceVersion = load.sourceVersion;
+  }
+
+  function replaceShindenFull(load: { shindenVersion: number; entries: SourceEntry[] }) {
+    replaceSourceFull({
+      sourceVersion: load.shindenVersion,
+      entries: load.entries
+    });
   }
 
   function getDatabaseEntry(entryId: number | null) {
@@ -41,23 +48,27 @@ export function createLoadedAnimeData() {
       return null;
     }
 
-    return shindenEntriesById.get(entryId) ?? null;
+    return sourceEntriesById.get(entryId) ?? null;
   }
 
   return {
     get databaseVersion() {
       return databaseVersion;
     },
+    get sourceVersion() {
+      return sourceVersion;
+    },
     get shindenVersion() {
-      return shindenVersion;
+      return sourceVersion;
     },
     get databaseEntryCount() {
       return databaseEntriesById.size;
     },
     get shindenEntryCount() {
-      return shindenEntriesById.size;
+      return sourceEntriesById.size;
     },
     replaceDatabaseFull,
+    replaceSourceFull,
     replaceShindenFull,
     getDatabaseEntry,
     getShindenEntry

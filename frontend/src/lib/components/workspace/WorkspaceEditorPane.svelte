@@ -158,7 +158,7 @@
       </p>
     {:else if selectedShindenEntry === null}
       <p class="workspace-empty text-sm font-medium text-muted">
-        Nie znaleziono wpisu Shinden
+        Nie znaleziono wpisu źródłowego
       </p>
     {:else}
       <div class="editor-layout">

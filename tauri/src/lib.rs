@@ -15,6 +15,7 @@ use tauri::{
     AppHandle,
     Manager,
     State,
+    ipc::Channel,
 };
 use tonic::Status;
 
@@ -48,8 +49,31 @@ struct FetchShindenListResponseDto {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct SourceFetchProgressDto {
+    provider: i32,
+    phase: i32,
+    current: u64,
+    total: u64,
+    latest_title: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FetchSourceListResponseDto {
+    source_version: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct GetShindenIdsResponseDto {
     shinden_version: u64,
+    ids: Vec<u64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GetSourceIdsResponseDto {
+    source_version: u64,
     ids: Vec<u64>,
 }
 
@@ -72,6 +96,24 @@ struct ShindenEntryDto {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct SourceEntryDto {
+    id: u64,
+    provider: i32,
+    title: String,
+    anime_status: i32,
+    anime_type: i32,
+    premiere_date: Option<DateDto>,
+    year: Option<i32>,
+    episodes: Option<i32>,
+    watch_status: i32,
+    watched_episodes: i32,
+    score: Option<i32>,
+    source_url: String,
+    mal_id: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct GetShindenEntriesResponseDto {
     shinden_version: u64,
     entries: Vec<ShindenEntryDto>,
@@ -82,6 +124,13 @@ struct GetShindenEntriesResponseDto {
 struct GetShindenFullResponseDto {
     shinden_version: u64,
     entries: Vec<ShindenEntryDto>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GetSourceFullResponseDto {
+    source_version: u64,
+    entries: Vec<SourceEntryDto>,
 }
 
 #[derive(Debug, Serialize)]
@@ -222,6 +271,23 @@ struct MatchShindenListResponseDto {
     results: Vec<ShindenMatchResultDto>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SourceMatchResultDto {
+    source_id: u64,
+    candidates: Vec<MatchResultDto>,
+    top_candidates: Vec<MatchResultDto>,
+    winner: Option<MatchResultDto>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MatchSourceListResponseDto {
+    source_version: u64,
+    database_version: u64,
+    results: Vec<SourceMatchResultDto>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AnimeIdPairDto {
@@ -229,9 +295,17 @@ struct AnimeIdPairDto {
     database_id: u64,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SourceIdPairDto {
+    source_id: u64,
+    database_id: u64,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ExportXmlResponseDto {
+    source_version: u64,
     shinden_version: u64,
     path: String,
 }
@@ -242,6 +316,18 @@ impl From<pb::Date> for DateDto {
             year: value.year,
             month: value.month,
             day: value.day,
+        }
+    }
+}
+
+impl From<pb::SourceFetchProgress> for SourceFetchProgressDto {
+    fn from(value: pb::SourceFetchProgress) -> Self {
+        Self {
+            provider: value.provider,
+            phase: value.phase,
+            current: value.current,
+            total: value.total,
+            latest_title: value.latest_title,
         }
     }
 }
@@ -261,6 +347,26 @@ impl From<pb::ShindenEntry> for ShindenEntryDto {
             watch_status: value.watch_status,
             watched_episodes: value.watched_episodes,
             score: value.score,
+        }
+    }
+}
+
+impl From<pb::SourceEntry> for SourceEntryDto {
+    fn from(value: pb::SourceEntry) -> Self {
+        Self {
+            id: value.id,
+            provider: value.provider,
+            title: value.title,
+            anime_status: value.anime_status,
+            anime_type: value.anime_type,
+            premiere_date: value.premiere_date.map(Into::into),
+            year: value.year,
+            episodes: value.episodes,
+            watch_status: value.watch_status,
+            watched_episodes: value.watched_episodes,
+            score: value.score,
+            source_url: value.source_url,
+            mal_id: value.mal_id,
         }
     }
 }
@@ -341,6 +447,17 @@ impl From<pb::ShindenMatchResult> for ShindenMatchResultDto {
     }
 }
 
+impl From<pb::SourceMatchResult> for SourceMatchResultDto {
+    fn from(value: pb::SourceMatchResult) -> Self {
+        Self {
+            source_id: value.source_id,
+            candidates: value.candidates.into_iter().map(Into::into).collect(),
+            top_candidates: value.top_candidates.into_iter().map(Into::into).collect(),
+            winner: value.winner.map(Into::into),
+        }
+    }
+}
+
 impl From<SearchOptionsDto> for pb::SearchOptions {
     fn from(value: SearchOptionsDto) -> Self {
         Self {
@@ -354,6 +471,15 @@ impl From<AnimeIdPairDto> for pb::AnimeIdPair {
     fn from(value: AnimeIdPairDto) -> Self {
         Self {
             shinden_id: value.shinden_id,
+            database_id: value.database_id,
+        }
+    }
+}
+
+impl From<SourceIdPairDto> for pb::SourceIdPair {
+    fn from(value: SourceIdPairDto) -> Self {
+        Self {
+            source_id: value.source_id,
             database_id: value.database_id,
         }
     }
@@ -379,6 +505,58 @@ fn app_paths(app: AppHandle) -> Result<AppPathsDto, String> {
         export: display_path(&export_dir.join("export.xml")),
         base: display_path(&base),
     })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn fetch_source_list(
+    state: State<'_, AppState>,
+    provider: i32,
+    user: String,
+    on_progress: Channel<SourceFetchProgressDto>,
+) -> Result<FetchSourceListResponseDto, String> {
+    state
+        .service
+        .fetch_source_list_with_progress(pb::FetchSourceListRequest { provider, user }, move |progress| {
+            on_progress
+                .send(progress.into())
+                .map_err(|err| Status::internal(err.to_string()))
+        })
+        .await
+        .map(|response| FetchSourceListResponseDto {
+            source_version: response.source_version,
+        })
+        .map_err(command_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn get_source_ids(
+    state: State<'_, AppState>,
+    sorted_by: Option<i32>,
+) -> Result<GetSourceIdsResponseDto, String> {
+    state
+        .service
+        .get_source_ids(pb::GetSourceIdsRequest {
+            sorted_by: sorted_by.unwrap_or_default(),
+        })
+        .await
+        .map(|response| GetSourceIdsResponseDto {
+            source_version: response.source_version,
+            ids: response.ids,
+        })
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn get_source_full(state: State<'_, AppState>) -> Result<GetSourceFullResponseDto, String> {
+    state
+        .service
+        .get_source_full(pb::GetSourceFullRequest {})
+        .await
+        .map(|response| GetSourceFullResponseDto {
+            source_version: response.source_version,
+            entries: response.entries.into_iter().map(Into::into).collect(),
+        })
+        .map_err(command_error)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -573,6 +751,7 @@ async fn fuzzy_match(
     query: String,
     options: Option<SearchOptionsDto>,
     shinden_id: Option<u64>,
+    source_id: Option<u64>,
 ) -> Result<FuzzyMatchResponseDto, String> {
     state
         .service
@@ -580,6 +759,7 @@ async fn fuzzy_match(
             query,
             options: Some(options.unwrap_or_default().into()),
             shinden_id,
+            source_id,
         })
         .await
         .map(|response| FuzzyMatchResponseDto {
@@ -609,10 +789,29 @@ async fn match_shinden_list(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+async fn match_source_list(
+    state: State<'_, AppState>,
+    options: Option<SearchOptionsDto>,
+) -> Result<MatchSourceListResponseDto, String> {
+    state
+        .service
+        .match_source_list(pb::MatchSourceListRequest {
+            options: Some(options.unwrap_or_default().into()),
+        })
+        .await
+        .map(|response| MatchSourceListResponseDto {
+            source_version: response.source_version,
+            database_version: response.database_version,
+            results: response.results.into_iter().map(Into::into).collect(),
+        })
+        .map_err(command_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 async fn export_xml(
     state: State<'_, AppState>,
     path: String,
-    matches: Vec<AnimeIdPairDto>,
+    matches: Vec<SourceIdPairDto>,
 ) -> Result<ExportXmlResponseDto, String> {
     state
         .service
@@ -622,6 +821,7 @@ async fn export_xml(
         })
         .await
         .map(|response| ExportXmlResponseDto {
+            source_version: response.source_version,
             shinden_version: response.shinden_version,
             path: response.path,
         })
@@ -638,6 +838,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_paths,
+            fetch_source_list,
+            get_source_ids,
+            get_source_full,
             fetch_shinden_list,
             get_shinden_ids,
             get_shinden_entries,
@@ -651,6 +854,7 @@ pub fn run() {
             get_database_full,
             fuzzy_search,
             fuzzy_match,
+            match_source_list,
             match_shinden_list,
             export_xml
         ])

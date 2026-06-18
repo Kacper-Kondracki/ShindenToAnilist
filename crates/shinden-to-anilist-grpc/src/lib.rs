@@ -25,6 +25,7 @@ mod export;
 pub mod mapper;
 mod matching;
 pub mod server;
+mod source;
 
 pub use server::ShindenToAnilist;
 
@@ -44,30 +45,38 @@ impl<T> Snapshot<T> {
 
 #[derive(Debug)]
 pub struct VersionedArcOption<T> {
-    inner: ArcSwap<Snapshot<T>>,
+    inner: Arc<ArcSwap<Snapshot<T>>>,
 }
 
 impl<T> Default for VersionedArcOption<T> {
     fn default() -> Self { Self::empty() }
 }
 
+impl<T> Clone for VersionedArcOption<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
+}
+
 impl<T> VersionedArcOption<T> {
     pub fn empty() -> Self {
         Self {
-            inner: ArcSwap::from_pointee(Snapshot {
+            inner: Arc::new(ArcSwap::from_pointee(Snapshot {
                 version: 0,
                 value: None,
-            }),
+            })),
         }
     }
 
     pub fn some(value: T) -> Self { Self::some_arc(Arc::new(value)) }
     pub fn some_arc(value: Arc<T>) -> Self {
         Self {
-            inner: ArcSwap::from_pointee(Snapshot {
+            inner: Arc::new(ArcSwap::from_pointee(Snapshot {
                 version: 1,
                 value: Some(value),
-            }),
+            })),
         }
     }
 

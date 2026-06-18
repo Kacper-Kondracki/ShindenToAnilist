@@ -7,7 +7,10 @@ use prost::Message;
 use shinden_to_anilist_core::{
     database::DatabaseError,
     exporter::xml::XmlExportError,
-    providers::shinden::ShindenError,
+    providers::{
+        animezone::AnimeZoneError,
+        shinden::ShindenError,
+    },
 };
 use tonic::{
     Code,
@@ -45,6 +48,10 @@ impl IntoStatus for DatabaseError {
 
 impl IntoStatus for ShindenError {
     fn into_status(self) -> Status { shinden_error(self).into_status() }
+}
+
+impl IntoStatus for AnimeZoneError {
+    fn into_status(self) -> Status { animezone_error(self).into_status() }
 }
 
 impl IntoStatus for XmlExportError {
@@ -135,6 +142,40 @@ pub fn shinden_error(error: ShindenError) -> AppError {
             kind: ErrorKind::ShindenApi.into(),
             message: format!("shinden api returned error: {message}"),
             details: Some(Details::ShindenApi(ShindenApiError { message })),
+        },
+    }
+}
+
+pub fn animezone_error(error: AnimeZoneError) -> AppError {
+    match error {
+        AnimeZoneError::Io(error) => io_error(
+            ErrorKind::AnimeZoneIo,
+            error.to_string(),
+            None,
+            "animezone",
+            Some(error.kind()),
+        ),
+        AnimeZoneError::Request(error) => http_error(ErrorKind::AnimeZoneHttp, error),
+        AnimeZoneError::RetryExhausted {
+            path,
+            attempts,
+            source,
+        } => AppError {
+            kind: ErrorKind::AnimeZoneRetryExhausted.into(),
+            message: format!("animezone request to {path} failed after {attempts} attempts"),
+            details: Some(Details::Http(HttpError {
+                message: source.to_string(),
+                url: path,
+                status: source
+                    .status()
+                    .map(|status| status.as_u16().into())
+                    .unwrap_or_default(),
+            })),
+        },
+        AnimeZoneError::Parse { path, message } => AppError {
+            kind: ErrorKind::AnimeZoneParse.into(),
+            message: format!("animezone parse error at {path}: {message}"),
+            details: None,
         },
     }
 }

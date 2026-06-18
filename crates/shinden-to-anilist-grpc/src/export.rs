@@ -15,7 +15,11 @@ use std::{
 };
 
 use shinden_to_anilist_core::{
-    common::AnimeId,
+    common::{
+        AnimeId,
+        AnimeList,
+        ExportView,
+    },
     exporter::{
         ExportExt,
         xml::{
@@ -23,16 +27,18 @@ use shinden_to_anilist_core::{
             XmlExporter,
         },
     },
-    providers::shinden::ShindenList,
 };
 
-use crate::error::{
-    IntoStatus,
-    export_xml_io_error,
+use crate::{
+    error::{
+        IntoStatus,
+        export_xml_io_error,
+    },
+    source::SourceList,
 };
 
 pub(crate) fn export_xml_to_path(
-    shinden: &ShindenList,
+    source: &SourceList,
     matches: impl Iterator<Item = (AnimeId, AnimeId)>,
     path: impl AsRef<Path>,
 ) -> Result<(), tonic::Status> {
@@ -40,7 +46,7 @@ pub(crate) fn export_xml_to_path(
     let (mut temp_file, temp_path) = create_unique_temp_file(path)
         .map_err(|err| export_xml_io_error(err, path, "create").into_status())?;
 
-    let result = write_xml(shinden, matches, &mut temp_file)
+    let result = write_source_xml(source, matches, &mut temp_file)
         .and_then(|_| temp_file.sync_all().map_err(ExportWriteError::Io))
         .map_err(|err| match err {
             ExportWriteError::Xml(err) => err.into_status(),
@@ -59,13 +65,27 @@ pub(crate) fn export_xml_to_path(
     result
 }
 
-fn write_xml(
-    shinden: &ShindenList,
+fn write_source_xml(
+    source: &SourceList,
     matches: impl Iterator<Item = (AnimeId, AnimeId)>,
     temp_file: &mut File,
 ) -> Result<(), ExportWriteError> {
+    match source {
+        SourceList::Shinden(list) => write_xml(list, matches, temp_file),
+        SourceList::AnimeZone(list) => write_xml(list, matches, temp_file),
+    }
+}
+
+fn write_xml<E>(
+    source: &impl AnimeList<Entry = E>,
+    matches: impl Iterator<Item = (AnimeId, AnimeId)>,
+    temp_file: &mut File,
+) -> Result<(), ExportWriteError>
+where
+    E: ExportView + Send + Sync,
+{
     let mut writer = BufWriter::new(temp_file);
-    shinden
+    source
         .export(&XmlExporter {}, matches, &mut writer)
         .map_err(ExportWriteError::Xml)?;
     writer.flush().map_err(ExportWriteError::Io)

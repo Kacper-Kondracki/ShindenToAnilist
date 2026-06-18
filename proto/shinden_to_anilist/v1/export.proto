@@ -6,3 +6,8 @@ message AnimeIdPair {
   uint64 shinden_id = 1;
   uint64 database_id = 2;
 }
+
+message SourceIdPair {
+  uint64 source_id = 1;
+  uint64 database_id = 2;
+}

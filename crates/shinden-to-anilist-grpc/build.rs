@@ -10,6 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 format!("{PROTO_PATH}/shinden_to_anilist/v1/search.proto"),
                 format!("{PROTO_PATH}/shinden_to_anilist/v1/matching.proto"),
                 format!("{PROTO_PATH}/shinden_to_anilist/v1/export.proto"),
+                format!("{PROTO_PATH}/shinden_to_anilist/v1/source.proto"),
             ],
             &[PROTO_PATH.into()],
         )?;

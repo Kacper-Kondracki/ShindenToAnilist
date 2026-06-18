@@ -13,3 +13,10 @@ message ShindenMatchResult {
   repeated MatchResult top_candidates = 3;
   optional MatchResult winner = 4;
 }
+
+message SourceMatchResult {
+  uint64 source_id = 1;
+  repeated MatchResult candidates = 2;
+  repeated MatchResult top_candidates = 3;
+  optional MatchResult winner = 4;
+}

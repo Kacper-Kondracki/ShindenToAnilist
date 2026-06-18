@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shinden_to_anilist/v1/matching.proto.
  */
 export const file_shinden_to_anilist_v1_matching: GenFile = /*@__PURE__*/
-  fileDesc("CiRzaGluZGVuX3RvX2FuaWxpc3QvdjEvbWF0Y2hpbmcucHJvdG8SFXNoaW5kZW5fdG9fYW5pbGlzdC52MSIuCgtNYXRjaFJlc3VsdBIKCgJpZBgBIAEoBBITCgtmaW5hbF9zY29yZRgCIAEoAiLgAQoSU2hpbmRlbk1hdGNoUmVzdWx0EhIKCnNoaW5kZW5faWQYASABKAQSNgoKY2FuZGlkYXRlcxgCIAMoCzIiLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFJlc3VsdBI6Cg50b3BfY2FuZGlkYXRlcxgDIAMoCzIiLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFJlc3VsdBI3CgZ3aW5uZXIYBCABKAsyIi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTWF0Y2hSZXN1bHRIAIgBAUIJCgdfd2lubmVyYgZwcm90bzM");
+  fileDesc("CiRzaGluZGVuX3RvX2FuaWxpc3QvdjEvbWF0Y2hpbmcucHJvdG8SFXNoaW5kZW5fdG9fYW5pbGlzdC52MSIuCgtNYXRjaFJlc3VsdBIKCgJpZBgBIAEoBBITCgtmaW5hbF9zY29yZRgCIAEoAiLgAQoSU2hpbmRlbk1hdGNoUmVzdWx0EhIKCnNoaW5kZW5faWQYASABKAQSNgoKY2FuZGlkYXRlcxgCIAMoCzIiLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFJlc3VsdBI6Cg50b3BfY2FuZGlkYXRlcxgDIAMoCzIiLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFJlc3VsdBI3CgZ3aW5uZXIYBCABKAsyIi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTWF0Y2hSZXN1bHRIAIgBAUIJCgdfd2lubmVyIt4BChFTb3VyY2VNYXRjaFJlc3VsdBIRCglzb3VyY2VfaWQYASABKAQSNgoKY2FuZGlkYXRlcxgCIAMoCzIiLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFJlc3VsdBI6Cg50b3BfY2FuZGlkYXRlcxgDIAMoCzIiLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFJlc3VsdBI3CgZ3aW5uZXIYBCABKAsyIi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTWF0Y2hSZXN1bHRIAIgBAUIJCgdfd2lubmVyYgZwcm90bzM");
 
 /**
  * @generated from message shinden_to_anilist.v1.MatchResult
@@ -65,4 +65,36 @@ export type ShindenMatchResult = Message<"shinden_to_anilist.v1.ShindenMatchResu
  */
 export const ShindenMatchResultSchema: GenMessage<ShindenMatchResult> = /*@__PURE__*/
   messageDesc(file_shinden_to_anilist_v1_matching, 1);
+
+/**
+ * @generated from message shinden_to_anilist.v1.SourceMatchResult
+ */
+export type SourceMatchResult = Message<"shinden_to_anilist.v1.SourceMatchResult"> & {
+  /**
+   * @generated from field: uint64 source_id = 1;
+   */
+  sourceId: bigint;
+
+  /**
+   * @generated from field: repeated shinden_to_anilist.v1.MatchResult candidates = 2;
+   */
+  candidates: MatchResult[];
+
+  /**
+   * @generated from field: repeated shinden_to_anilist.v1.MatchResult top_candidates = 3;
+   */
+  topCandidates: MatchResult[];
+
+  /**
+   * @generated from field: optional shinden_to_anilist.v1.MatchResult winner = 4;
+   */
+  winner?: MatchResult | undefined;
+};
+
+/**
+ * Describes the message shinden_to_anilist.v1.SourceMatchResult.
+ * Use `create(SourceMatchResultSchema)` to create a new message.
+ */
+export const SourceMatchResultSchema: GenMessage<SourceMatchResult> = /*@__PURE__*/
+  messageDesc(file_shinden_to_anilist_v1_matching, 2);
 

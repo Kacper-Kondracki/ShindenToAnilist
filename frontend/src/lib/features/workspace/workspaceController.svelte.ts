@@ -531,6 +531,7 @@ function buildEffectiveSelections(
 
     if (databaseId !== null) {
       selections.push({
+        sourceId: entry.sourceId ?? entry.shindenId,
         shindenId: entry.shindenId,
         databaseId
       });
