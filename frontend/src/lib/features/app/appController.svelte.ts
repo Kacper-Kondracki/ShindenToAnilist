@@ -447,10 +447,11 @@ function assertConsistentWorkspaceVersions(
   matchResult: MatchListResult,
   sourceIdsVersion: WireNumber
 ) {
+  const matchedSourceVersion = matchResult.sourceVersion ?? matchResult.shindenVersion;
   if (
-    !wireNumberEquals(fetchedSourceVersion, matchResult.shindenVersion) ||
-    !wireNumberEquals(fullSourceVersion, matchResult.shindenVersion) ||
-    !wireNumberEquals(sourceIdsVersion, matchResult.shindenVersion)
+    !wireNumberEquals(fetchedSourceVersion, matchedSourceVersion) ||
+    !wireNumberEquals(fullSourceVersion, matchedSourceVersion) ||
+    !wireNumberEquals(sourceIdsVersion, matchedSourceVersion)
   ) {
     throw new Error(
       'Lista źródłowa zmieniła się podczas dopasowywania. Spróbuj ponownie.'

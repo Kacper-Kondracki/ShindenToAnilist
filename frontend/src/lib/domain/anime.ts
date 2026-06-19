@@ -89,6 +89,12 @@ export type ShindenListIndex = {
   sourceVersion?: WireNumber;
 };
 
+export type SourceListIndex = {
+  entryIds: WireNumber[];
+  sourceVersion: WireNumber;
+  shindenVersion?: WireNumber;
+};
+
 export type ShindenListView = 'manual' | 'automatic' | 'ignored' | 'all';
 
 export type ShindenListViews = Record<ShindenListView, WireNumber[]>;
@@ -119,14 +125,16 @@ export type MatchResult = {
   winner: ScoredCandidate | null;
 };
 
-export type ShindenMatchResult = {
+export type SourceMatchEntry = {
+  sourceId: WireNumber;
   shindenId: WireNumber;
-  sourceId?: WireNumber;
   result: MatchResult;
 };
 
+export type ShindenMatchResult = SourceMatchEntry;
+
 export type MatchListResult = {
-  entries: ShindenMatchResult[];
+  entries: SourceMatchEntry[];
   total: number;
   winners: number;
   hasTop: number;

@@ -1,18 +1,9 @@
 import { create } from '@bufbuild/protobuf';
-import {
-  ConnectError,
-  createClient,
-  decodeBinaryHeader
-} from '@connectrpc/connect';
-import { createGrpcWebTransport } from '@connectrpc/connect-web';
-import { Channel, invoke, isTauri as isTauriApi } from '@tauri-apps/api/core';
-import { save } from '@tauri-apps/plugin-dialog';
+import { Channel } from '@tauri-apps/api/core';
 import {
   AnimeListSortedBy,
-  SourceProvider,
-  type Date as ProtoDate
+  SourceProvider
 } from '../gen/shinden_to_anilist/v1/common_pb';
-import { AppErrorSchema } from '../gen/shinden_to_anilist/v1/error_pb';
 import { SourceIdPairSchema } from '../gen/shinden_to_anilist/v1/export_pb';
 import type {
   DatabaseEntry as ProtoDatabaseEntry,
@@ -42,8 +33,7 @@ import {
   GetShindenIdsRequestSchema,
   LoadDatabaseRequestSchema,
   MatchSourceListRequestSchema,
-  MatchShindenListRequestSchema,
-  ShindenToAnilistService
+  MatchShindenListRequestSchema
 } from '../gen/shinden_to_anilist/v1/service_pb';
 import type { ShindenEntry as ProtoShindenEntry } from '../gen/shinden_to_anilist/v1/shinden_pb';
 import type {
@@ -63,22 +53,32 @@ import type {
   ShindenListIndex,
   WireNumber
 } from '../domain/anime';
+import {
+  appPathsPromise,
+  callRpc,
+  callTauri,
+  databasePath,
+  exportPath,
+  isTauriRuntime,
+  selectExportPath
+} from './runtime';
+import {
+  currentSourceVersion,
+  currentVersions,
+  observeDatabaseVersion,
+  observeShindenVersion,
+  observeSourceVersion
+} from './versions';
+import {
+  formatProtoDate,
+  toSafeNumber,
+  toTauriWireNumber,
+  toWireNumber,
+  type WireDate,
+  type WireNumberInput
+} from './wire';
 
-type WireNumberInput = WireNumber | number | string;
-
-type AppPaths = {
-  base: string;
-  database: string;
-  export: string;
-};
-
-type TauriDate = {
-  year: number;
-  month: number;
-  day: number;
-};
-
-type WireDate = ProtoDate | TauriDate | null | undefined;
+export { currentVersions, databasePath, exportPath };
 
 type AppDatabaseReleaseInfo = Pick<
   DatabaseReleaseInfo,
@@ -267,72 +267,6 @@ type TauriExportXmlResponse = {
   shindenVersion: WireNumberInput;
   path: string;
 };
-
-const fallbackPaths = {
-  base: '/tmp',
-  database: '/tmp/shinden-to-anilist-database.jsonl',
-  export: '/tmp/shinden-to-anilist-export.xml'
-};
-
-export const databasePath =
-  globalThis.shindenToAnilist?.paths.database ?? fallbackPaths.database;
-export const exportPath =
-  globalThis.shindenToAnilist?.paths.export ?? fallbackPaths.export;
-
-const appPathsPromise = resolveAppPaths();
-const clientPromise = isTauriRuntime() ? null : createAppClient();
-type AppClient = Awaited<ReturnType<typeof createAppClient>>;
-
-const U64_MAX = (1n << 64n) - 1n;
-
-let shindenVersion: WireNumber = 0n;
-let sourceVersion: WireNumber = 0n;
-let databaseVersion: WireNumber = 0n;
-
-async function createAppClient() {
-  const transport = createGrpcWebTransport({
-    baseUrl: await resolveGrpcBaseUrl()
-  });
-
-  return createClient(ShindenToAnilistService, transport);
-}
-
-async function resolveGrpcBaseUrl() {
-  const getGrpcBaseUrl = globalThis.shindenToAnilist?.getGrpcBaseUrl;
-
-  if (getGrpcBaseUrl !== undefined) {
-    return await getGrpcBaseUrl();
-  }
-
-  return (
-    import.meta.env.VITE_SHINDEN_TO_ANILIST_GRPC_BASE_URL ??
-    'http://127.0.0.1:45187'
-  );
-}
-
-async function resolveAppPaths(): Promise<AppPaths> {
-  if (globalThis.shindenToAnilist?.paths !== undefined) {
-    return globalThis.shindenToAnilist.paths;
-  }
-
-  if (isTauriRuntime()) {
-    return await callTauri<AppPaths>('app_paths');
-  }
-
-  return fallbackPaths;
-}
-
-function isTauriRuntime() {
-  return isTauriApi() || globalThis.__TAURI_INTERNALS__ !== undefined;
-}
-
-export function currentVersions() {
-  return {
-    source: sourceVersion,
-    shinden: shindenVersion,
-    database: databaseVersion
-  };
-}
 
 export async function ensureDatabase() {
   const paths = await appPathsPromise;
@@ -727,16 +661,16 @@ export async function fuzzySearch(query: string, options: SearchOptions = {}) {
 export async function fuzzyMatch(
   query: string,
   options: SearchOptions = {},
-  shindenId?: WireNumber
+  sourceId?: WireNumber
 ) {
   if (isTauriRuntime()) {
     const response = await callTauri<TauriFuzzyMatchResponse>('fuzzy_match', {
       query,
       options: createTauriSearchOptions(options),
       shindenId:
-        shindenId === undefined ? undefined : toTauriWireNumber(shindenId),
+        sourceId === undefined ? undefined : toTauriWireNumber(sourceId),
       sourceId:
-        shindenId === undefined ? undefined : toTauriWireNumber(shindenId)
+        sourceId === undefined ? undefined : toTauriWireNumber(sourceId)
     });
     observeDatabaseVersion(response.databaseVersion);
 
@@ -751,8 +685,8 @@ export async function fuzzyMatch(
       create(FuzzyMatchRequestSchema, {
         query,
         options: createSearchOptions(options),
-        shindenId: shindenId === undefined ? undefined : BigInt(shindenId),
-        sourceId: shindenId === undefined ? undefined : BigInt(shindenId)
+        shindenId: sourceId === undefined ? undefined : BigInt(sourceId),
+        sourceId: sourceId === undefined ? undefined : BigInt(sourceId)
       })
     );
     observeDatabaseVersion(response.databaseVersion);
@@ -851,7 +785,7 @@ export async function exportXml(matches: MatchSelection[], path?: string) {
         path: resolvedPath,
         exportedCount: 0,
         cancelled: true,
-        shindenVersion: sourceVersion
+        shindenVersion: currentSourceVersion()
       };
     }
 
@@ -880,7 +814,7 @@ export async function exportXml(matches: MatchSelection[], path?: string) {
         path: resolvedPath,
         exportedCount: 0,
         cancelled: true,
-        shindenVersion: sourceVersion
+        shindenVersion: currentSourceVersion()
       };
     }
 
@@ -904,69 +838,6 @@ export async function exportXml(matches: MatchSelection[], path?: string) {
       shindenVersion: toWireNumber(response.sourceVersion)
     };
   });
-}
-
-async function selectExportPath(defaultPath: string) {
-  const selectPath = globalThis.shindenToAnilist?.selectExportPath;
-
-  if (selectPath !== undefined) {
-    return selectPath({ defaultPath });
-  }
-
-  if (isTauriRuntime()) {
-    return await save({
-      title: 'Wybierz plik eksportu',
-      defaultPath,
-      filters: [
-        { name: 'XML', extensions: ['xml'] },
-        { name: 'Wszystkie pliki', extensions: ['*'] }
-      ]
-    });
-  }
-
-  return defaultPath;
-}
-
-async function callRpc<T>(run: (client: AppClient) => Promise<T>) {
-  if (clientPromise === null) {
-    throw new Error('gRPC client is not available in Tauri runtime');
-  }
-
-  try {
-    return await run(await clientPromise);
-  } catch (error) {
-    throw normalizeRpcError(error);
-  }
-}
-
-async function callTauri<T>(command: string, args?: Record<string, unknown>) {
-  try {
-    return await invoke<T>(command, args ?? {});
-  } catch (error) {
-    throw normalizeTauriError(error);
-  }
-}
-
-function observeShindenVersion(version: WireNumberInput) {
-  const nextVersion = toWireNumber(version);
-  if (isGreaterWireNumber(nextVersion, shindenVersion)) {
-    shindenVersion = nextVersion;
-  }
-}
-
-function observeSourceVersion(version: WireNumberInput) {
-  const nextVersion = toWireNumber(version);
-  if (isGreaterWireNumber(nextVersion, sourceVersion)) {
-    sourceVersion = nextVersion;
-  }
-  observeShindenVersion(version);
-}
-
-function observeDatabaseVersion(version: WireNumberInput) {
-  const nextVersion = toWireNumber(version);
-  if (isGreaterWireNumber(nextVersion, databaseVersion)) {
-    databaseVersion = nextVersion;
-  }
 }
 
 function createSearchOptions(options: SearchOptions) {
@@ -1076,6 +947,7 @@ function toMatchListResult(
   nextDatabaseVersion: WireNumberInput
 ): MatchListResult {
   const mappedEntries = entries.map((entry) => ({
+    sourceId: toWireNumber(entry.shindenId),
     shindenId: toWireNumber(entry.shindenId),
     result: toMatchResult(entry.candidates, entry.topCandidates, entry.winner)
   }));
@@ -1150,103 +1022,4 @@ function toScoredCandidate(candidate: WireMatchResult) {
     id: toWireNumber(candidate.id),
     score: candidate.finalScore
   };
-}
-
-function formatProtoDate(date: WireDate) {
-  if (date == null) {
-    return null;
-  }
-
-  const month = String(date.month).padStart(2, '0');
-  const day = String(date.day).padStart(2, '0');
-  return `${date.year}-${month}-${day}`;
-}
-
-function toWireNumber(value: WireNumberInput): WireNumber {
-  if (typeof value === 'number') {
-    if (!Number.isInteger(value)) {
-      throw new Error(`Id lub wersja nie jest liczbą całkowitą: ${value}`);
-    }
-
-    if (!Number.isSafeInteger(value)) {
-      throw new Error(
-        `Id lub wersja poza bezpiecznym zakresem number: ${value}`
-      );
-    }
-
-    if (value < 0) {
-      throw new Error(`Id lub wersja poza zakresem u64: ${value}`);
-    }
-
-    return BigInt(value);
-  }
-
-  if (typeof value === 'string') {
-    if (!/^\d+$/.test(value)) {
-      throw new Error(`Id lub wersja nie jest liczbą całkowitą: ${value}`);
-    }
-
-    value = BigInt(value);
-  }
-
-  if (value < 0n || value > U64_MAX) {
-    throw new Error(`Id lub wersja poza zakresem u64: ${value}`);
-  }
-
-  return value;
-}
-
-function toTauriWireNumber(value: WireNumberInput): string {
-  return toWireNumber(value).toString();
-}
-
-function toSafeNumber(value: WireNumberInput): number {
-  const normalized = toWireNumber(value);
-
-  const numberValue = Number(normalized);
-  if (!Number.isSafeInteger(numberValue)) {
-    throw new Error(`Id lub wersja poza bezpiecznym zakresem number: ${value}`);
-  }
-
-  return numberValue;
-}
-
-function isGreaterWireNumber(left: WireNumber, right: WireNumber) {
-  return left > right;
-}
-
-function normalizeRpcError(error: unknown) {
-  const connectError = ConnectError.from(error);
-  const detail = appErrorFromConnectError(connectError);
-  return new Error(detail?.message || connectError.rawMessage);
-}
-
-function normalizeTauriError(error: unknown) {
-  if (error instanceof Error) {
-    return error;
-  }
-
-  if (typeof error === 'string') {
-    return new Error(error);
-  }
-
-  return new Error('Nie udało się wykonać polecenia Tauri');
-}
-
-function appErrorFromConnectError(error: ConnectError) {
-  const [detail] = error.findDetails(AppErrorSchema);
-  if (detail !== undefined) {
-    return detail;
-  }
-
-  const rawDetails = error.metadata.get('grpc-status-details-bin');
-  if (rawDetails === null) {
-    return null;
-  }
-
-  try {
-    return decodeBinaryHeader(rawDetails, AppErrorSchema);
-  } catch {
-    return null;
-  }
 }
