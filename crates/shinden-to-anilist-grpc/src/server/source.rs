@@ -1,35 +1,7 @@
 use std::cmp::Ordering;
 
-use shinden_to_anilist_core::{
-    common::{
-        AnimeList,
-        MatchView,
-    },
-    providers::{
-        animezone::{
-            AnimeZoneEntry,
-            AnimeZoneFetchEvent,
-            AnimeZoneList,
-            AnimeZoneListLoad,
-        },
-        ogladajanime::{
-            OgladajAnimeEntry,
-            OgladajAnimeFetchEvent,
-            OgladajAnimeList,
-            OgladajAnimeListLoad,
-        },
-        shinden::{
-            ShindenList,
-            ShindenListLoad,
-        },
-    },
-};
+use shinden_to_anilist_core::common::AnimeList;
 use tap::Tap;
-use tokio::time::timeout;
-use tokio_stream::{
-    Stream,
-    StreamExt,
-};
 use tokio_util::sync::CancellationToken;
 use tonic::Status;
 use tracing::{
@@ -38,14 +10,11 @@ use tracing::{
 };
 
 use super::{
-    SHINDEN_FETCH_TIMEOUT,
     ShindenToAnilist,
+    providers,
 };
 use crate::{
-    error::{
-        IntoStatus,
-        shinden_list_not_loaded,
-    },
+    error::shinden_list_not_loaded,
     pb::*,
     source::SourceList,
 };
@@ -62,110 +31,34 @@ impl ShindenToAnilist {
         info!(?provider, user = %request.user, "fetching source list");
 
         match provider {
-            SourceProvider::Shinden => self.fetch_shinden_source_list(request, emit_progress).await,
+            SourceProvider::Shinden => {
+                providers::shinden::fetch_source_list(self, request, emit_progress).await
+            },
             SourceProvider::AnimeZone => {
-                let username = request.user.trim();
-                if username.is_empty() {
-                    return Err(Status::invalid_argument(
-                        "animezone source user must not be empty",
-                    ));
-                }
-
-                let stream =
-                    AnimeZoneList::stream_from_animezone(self.http_client.clone(), username.to_string());
-                let (entries, total_entries) = collect_scraped_source_entries(
-                    SourceProvider::AnimeZone,
-                    stream,
+                let (source, total_entries) = providers::animezone::fetch_source_list(
+                    self,
+                    &request.user,
                     cancellation_token,
                     &mut emit_progress,
                 )
                 .await?;
-                self.store_source_list(
-                    SourceList::AnimeZone(AnimeZoneList::from_entries(entries)),
-                    total_entries,
-                    emit_progress,
-                )
+                self.store_source_list(source, total_entries, emit_progress)
             },
             SourceProvider::OgladajAnime => {
-                let user_id = request.user.trim().parse::<u64>().map_err(|_| {
-                    Status::invalid_argument("ogladajanime source user must be a numeric user id")
-                })?;
-
-                let stream =
-                    OgladajAnimeList::stream_from_ogladajanime(self.http_client.clone(), user_id.to_string());
-                let (entries, total_entries) = collect_scraped_source_entries(
-                    SourceProvider::OgladajAnime,
-                    stream,
+                let (source, total_entries) = providers::ogladajanime::fetch_source_list(
+                    self,
+                    &request.user,
                     cancellation_token,
                     &mut emit_progress,
                 )
                 .await?;
-                self.store_source_list(
-                    SourceList::OgladajAnime(OgladajAnimeList::from_entries(entries)),
-                    total_entries,
-                    emit_progress,
-                )
+                self.store_source_list(source, total_entries, emit_progress)
             },
             SourceProvider::Unspecified => Err(Status::invalid_argument("source provider is not supported")),
         }
     }
 
-    async fn fetch_shinden_source_list(
-        &self,
-        request: FetchSourceListRequest,
-        mut emit_progress: impl FnMut(SourceFetchProgress) -> Result<(), Status>,
-    ) -> Result<FetchSourceListResponse, Status> {
-        let user_id = request
-            .user
-            .parse::<u64>()
-            .map_err(|_| Status::invalid_argument("shinden source user must be a numeric user id"))?;
-
-        emit_progress(source_progress(
-            SourceProvider::Shinden,
-            SourceFetchPhase::FetchingList,
-            0,
-            0,
-            "",
-        ))?;
-
-        let shinden = ShindenList::get_from_shinden(self.http_client.clone(), user_id);
-        let shinden = timeout(SHINDEN_FETCH_TIMEOUT, shinden)
-            .await
-            .map_err(|_| {
-                Status::deadline_exceeded(format!(
-                    "shinden list could not be fetched within {} seconds",
-                    SHINDEN_FETCH_TIMEOUT.as_secs()
-                ))
-            })?
-            .map_err(IntoStatus::into_status)?;
-        let total_entries = shinden.len() as u64;
-        let source_version = self.source_list.store(SourceList::Shinden(shinden.clone()));
-        let shinden_version = self.shinden_list.store(shinden);
-        debug_assert_eq!(source_version, shinden_version);
-
-        emit_progress(source_progress(
-            SourceProvider::Shinden,
-            SourceFetchPhase::Done,
-            total_entries,
-            total_entries,
-            "",
-        ))?;
-
-        info!(source_version, total_entries, "source list fetched");
-        Ok(FetchSourceListResponse {
-            source_version,
-            progress: Some(source_progress(
-                SourceProvider::Shinden,
-                SourceFetchPhase::Done,
-                total_entries,
-                total_entries,
-                "",
-            )),
-            done: true,
-        })
-    }
-
-    fn store_source_list(
+    pub(super) fn store_source_list(
         &self,
         source: SourceList,
         total_entries: u64,
@@ -259,25 +152,7 @@ impl ShindenToAnilist {
         request: FetchShindenListRequest,
     ) -> Result<FetchShindenListResponse, Status> {
         info!(shinden_id = request.id, "fetching shinden list");
-
-        let shinden = ShindenList::get_from_shinden(self.http_client.clone(), request.id);
-        let shinden = timeout(SHINDEN_FETCH_TIMEOUT, shinden)
-            .await
-            .map_err(|_| {
-                Status::deadline_exceeded(format!(
-                    "shinden list could not be fetched within {} seconds",
-                    SHINDEN_FETCH_TIMEOUT.as_secs()
-                ))
-            })?
-            .map_err(IntoStatus::into_status)?;
-        let entries = shinden.len();
-
-        let source_version = self.source_list.store(SourceList::Shinden(shinden.clone()));
-        let shinden_version = self.shinden_list.store(shinden);
-        info!(shinden_version, entries, "shinden list fetched");
-        debug_assert_eq!(source_version, shinden_version);
-
-        Ok(FetchShindenListResponse { shinden_version })
+        providers::shinden::fetch_legacy_list(self, request).await
     }
 
     #[instrument(skip_all, name = "app.get_shinden_ids")]
@@ -370,128 +245,7 @@ impl ShindenToAnilist {
     }
 }
 
-trait ScrapedSourceFetchEvent {
-    type Entry: MatchView + Send;
-
-    fn into_parts(self) -> ScrapedSourceFetchEventParts<Self::Entry>;
-}
-
-enum ScrapedSourceFetchEventParts<Entry> {
-    Started {
-        total_entries: usize,
-    },
-    Entry {
-        current: usize,
-        total_entries: usize,
-        entry: Entry,
-    },
-}
-
-impl ScrapedSourceFetchEvent for AnimeZoneFetchEvent {
-    type Entry = AnimeZoneEntry;
-
-    fn into_parts(self) -> ScrapedSourceFetchEventParts<<Self as ScrapedSourceFetchEvent>::Entry> {
-        match self {
-            Self::Started { total_entries } => ScrapedSourceFetchEventParts::Started { total_entries },
-            Self::Entry {
-                current,
-                total_entries,
-                entry,
-            } => ScrapedSourceFetchEventParts::Entry {
-                current,
-                total_entries,
-                entry,
-            },
-        }
-    }
-}
-
-impl ScrapedSourceFetchEvent for OgladajAnimeFetchEvent {
-    type Entry = OgladajAnimeEntry;
-
-    fn into_parts(self) -> ScrapedSourceFetchEventParts<<Self as ScrapedSourceFetchEvent>::Entry> {
-        match self {
-            Self::Started { total_entries } => ScrapedSourceFetchEventParts::Started { total_entries },
-            Self::Entry {
-                current,
-                total_entries,
-                entry,
-            } => ScrapedSourceFetchEventParts::Entry {
-                current,
-                total_entries,
-                entry,
-            },
-        }
-    }
-}
-
-async fn collect_scraped_source_entries<E, S, Err>(
-    provider: SourceProvider,
-    mut stream: S,
-    cancellation_token: CancellationToken,
-    emit_progress: &mut impl FnMut(SourceFetchProgress) -> Result<(), Status>,
-) -> Result<(Vec<E::Entry>, u64), Status>
-where
-    E: ScrapedSourceFetchEvent,
-    S: Stream<Item = Result<E, Err>> + Unpin,
-    Err: IntoStatus,
-{
-    emit_progress(source_progress(
-        provider,
-        SourceFetchPhase::FetchingList,
-        0,
-        0,
-        "",
-    ))?;
-
-    let mut entries = Vec::new();
-    let mut total_entries = 0u64;
-    loop {
-        let event = tokio::select! {
-            () = cancellation_token.cancelled() => {
-                return Err(Status::cancelled("source fetch cancelled"));
-            },
-            event = stream.next() => event,
-        };
-
-        let Some(event) = event else {
-            break;
-        };
-
-        match event.map_err(IntoStatus::into_status)?.into_parts() {
-            ScrapedSourceFetchEventParts::Started { total_entries: total } => {
-                total_entries = total as u64;
-                emit_progress(source_progress(
-                    provider,
-                    SourceFetchPhase::FetchingDetails,
-                    0,
-                    total_entries,
-                    "",
-                ))?;
-            },
-            ScrapedSourceFetchEventParts::Entry {
-                current,
-                total_entries: total,
-                entry,
-            } => {
-                total_entries = total as u64;
-                let latest_title = entry.title().to_string();
-                entries.push(entry);
-                emit_progress(source_progress(
-                    provider,
-                    SourceFetchPhase::FetchingDetails,
-                    current as u64,
-                    total_entries,
-                    latest_title,
-                ))?;
-            },
-        }
-    }
-
-    Ok((entries, total_entries))
-}
-
-fn source_progress(
+pub(super) fn source_progress(
     provider: SourceProvider,
     phase: SourceFetchPhase,
     current: u64,

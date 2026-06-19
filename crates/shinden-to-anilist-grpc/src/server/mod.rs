@@ -1,5 +1,6 @@
 mod database;
 mod matching;
+mod providers;
 mod source;
 mod streaming;
 
