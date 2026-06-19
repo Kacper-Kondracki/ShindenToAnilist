@@ -1,21 +1,12 @@
-use std::collections::{
-    HashMap,
-    HashSet,
-};
-
-use rayon::prelude::*;
 use shinden_to_anilist_core::{
     common::AnimeList,
-    database::AnimeEntry,
     matcher::{
         DefaultMatcher,
         Matcher,
-        MatcherFinalizer,
     },
     searcher::{
         SearchMode,
         Searcher,
-        SearcherAnimeExt,
     },
     utils::normalize_str,
 };
@@ -28,6 +19,7 @@ use tracing::{
 use super::{
     ShindenToAnilist,
     database::spawn_blocking_status,
+    providers,
 };
 use crate::{
     error::{
@@ -35,7 +27,6 @@ use crate::{
         shinden_list_not_loaded,
     },
     export::export_xml_to_path,
-    mapper::direct_source_match_result,
     matching::{
         FuzzyMatchView,
         search_options,
@@ -156,18 +147,9 @@ impl ShindenToAnilist {
 
         let results = spawn_blocking_status("shinden list matching", move || {
             let matcher = DefaultMatcher::strict_preset();
-            let mut results = shinden
-                .par_values()
-                .map(|entry| entry.search_by_title_ref(&database.database, &database.searcher, options))
-                .map(|(entry, candidates)| (entry.id(), matcher.score_candidates(entry, &candidates, 0.5)))
-                .collect::<Vec<_>>();
-
-            results.iter_mut().map(|(_, result)| result).finalize_matches();
-
-            Ok(results
-                .into_iter()
-                .map(ShindenMatchResult::from)
-                .collect::<Vec<_>>())
+            Ok(providers::shinden::match_legacy_list(
+                &shinden, &database, options, &matcher,
+            ))
         })
         .await?;
         info!(
@@ -212,46 +194,14 @@ impl ShindenToAnilist {
 
             let results = match source.as_ref() {
                 SourceList::Shinden(shinden) => {
-                    let mut results = shinden
-                        .par_values()
-                        .map(|entry| {
-                            entry.search_by_title_ref(&database.database, &database.searcher, options)
-                        })
-                        .map(|(entry, candidates)| {
-                            (entry.id(), matcher.score_candidates(entry, &candidates, 0.5))
-                        })
-                        .collect::<Vec<_>>();
-
-                    results.iter_mut().map(|(_, result)| result).finalize_matches();
-                    results
-                        .into_iter()
-                        .map(SourceMatchResult::from)
-                        .collect::<Vec<_>>()
+                    providers::shinden::match_source_list(shinden, &database, options, &matcher)
                 },
-                SourceList::AnimeZone(animezone) => source_results_with_direct_matches(
-                    animezone.direct_mal_matches(),
-                    animezone.keys(),
-                    animezone.par_values().map(|entry| {
-                        (
-                            entry.id(),
-                            entry.search_by_title_ref(&database.database, &database.searcher, options),
-                        )
-                    }),
-                    &database.database,
-                    &matcher,
-                ),
-                SourceList::OgladajAnime(ogladajanime) => source_results_with_direct_matches(
-                    ogladajanime.direct_mal_matches(),
-                    ogladajanime.keys(),
-                    ogladajanime.par_values().map(|entry| {
-                        (
-                            entry.id(),
-                            entry.search_by_title_ref(&database.database, &database.searcher, options),
-                        )
-                    }),
-                    &database.database,
-                    &matcher,
-                ),
+                SourceList::AnimeZone(animezone) => {
+                    providers::animezone::match_source_list(animezone, &database, options, &matcher)
+                },
+                SourceList::OgladajAnime(ogladajanime) => {
+                    providers::ogladajanime::match_source_list(ogladajanime, &database, options, &matcher)
+                },
             };
 
             Ok(results)
@@ -303,51 +253,4 @@ impl ShindenToAnilist {
             path,
         })
     }
-}
-
-fn source_results_with_direct_matches<'entry, 'database, Entry, DirectMatches, OrderIds, SearchResults>(
-    direct_matches: DirectMatches,
-    order_ids: OrderIds,
-    search_results: SearchResults,
-    database: &impl AnimeList<Entry = AnimeEntry>,
-    matcher: &DefaultMatcher,
-) -> Vec<SourceMatchResult>
-where
-    Entry: SearcherAnimeExt + Sync + 'entry,
-    'database: 'entry,
-    DirectMatches: Iterator<Item = (u64, u64)>,
-    OrderIds: Iterator<Item = u64>,
-    SearchResults: ParallelIterator<Item = (u64, (&'entry Entry, Vec<(&'database AnimeEntry, f32)>))>,
-{
-    let direct_matches = direct_matches
-        .filter(|(_, mal_id)| database.get(*mal_id).is_some())
-        .collect::<Vec<_>>();
-    let direct_entry_ids = direct_matches
-        .iter()
-        .map(|(source_id, _)| *source_id)
-        .collect::<HashSet<_>>();
-
-    let mut fallback_results = search_results
-        .filter(|(source_id, _)| !direct_entry_ids.contains(source_id))
-        .map(|(source_id, (entry, candidates))| {
-            (source_id, matcher.score_candidates(entry, &candidates, 0.5))
-        })
-        .collect::<Vec<_>>();
-
-    fallback_results
-        .iter_mut()
-        .map(|(_, result)| result)
-        .finalize_matches();
-
-    let mut results = direct_matches
-        .into_iter()
-        .map(|(source_id, database_id)| direct_source_match_result(source_id, database_id))
-        .chain(fallback_results.into_iter().map(SourceMatchResult::from))
-        .collect::<Vec<_>>();
-    let order = order_ids
-        .enumerate()
-        .map(|(index, id)| (id, index))
-        .collect::<HashMap<_, _>>();
-    results.sort_by_key(|result| order.get(&result.source_id).copied().unwrap_or(usize::MAX));
-    results
 }

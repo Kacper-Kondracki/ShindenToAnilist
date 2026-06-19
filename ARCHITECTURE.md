@@ -17,8 +17,14 @@ parsowania zostają w module konkretnego providera.
 - `source.rs` obsługuje pobieranie list źródłowych, walidację providera, postęp i pełne wpisy źródła.
 - `database.rs` obsługuje ładowanie, aktualizację, metadane i sidecary bazy.
 - `matching.rs` obsługuje wyszukiwanie, dopasowanie list i eksport wyników.
+- `providers/` zawiera logikę zależną od providera: `shinden`, `animezone`, `ogladajanime`, wspólny
+  collector scrapowanych list oraz bezpośrednie dopasowania MAL.
 - `streaming.rs` zawiera wspólne batchowanie odpowiedzi streamowanych.
 - `mod.rs` utrzymuje publiczny typ `ShindenToAnilist`, stan usługi i implementację traitu gRPC.
+
+`source.rs` i `matching.rs` mogą zawierać małe matche po enumach tylko jako routery. Kod pobierania,
+walidacji i provider-specific matchingu powinien mieszkać w `providers/`, żeby nowy provider nie
+rozpychał centralnych handlerów.
 
 Nazwy RPC i wiadomości protobuf pozostają stabilne. Jeżeli pole protobuf ma historyczną nazwę
 `shinden_id`, a dane są już provider-agnostic, kod serwera powinien preferować semantykę `source_id`
@@ -40,11 +46,14 @@ Nazwy komend, argumenty i serializowane pola DTO są kontraktem frontendu.
 Warstwa `frontend/src/lib/api/` powinna rozdzielać:
 
 - wykrywanie runtime'u i klientów transportowych,
-- normalizację DTO z Tauri,
-- mapowanie protobuf/gRPC do domeny UI,
+- osobne implementacje backendów: `grpcService.ts` dla protobuf/Connect i `tauriService.ts` dla komend Tauri,
+- wspólne mapowanie DTO/protobuf do domeny UI w `mapping.ts`,
 - śledzenie wersji danych,
-- funkcje usługowe dla source, database, matching i export,
+- cienką fasadę `appService.ts`, która wybiera backend raz i deleguje funkcje usługowe,
 - wybór ścieżki eksportu.
+
+`appService.ts` nie powinien zawierać per-funkcyjnych przełączników `isTauriRuntime()`. Wyjątkiem jest
+warstwa `runtime.ts`, która zna środowisko i udostępnia backendowi transport.
 
 Kontrolery Svelte powinny utrzymywać reaktivność blisko workflow, a komponenty powinny renderować
 stan i zdarzenia bez ukrytego pobierania danych. Przy asynchronicznym dopasowywaniu zachowujemy
