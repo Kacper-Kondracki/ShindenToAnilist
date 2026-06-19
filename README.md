@@ -7,7 +7,7 @@
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 
 **ShindenToAnilist** to aplikacja desktopowa dla osób, które prowadzą swoją listę anime na
-[Shindenie](https://shinden.pl) i chcą przenieść ją do serwisów takich jak
+[Shindenie](https://shinden.pl), AnimeZone albo Oglądaj Anime i chcą przenieść ją do serwisów takich jak
 [AniList](https://anilist.co/settings/import) albo [MyAnimeList](https://myanimelist.net/import.php).
 
 Aplikacja pozwala
@@ -39,7 +39,7 @@ Gotowe paczki aplikacji są publikowane na stronie wydań:
 
 ## Co robi aplikacja
 
-1. Wczytuje publiczną listę anime z Shindena po ID lub URL użytkownika.
+1. Wczytuje listę anime z wybranego źródła: Shinden, AnimeZone albo Oglądaj Anime.
 2. Pobiera i zapisuje lokalną bazę używaną do dopasowywania tytułów.
 3. Automatycznie szuka najlepiej pasującę tytuły w bazie.
 4. Pokazuje dopasowania i listę kandydatów.
@@ -47,9 +47,10 @@ Gotowe paczki aplikacji są publikowane na stronie wydań:
 6. Eksportuje wybrane dopasowania do pliku XML.
 
 > [!IMPORTANT]
-> Aktualnie zaimplementowane jest wczytywanie list z Shindena. AnimeZone i Oglądaj Anime są widoczne
-> w aplikacji jako przyszłe cele, ale wczytywanie list użytkownika dla nich nie jest jeszcze aktywne.
-> AnimeZone i Oglądaj Anime linkują pod seriami linki do MALA, więc późniejszy eksport będzie całkowicie automatyczny bez ręcznych dopasowań!
+> Wczytywanie list działa dla Shindena, AnimeZone i Oglądaj Anime. AnimeZone oraz Oglądaj Anime są
+> pobierane przez scrapowanie stron, więc są wolniejsze niż Shinden; Oglądaj Anime ma też ostre limity
+> zapytań. Aplikacja wyciąga bezpośrednie linki do MAL-a tam, gdzie źródło je udostępnia, co powinno
+> znacząco ograniczyć ręczne dopasowywanie.
 
 ## Import eksportu
 
@@ -61,7 +62,7 @@ Po wyeksportowaniu XML-a z aplikacji zaimportuj go na jednej z tych stron:
 ## Dla developerów
 
 Instrukcje deweloperskie znajdują się tu
-[DEVELOPMENT.md](DEVELOPMENT.md).
+[CONTRIBUTING.md](CONTRIBUTING.md). Opis granic modułów jest w [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Licencja
 
