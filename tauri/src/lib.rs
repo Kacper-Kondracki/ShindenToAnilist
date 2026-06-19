@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt,
     fs,
     path::Path,
     sync::Mutex,
@@ -7,7 +8,13 @@ use std::{
 
 use serde::{
     Deserialize,
+    Deserializer,
     Serialize,
+    Serializer,
+    de::{
+        self,
+        Visitor,
+    },
 };
 use shinden_to_anilist_grpc::{
     ShindenToAnilist,
@@ -29,6 +36,73 @@ struct AppState {
 
 const PRODUCT_NAME: &str = "ShindenToAnilist";
 
+#[derive(Debug, Clone, Copy)]
+struct WireNumberDto(u64);
+
+impl From<u64> for WireNumberDto {
+    fn from(value: u64) -> Self { Self(value) }
+}
+
+impl From<WireNumberDto> for u64 {
+    fn from(value: WireNumberDto) -> Self { value.0 }
+}
+
+impl Serialize for WireNumberDto {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for WireNumberDto {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(WireNumberVisitor)
+    }
+}
+
+struct WireNumberVisitor;
+
+impl Visitor<'_> for WireNumberVisitor {
+    type Value = WireNumberDto;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("an unsigned 64-bit integer or decimal string")
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> { Ok(WireNumberDto(value)) }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        u64::try_from(value)
+            .map(WireNumberDto)
+            .map_err(|_| E::custom(format!("value is outside u64 range: {value}")))
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        value
+            .parse::<u64>()
+            .map(WireNumberDto)
+            .map_err(|_| E::custom(format!("invalid u64 decimal string: {value}")))
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_str(&value)
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AppPathsDto {
@@ -48,7 +122,7 @@ struct DateDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FetchShindenListResponseDto {
-    shinden_version: u64,
+    shinden_version: WireNumberDto,
 }
 
 #[derive(Debug, Serialize)]
@@ -56,35 +130,35 @@ struct FetchShindenListResponseDto {
 struct SourceFetchProgressDto {
     provider: i32,
     phase: i32,
-    current: u64,
-    total: u64,
+    current: WireNumberDto,
+    total: WireNumberDto,
     latest_title: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FetchSourceListResponseDto {
-    source_version: u64,
+    source_version: WireNumberDto,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetShindenIdsResponseDto {
-    shinden_version: u64,
-    ids: Vec<u64>,
+    shinden_version: WireNumberDto,
+    ids: Vec<WireNumberDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetSourceIdsResponseDto {
-    source_version: u64,
-    ids: Vec<u64>,
+    source_version: WireNumberDto,
+    ids: Vec<WireNumberDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ShindenEntryDto {
-    id: u64,
+    id: WireNumberDto,
     cover_id: Option<i32>,
     title: String,
     anime_status: i32,
@@ -101,7 +175,7 @@ struct ShindenEntryDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SourceEntryDto {
-    id: u64,
+    id: WireNumberDto,
     provider: i32,
     title: String,
     anime_status: i32,
@@ -113,27 +187,27 @@ struct SourceEntryDto {
     watched_episodes: i32,
     score: Option<i32>,
     source_url: String,
-    mal_id: Option<u64>,
+    mal_id: Option<WireNumberDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetShindenEntriesResponseDto {
-    shinden_version: u64,
+    shinden_version: WireNumberDto,
     entries: Vec<ShindenEntryDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetShindenFullResponseDto {
-    shinden_version: u64,
+    shinden_version: WireNumberDto,
     entries: Vec<ShindenEntryDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetSourceFullResponseDto {
-    source_version: u64,
+    source_version: WireNumberDto,
     entries: Vec<SourceEntryDto>,
 }
 
@@ -142,7 +216,7 @@ struct GetSourceFullResponseDto {
 struct DatabaseReleaseInfoDto {
     release: String,
     sha256: String,
-    compressed_size: u64,
+    compressed_size: WireNumberDto,
 }
 
 #[derive(Debug, Serialize)]
@@ -168,7 +242,7 @@ struct DownloadDatabaseResponseDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LoadDatabaseResponseDto {
-    database_version: u64,
+    database_version: WireNumberDto,
 }
 
 #[derive(Debug, Serialize)]
@@ -186,14 +260,14 @@ struct GetDatabaseMetadataResponseDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetDatabaseIdsResponseDto {
-    database_version: u64,
-    ids: Vec<u64>,
+    database_version: WireNumberDto,
+    ids: Vec<WireNumberDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DatabaseEntryDto {
-    id: u64,
+    id: WireNumberDto,
     sources: Vec<String>,
     title: String,
     anime_type: i32,
@@ -210,14 +284,14 @@ struct DatabaseEntryDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetDatabaseEntriesResponseDto {
-    database_version: u64,
+    database_version: WireNumberDto,
     entries: Vec<DatabaseEntryDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetDatabaseFullResponseDto {
-    database_version: u64,
+    database_version: WireNumberDto,
     entries: Vec<DatabaseEntryDto>,
 }
 
@@ -233,35 +307,35 @@ struct SearchOptionsDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SearchResultDto {
-    id: u64,
+    id: WireNumberDto,
     score: f32,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FuzzySearchResponseDto {
-    database_version: u64,
+    database_version: WireNumberDto,
     results: Vec<SearchResultDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct MatchResultDto {
-    id: u64,
+    id: WireNumberDto,
     final_score: f32,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FuzzyMatchResponseDto {
-    database_version: u64,
+    database_version: WireNumberDto,
     results: Vec<MatchResultDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ShindenMatchResultDto {
-    shinden_id: u64,
+    shinden_id: WireNumberDto,
     candidates: Vec<MatchResultDto>,
     top_candidates: Vec<MatchResultDto>,
     winner: Option<MatchResultDto>,
@@ -270,15 +344,15 @@ struct ShindenMatchResultDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct MatchShindenListResponseDto {
-    shinden_version: u64,
-    database_version: u64,
+    shinden_version: WireNumberDto,
+    database_version: WireNumberDto,
     results: Vec<ShindenMatchResultDto>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SourceMatchResultDto {
-    source_id: u64,
+    source_id: WireNumberDto,
     candidates: Vec<MatchResultDto>,
     top_candidates: Vec<MatchResultDto>,
     winner: Option<MatchResultDto>,
@@ -287,30 +361,30 @@ struct SourceMatchResultDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct MatchSourceListResponseDto {
-    source_version: u64,
-    database_version: u64,
+    source_version: WireNumberDto,
+    database_version: WireNumberDto,
     results: Vec<SourceMatchResultDto>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AnimeIdPairDto {
-    shinden_id: u64,
-    database_id: u64,
+    shinden_id: WireNumberDto,
+    database_id: WireNumberDto,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SourceIdPairDto {
-    source_id: u64,
-    database_id: u64,
+    source_id: WireNumberDto,
+    database_id: WireNumberDto,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ExportXmlResponseDto {
-    source_version: u64,
-    shinden_version: u64,
+    source_version: WireNumberDto,
+    shinden_version: WireNumberDto,
     path: String,
 }
 
@@ -329,8 +403,8 @@ impl From<pb::SourceFetchProgress> for SourceFetchProgressDto {
         Self {
             provider: value.provider,
             phase: value.phase,
-            current: value.current,
-            total: value.total,
+            current: value.current.into(),
+            total: value.total.into(),
             latest_title: value.latest_title,
         }
     }
@@ -339,7 +413,7 @@ impl From<pb::SourceFetchProgress> for SourceFetchProgressDto {
 impl From<pb::ShindenEntry> for ShindenEntryDto {
     fn from(value: pb::ShindenEntry) -> Self {
         Self {
-            id: value.id,
+            id: value.id.into(),
             cover_id: value.cover_id,
             title: value.title,
             anime_status: value.anime_status,
@@ -358,7 +432,7 @@ impl From<pb::ShindenEntry> for ShindenEntryDto {
 impl From<pb::SourceEntry> for SourceEntryDto {
     fn from(value: pb::SourceEntry) -> Self {
         Self {
-            id: value.id,
+            id: value.id.into(),
             provider: value.provider,
             title: value.title,
             anime_status: value.anime_status,
@@ -370,7 +444,7 @@ impl From<pb::SourceEntry> for SourceEntryDto {
             watched_episodes: value.watched_episodes,
             score: value.score,
             source_url: value.source_url,
-            mal_id: value.mal_id,
+            mal_id: value.mal_id.map(Into::into),
         }
     }
 }
@@ -380,7 +454,7 @@ impl From<pb::DatabaseReleaseInfo> for DatabaseReleaseInfoDto {
         Self {
             release: value.release,
             sha256: value.sha256,
-            compressed_size: value.compressed_size,
+            compressed_size: value.compressed_size.into(),
         }
     }
 }
@@ -406,7 +480,7 @@ impl From<pb::DatabaseMetadata> for DatabaseMetadataDto {
 impl From<pb::DatabaseEntry> for DatabaseEntryDto {
     fn from(value: pb::DatabaseEntry) -> Self {
         Self {
-            id: value.id,
+            id: value.id.into(),
             sources: value.sources,
             title: value.title,
             anime_type: value.anime_type,
@@ -425,7 +499,7 @@ impl From<pb::DatabaseEntry> for DatabaseEntryDto {
 impl From<pb::SearchResult> for SearchResultDto {
     fn from(value: pb::SearchResult) -> Self {
         Self {
-            id: value.id,
+            id: value.id.into(),
             score: value.score,
         }
     }
@@ -434,7 +508,7 @@ impl From<pb::SearchResult> for SearchResultDto {
 impl From<pb::MatchResult> for MatchResultDto {
     fn from(value: pb::MatchResult) -> Self {
         Self {
-            id: value.id,
+            id: value.id.into(),
             final_score: value.final_score,
         }
     }
@@ -443,7 +517,7 @@ impl From<pb::MatchResult> for MatchResultDto {
 impl From<pb::ShindenMatchResult> for ShindenMatchResultDto {
     fn from(value: pb::ShindenMatchResult) -> Self {
         Self {
-            shinden_id: value.shinden_id,
+            shinden_id: value.shinden_id.into(),
             candidates: value.candidates.into_iter().map(Into::into).collect(),
             top_candidates: value.top_candidates.into_iter().map(Into::into).collect(),
             winner: value.winner.map(Into::into),
@@ -454,7 +528,7 @@ impl From<pb::ShindenMatchResult> for ShindenMatchResultDto {
 impl From<pb::SourceMatchResult> for SourceMatchResultDto {
     fn from(value: pb::SourceMatchResult) -> Self {
         Self {
-            source_id: value.source_id,
+            source_id: value.source_id.into(),
             candidates: value.candidates.into_iter().map(Into::into).collect(),
             top_candidates: value.top_candidates.into_iter().map(Into::into).collect(),
             winner: value.winner.map(Into::into),
@@ -474,8 +548,8 @@ impl From<SearchOptionsDto> for pb::SearchOptions {
 impl From<AnimeIdPairDto> for pb::AnimeIdPair {
     fn from(value: AnimeIdPairDto) -> Self {
         Self {
-            shinden_id: value.shinden_id,
-            database_id: value.database_id,
+            shinden_id: value.shinden_id.into(),
+            database_id: value.database_id.into(),
         }
     }
 }
@@ -483,8 +557,8 @@ impl From<AnimeIdPairDto> for pb::AnimeIdPair {
 impl From<SourceIdPairDto> for pb::SourceIdPair {
     fn from(value: SourceIdPairDto) -> Self {
         Self {
-            source_id: value.source_id,
-            database_id: value.database_id,
+            source_id: value.source_id.into(),
+            database_id: value.database_id.into(),
         }
     }
 }
@@ -492,6 +566,8 @@ impl From<SourceIdPairDto> for pb::SourceIdPair {
 fn command_error(status: Status) -> String { status.message().to_owned() }
 
 fn display_path(path: &Path) -> String { path.to_string_lossy().into_owned() }
+
+fn wire_numbers(values: Vec<u64>) -> Vec<WireNumberDto> { values.into_iter().map(Into::into).collect() }
 
 #[tauri::command]
 fn app_paths(app: AppHandle) -> Result<AppPathsDto, String> {
@@ -544,7 +620,7 @@ async fn fetch_source_list(
         )
         .await
         .map(|response| FetchSourceListResponseDto {
-            source_version: response.source_version,
+            source_version: response.source_version.into(),
         })
         .map_err(command_error);
 
@@ -583,8 +659,8 @@ async fn get_source_ids(
         })
         .await
         .map(|response| GetSourceIdsResponseDto {
-            source_version: response.source_version,
-            ids: response.ids,
+            source_version: response.source_version.into(),
+            ids: wire_numbers(response.ids),
         })
         .map_err(command_error)
 }
@@ -596,7 +672,7 @@ async fn get_source_full(state: State<'_, AppState>) -> Result<GetSourceFullResp
         .get_source_full(pb::GetSourceFullRequest {})
         .await
         .map(|response| GetSourceFullResponseDto {
-            source_version: response.source_version,
+            source_version: response.source_version.into(),
             entries: response.entries.into_iter().map(Into::into).collect(),
         })
         .map_err(command_error)
@@ -605,14 +681,14 @@ async fn get_source_full(state: State<'_, AppState>) -> Result<GetSourceFullResp
 #[tauri::command(rename_all = "camelCase")]
 async fn fetch_shinden_list(
     state: State<'_, AppState>,
-    id: u64,
+    id: WireNumberDto,
 ) -> Result<FetchShindenListResponseDto, String> {
     state
         .service
-        .fetch_shinden_list(pb::FetchShindenListRequest { id })
+        .fetch_shinden_list(pb::FetchShindenListRequest { id: id.into() })
         .await
         .map(|response| FetchShindenListResponseDto {
-            shinden_version: response.shinden_version,
+            shinden_version: response.shinden_version.into(),
         })
         .map_err(command_error)
 }
@@ -629,8 +705,8 @@ async fn get_shinden_ids(
         })
         .await
         .map(|response| GetShindenIdsResponseDto {
-            shinden_version: response.shinden_version,
-            ids: response.ids,
+            shinden_version: response.shinden_version.into(),
+            ids: wire_numbers(response.ids),
         })
         .map_err(command_error)
 }
@@ -638,14 +714,16 @@ async fn get_shinden_ids(
 #[tauri::command(rename_all = "camelCase")]
 async fn get_shinden_entries(
     state: State<'_, AppState>,
-    ids: Vec<u64>,
+    ids: Vec<WireNumberDto>,
 ) -> Result<GetShindenEntriesResponseDto, String> {
     state
         .service
-        .get_shinden_entries(pb::GetShindenEntriesRequest { ids })
+        .get_shinden_entries(pb::GetShindenEntriesRequest {
+            ids: ids.into_iter().map(Into::into).collect(),
+        })
         .await
         .map(|response| GetShindenEntriesResponseDto {
-            shinden_version: response.shinden_version,
+            shinden_version: response.shinden_version.into(),
             entries: response.entries.into_iter().map(Into::into).collect(),
         })
         .map_err(command_error)
@@ -658,7 +736,7 @@ async fn get_shinden_full(state: State<'_, AppState>) -> Result<GetShindenFullRe
         .get_shinden_full(pb::GetShindenFullRequest {})
         .await
         .map(|response| GetShindenFullResponseDto {
-            shinden_version: response.shinden_version,
+            shinden_version: response.shinden_version.into(),
             entries: response.entries.into_iter().map(Into::into).collect(),
         })
         .map_err(command_error)
@@ -701,7 +779,7 @@ async fn load_database(state: State<'_, AppState>, path: String) -> Result<LoadD
         .load_database(pb::LoadDatabaseRequest { path })
         .await
         .map(|response| LoadDatabaseResponseDto {
-            database_version: response.database_version,
+            database_version: response.database_version.into(),
         })
         .map_err(command_error)
 }
@@ -733,8 +811,8 @@ async fn get_database_ids(
         })
         .await
         .map(|response| GetDatabaseIdsResponseDto {
-            database_version: response.database_version,
-            ids: response.ids,
+            database_version: response.database_version.into(),
+            ids: wire_numbers(response.ids),
         })
         .map_err(command_error)
 }
@@ -742,14 +820,16 @@ async fn get_database_ids(
 #[tauri::command(rename_all = "camelCase")]
 async fn get_database_entries(
     state: State<'_, AppState>,
-    ids: Vec<u64>,
+    ids: Vec<WireNumberDto>,
 ) -> Result<GetDatabaseEntriesResponseDto, String> {
     state
         .service
-        .get_database_entries(pb::GetDatabaseEntriesRequest { ids })
+        .get_database_entries(pb::GetDatabaseEntriesRequest {
+            ids: ids.into_iter().map(Into::into).collect(),
+        })
         .await
         .map(|response| GetDatabaseEntriesResponseDto {
-            database_version: response.database_version,
+            database_version: response.database_version.into(),
             entries: response.entries.into_iter().map(Into::into).collect(),
         })
         .map_err(command_error)
@@ -762,7 +842,7 @@ async fn get_database_full(state: State<'_, AppState>) -> Result<GetDatabaseFull
         .get_database_full(pb::GetDatabaseFullRequest {})
         .await
         .map(|response| GetDatabaseFullResponseDto {
-            database_version: response.database_version,
+            database_version: response.database_version.into(),
             entries: response.entries.into_iter().map(Into::into).collect(),
         })
         .map_err(command_error)
@@ -782,7 +862,7 @@ async fn fuzzy_search(
         })
         .await
         .map(|response| FuzzySearchResponseDto {
-            database_version: response.database_version,
+            database_version: response.database_version.into(),
             results: response.results.into_iter().map(Into::into).collect(),
         })
         .map_err(command_error)
@@ -793,20 +873,20 @@ async fn fuzzy_match(
     state: State<'_, AppState>,
     query: String,
     options: Option<SearchOptionsDto>,
-    shinden_id: Option<u64>,
-    source_id: Option<u64>,
+    shinden_id: Option<WireNumberDto>,
+    source_id: Option<WireNumberDto>,
 ) -> Result<FuzzyMatchResponseDto, String> {
     state
         .service
         .fuzzy_match(pb::FuzzyMatchRequest {
             query,
             options: Some(options.unwrap_or_default().into()),
-            shinden_id,
-            source_id,
+            shinden_id: shinden_id.map(Into::into),
+            source_id: source_id.map(Into::into),
         })
         .await
         .map(|response| FuzzyMatchResponseDto {
-            database_version: response.database_version,
+            database_version: response.database_version.into(),
             results: response.results.into_iter().map(Into::into).collect(),
         })
         .map_err(command_error)
@@ -824,8 +904,8 @@ async fn match_shinden_list(
         })
         .await
         .map(|response| MatchShindenListResponseDto {
-            shinden_version: response.shinden_version,
-            database_version: response.database_version,
+            shinden_version: response.shinden_version.into(),
+            database_version: response.database_version.into(),
             results: response.results.into_iter().map(Into::into).collect(),
         })
         .map_err(command_error)
@@ -843,8 +923,8 @@ async fn match_source_list(
         })
         .await
         .map(|response| MatchSourceListResponseDto {
-            source_version: response.source_version,
-            database_version: response.database_version,
+            source_version: response.source_version.into(),
+            database_version: response.database_version.into(),
             results: response.results.into_iter().map(Into::into).collect(),
         })
         .map_err(command_error)
@@ -864,8 +944,8 @@ async fn export_xml(
         })
         .await
         .map(|response| ExportXmlResponseDto {
-            source_version: response.source_version,
-            shinden_version: response.shinden_version,
+            source_version: response.source_version.into(),
+            shinden_version: response.shinden_version.into(),
             path: response.path,
         })
         .map_err(command_error)
