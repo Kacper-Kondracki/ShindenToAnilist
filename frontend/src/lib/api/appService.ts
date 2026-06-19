@@ -417,7 +417,7 @@ export async function fetchShindenList(userId: number) {
   if (isTauriRuntime()) {
     const response = await callTauri<TauriFetchShindenListResponse>(
       'fetch_shinden_list',
-      { id: userId }
+      { id: toTauriWireNumber(userId) }
     );
     observeShindenVersion(response.shindenVersion);
     return { shindenVersion: toWireNumber(response.shindenVersion) };
@@ -733,8 +733,10 @@ export async function fuzzyMatch(
     const response = await callTauri<TauriFuzzyMatchResponse>('fuzzy_match', {
       query,
       options: createTauriSearchOptions(options),
-      shindenId,
-      sourceId: shindenId
+      shindenId:
+        shindenId === undefined ? undefined : toTauriWireNumber(shindenId),
+      sourceId:
+        shindenId === undefined ? undefined : toTauriWireNumber(shindenId)
     });
     observeDatabaseVersion(response.databaseVersion);
 
@@ -855,7 +857,10 @@ export async function exportXml(matches: MatchSelection[], path?: string) {
 
     const response = await callTauri<TauriExportXmlResponse>('export_xml', {
       path: selectedPath,
-      matches
+      matches: matches.map((match) => ({
+        sourceId: toTauriWireNumber(match.sourceId),
+        databaseId: toTauriWireNumber(match.databaseId)
+      }))
     });
     observeSourceVersion(response.sourceVersion);
 
@@ -1189,6 +1194,10 @@ function toWireNumber(value: WireNumberInput): WireNumber {
   }
 
   return value;
+}
+
+function toTauriWireNumber(value: WireNumberInput): string {
+  return toWireNumber(value).toString();
 }
 
 function toSafeNumber(value: WireNumberInput): number {
