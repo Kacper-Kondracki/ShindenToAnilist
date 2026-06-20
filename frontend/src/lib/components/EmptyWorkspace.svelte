@@ -3,6 +3,7 @@
 
   import type { ProviderOption } from '../config/providers';
   import type { UserListRequestState } from '../domain/anime';
+  import { SourceFetchPhase } from '../gen/shinden_to_anilist/v1/source_pb';
   import AnimatedGridPanel from './AnimatedGridPanel.svelte';
   import AuroraPanel from './AuroraPanel.svelte';
   import SourceImportProgress from './SourceImportProgress.svelte';
@@ -21,14 +22,28 @@
     onCancelLoad: () => void;
   } = $props();
   const shouldAnimateOnMount = untrack(() => animateOnMount);
+  let readySourceImportProgress = $derived.by(() => {
+    if (
+      userListRequestState.status !== 'loading' ||
+      !provider.supportsSourceImportProgress ||
+      userListRequestState.progress === null
+    ) {
+      return null;
+    }
+
+    return userListRequestState.progress.total > 0 ||
+      userListRequestState.progress.phase !== SourceFetchPhase.FETCHING_LIST
+      ? userListRequestState.progress
+      : null;
+  });
 </script>
 
 <section class="grid flex-1 p-4">
-  {#if userListRequestState.status === 'loading' && provider.supportsSourceImportProgress}
+  {#if readySourceImportProgress !== null}
     <AuroraPanel>
       <SourceImportProgress
         providerLabel={provider.label}
-        progress={userListRequestState.progress}
+        progress={readySourceImportProgress}
         onCancel={onCancelLoad}
       />
     </AuroraPanel>

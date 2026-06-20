@@ -10,6 +10,7 @@ const animeZoneUserPattern =
 const ogladajAnimeUserPattern =
   /^(?:https?:\/\/)?(?:www\.)?ogladajanime\.pl\/(?:anime_list|profile)\/(\d+)(?:\/[0-5])?\/?(?:[?#].*)?$/i;
 const sourceImportPreviewInput = 'shindentoanilist:source-import-preview';
+const showNotificationsPattern = /^shindentoanilist:show-notifications:(\d+)$/;
 
 const usernamePattern = /^[A-Za-z0-9_-]+$/;
 const numericUserIdPattern = /^\d+$/;
@@ -85,6 +86,16 @@ export function providerFromInput(value: string): Provider | null {
 
 export function isSourceImportPreviewInput(value: string) {
   return value === sourceImportPreviewInput;
+}
+
+export function parseMockNotificationCount(value: string) {
+  const match = value.trim().match(showNotificationsPattern);
+  if (match === null) {
+    return null;
+  }
+
+  const count = Number(match[1]);
+  return Number.isSafeInteger(count) && count > 0 ? count : null;
 }
 
 function parseAnimeZoneUsername(value: string) {

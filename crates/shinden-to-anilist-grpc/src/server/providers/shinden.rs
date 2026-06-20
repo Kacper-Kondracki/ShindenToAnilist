@@ -45,7 +45,7 @@ pub(in crate::server) async fn fetch_source_list(
     let user_id = request
         .user
         .parse::<u64>()
-        .map_err(|_| Status::invalid_argument("shinden source user must be a numeric user id"))?;
+        .map_err(|_| Status::invalid_argument("Id użytkownika Shinden musi być liczbą."))?;
 
     emit_progress(super::super::source::source_progress(
         SourceProvider::Shinden,

@@ -54,7 +54,9 @@ impl ShindenToAnilist {
                 .await?;
                 self.store_source_list(source, total_entries, emit_progress)
             },
-            SourceProvider::Unspecified => Err(Status::invalid_argument("source provider is not supported")),
+            SourceProvider::Unspecified => {
+                Err(Status::invalid_argument("Wybrane źródło nie jest obsługiwane."))
+            },
         }
     }
 

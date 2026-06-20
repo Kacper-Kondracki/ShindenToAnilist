@@ -44,7 +44,7 @@ pub(in crate::server) async fn fetch_source_list(
     let username = user.trim();
     if username.is_empty() {
         return Err(Status::invalid_argument(
-            "animezone source user must not be empty",
+            "Nazwa użytkownika AnimeZone nie może być pusta.",
         ));
     }
 

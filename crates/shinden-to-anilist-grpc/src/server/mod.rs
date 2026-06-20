@@ -83,7 +83,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
                         progress: Some(progress),
                         done: false,
                     }))
-                    .map_err(|_| Status::cancelled("source fetch stream receiver dropped"))
+                    .map_err(|_| Status::cancelled("Odbiorca postępu importu został zamknięty."))
             });
             tokio::pin!(fetch);
 

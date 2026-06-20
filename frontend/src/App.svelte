@@ -3,6 +3,7 @@
 
   import AppHeader from './lib/components/AppHeader.svelte';
   import EmptyWorkspace from './lib/components/EmptyWorkspace.svelte';
+  import NotificationLayer from './lib/components/NotificationLayer.svelte';
   import WorkspaceView from './lib/components/WorkspaceView.svelte';
   import { createAppController } from './lib/features/app/appController.svelte';
 
@@ -73,6 +74,8 @@
       </div>
     {/if}
   </div>
+
+  <NotificationLayer controller={app.notifications} />
 </main>
 
 <style>
