@@ -1,9 +1,9 @@
 @import 'tailwindcss';
-@plugin "@iconify/tailwind4";
-@plugin "daisyui" {
+@plugin '@iconify/tailwind4';
+@plugin 'daisyui' {
   themes: false;
 }
-@plugin "./catppuccinTheme.mocha.ts";
+@plugin './catppuccinTheme.mocha.ts';
 
 @font-face {
   font-family: 'Roboto';

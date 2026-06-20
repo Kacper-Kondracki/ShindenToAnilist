@@ -1,5 +1,8 @@
 import { Channel } from '@tauri-apps/api/core';
-import { AnimeListSortedBy, SourceProvider } from '../gen/shinden_to_anilist/v1/common_pb';
+import {
+  AnimeListSortedBy,
+  SourceProvider
+} from '../gen/shinden_to_anilist/v1/common_pb';
 import type {
   ExportResult,
   MatchSelection,
@@ -34,11 +37,7 @@ import {
   observeShindenVersion,
   observeSourceVersion
 } from './versions';
-import {
-  toTauriWireNumber,
-  toWireNumber,
-  type WireNumberInput
-} from './wire';
+import { toTauriWireNumber, toWireNumber, type WireNumberInput } from './wire';
 
 type TauriFetchShindenListResponse = {
   shindenVersion: WireNumberInput;
@@ -229,10 +228,9 @@ export async function downloadDatabase(path: string) {
 }
 
 export async function loadDatabase(path: string) {
-  const response = await callTauri<TauriLoadDatabaseResponse>(
-    'load_database',
-    { path }
-  );
+  const response = await callTauri<TauriLoadDatabaseResponse>('load_database', {
+    path
+  });
   observeDatabaseVersion(response.databaseVersion);
   return { databaseVersion: toWireNumber(response.databaseVersion) };
 }

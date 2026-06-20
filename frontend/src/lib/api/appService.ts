@@ -1,14 +1,14 @@
-import { AnimeListSortedBy, SourceProvider } from '../gen/shinden_to_anilist/v1/common_pb';
+import {
+  AnimeListSortedBy,
+  SourceProvider
+} from '../gen/shinden_to_anilist/v1/common_pb';
 import type {
   MatchSelection,
   SearchOptions,
   WireNumber
 } from '../domain/anime';
 import * as grpcService from './grpcService';
-import {
-  toDatabaseInfo,
-  type SourceFetchProgress
-} from './mapping';
+import { toDatabaseInfo, type SourceFetchProgress } from './mapping';
 import {
   appPathsPromise,
   databasePath,

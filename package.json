@@ -43,11 +43,14 @@
     "format:frontend": "pnpm --filter frontend format",
     "format:electron": "pnpm --filter electron format",
     "format:tauri": "pnpm --filter tauri format",
+    "format:toml": "tombi format",
     "format:crates": "cargo +nightly fmt",
-    "format": "pnpm format:crates && pnpm format:root && pnpm format:frontend && pnpm format:electron && pnpm format:tauri"
+    "format": "pnpm format:crates && pnpm format:toml && pnpm format:root && pnpm format:frontend && pnpm format:electron && pnpm format:tauri"
   },
   "devDependencies": {
+    "@tombi-toml/tombi": "^1.1.3",
     "concurrently": "^10.0.3",
+    "prettier": "^3.8.4",
     "wait-on": "^9.0.10"
   }
 }

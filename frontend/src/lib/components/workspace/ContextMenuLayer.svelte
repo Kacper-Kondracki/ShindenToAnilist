@@ -146,7 +146,7 @@
     bind:this={menuElement}
     use:portal
     class:context-menu--closing={contextMenu.status === 'closing'}
-    class="context-menu menu bg-base-100 rounded-box z-50 min-w-56 border border-base-content/10 p-1 shadow-xl"
+    class="context-menu menu bg-base-100 rounded-box border-base-content/10 z-50 min-w-56 border p-1 shadow-xl"
     style={`left: ${contextMenu.x}px; top: ${contextMenu.y}px`}
     role="menu"
     tabindex="-1"

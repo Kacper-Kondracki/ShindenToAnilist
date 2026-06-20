@@ -38,7 +38,7 @@
   } = $props();
 </script>
 
-<header class="border-b border-base-content/10 bg-base-200">
+<header class="border-base-content/10 bg-base-200 border-b">
   <div class="flex flex-wrap items-center gap-4 px-4 py-3">
     <div
       class="flex flex-[0_0_max-content] flex-nowrap items-center justify-start max-[58rem]:flex-[1_0_100%] max-[58rem]:justify-between"

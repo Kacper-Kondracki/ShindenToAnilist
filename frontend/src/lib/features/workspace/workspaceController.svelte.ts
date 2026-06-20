@@ -234,7 +234,8 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     }
 
     if (
-      (selectedEntryId !== null && wireNumberEquals(entryId, selectedEntryId)) ||
+      (selectedEntryId !== null &&
+        wireNumberEquals(entryId, selectedEntryId)) ||
       (pendingSelectionEntryId !== null &&
         wireNumberEquals(entryId, pendingSelectionEntryId))
     ) {
@@ -885,7 +886,10 @@ function getLocalStorage() {
   return typeof localStorage === 'undefined' ? null : localStorage;
 }
 
-function recordsEqual<T>(left: WireNumberRecord<T>, right: WireNumberRecord<T>) {
+function recordsEqual<T>(
+  left: WireNumberRecord<T>,
+  right: WireNumberRecord<T>
+) {
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
 

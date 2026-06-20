@@ -101,7 +101,10 @@ export async function callRpc<T>(run: (client: AppClient) => Promise<T>) {
   }
 }
 
-export async function callTauri<T>(command: string, args?: Record<string, unknown>) {
+export async function callTauri<T>(
+  command: string,
+  args?: Record<string, unknown>
+) {
   try {
     return await invoke<T>(command, args ?? {});
   } catch (error) {

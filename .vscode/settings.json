@@ -1,7 +1,6 @@
 {
   "svelte.enable-ts-plugin": true,
   "prettier.experimentalTernaries": true,
-  "prettier.requireConfig": true,
   "editor.quickSuggestions": {
     "strings": "on"
   },

@@ -44,7 +44,7 @@
       />
     {:else}
       <span
-        class="database-entry-cover__placeholder text-xs font-medium text-muted"
+        class="database-entry-cover__placeholder text-muted text-xs font-medium"
       >
         Brak okładki
       </span>
@@ -53,7 +53,7 @@
 
   <div class="database-entry-details" bind:clientHeight={preview.detailsHeight}>
     <div class="database-entry-title">
-      <p class="text-xs font-medium text-muted">Tytuł</p>
+      <p class="text-muted text-xs font-medium">Tytuł</p>
       <h2 class="text-lg font-semibold">{entry.title}</h2>
     </div>
 

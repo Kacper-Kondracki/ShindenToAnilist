@@ -14,10 +14,7 @@
   import ContextMenu from './ContextMenu.svelte';
   import EntryRow from './EntryRow.svelte';
   import RowMetadataBadges from './RowMetadataBadges.svelte';
-  import {
-    copyText,
-    openExternalUrl
-  } from './contextMenuActions';
+  import { copyText, openExternalUrl } from './contextMenuActions';
   import type { ContextMenuItem } from './contextMenuState.svelte';
   import type { EntryRowTone } from './EntryRow.svelte';
   import type { RowMetadataBadge } from './RowMetadataBadges.svelte';
@@ -164,7 +161,7 @@
       <span class="text-xs font-semibold">
         {translateWatchStatus(entry.watchStatus)}
       </span>
-      <span class="text-xs text-muted">{episodeProgressText}</span>
+      <span class="text-muted text-xs">{episodeProgressText}</span>
     {/snippet}
   </EntryRow>
 </ContextMenu>

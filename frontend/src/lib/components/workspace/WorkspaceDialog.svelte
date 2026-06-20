@@ -65,7 +65,7 @@
         <div class="min-w-0">
           <h2 id={titleId} class="text-lg font-bold">{title}</h2>
           {#if children}
-            <div class="mt-2 text-sm leading-6 text-muted">
+            <div class="text-muted mt-2 text-sm leading-6">
               {@render children()}
             </div>
           {/if}

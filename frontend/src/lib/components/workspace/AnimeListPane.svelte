@@ -83,7 +83,7 @@
         {/snippet}
       </VList>
     {:else}
-      <p class="workspace-empty text-sm font-medium text-muted">
+      <p class="workspace-empty text-muted text-sm font-medium">
         {listPane.emptyListText}
       </p>
     {/if}
