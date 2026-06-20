@@ -32,6 +32,10 @@ use scraper::{
     Html,
     Selector,
 };
+use tracing::{
+    debug,
+    warn,
+};
 
 use crate::converter::common::AnimeId;
 
@@ -143,7 +147,7 @@ impl ScrapeClient {
         let path = path.to_compact_string();
         let mut last_error = None;
 
-        for _ in 0..self.attempts {
+        for attempt in 1..=self.attempts {
             self.limiter.until_ready().await;
             let result = request(&self.client, self.url(&path))
                 .send()
@@ -153,9 +157,15 @@ impl ScrapeClient {
             match result {
                 Ok(response) => match response.text().await {
                     Ok(text) => return Ok(text),
-                    Err(error) => last_error = Some(error),
+                    Err(error) => {
+                        debug!(%path, attempt, attempts = self.attempts, error = %error, "failed to read response body");
+                        last_error = Some(error);
+                    },
                 },
-                Err(error) => last_error = Some(error),
+                Err(error) => {
+                    debug!(%path, attempt, attempts = self.attempts, error = %error, "request attempt failed");
+                    last_error = Some(error);
+                },
             }
         }
 
@@ -250,20 +260,23 @@ pub(crate) async fn collect_scraped_list_items<P>(
 ) -> Result<Vec<P::ListItem>, P::Error>
 where
     P: ScrapedListProvider,
-    P::Error: From<RetryExhausted>,
+    P::Error: From<RetryExhausted> + fmt::Display,
 {
     let mut items = Vec::new();
 
     for section in sections {
         let first_path = P::section_path(username, section, 1);
         let first_html = client.get_html(&first_path).await?;
-        let (mut page_items, page_count) = P::parse_list(&first_path, section, &first_html)?;
+        let (mut page_items, page_count) = P::parse_list(&first_path, section, &first_html).inspect_err(
+            |error| warn!(path = %first_path, error = %error, "source list page parse failed"),
+        )?;
         items.append(&mut page_items);
 
         for page in 2..=page_count {
             let path = P::section_path(username, section, page);
             let html = client.get_html(&path).await?;
-            let (mut page_items, _) = P::parse_list(&path, section, &html)?;
+            let (mut page_items, _) = P::parse_list(&path, section, &html)
+                .inspect_err(|error| warn!(%path, page, error = %error, "source list page parse failed"))?;
             items.append(&mut page_items);
         }
     }
@@ -280,7 +293,7 @@ where
     P: ScrapedListProvider,
     P::ListItem: 'static,
     P::Detail: 'static,
-    P::Error: From<RetryExhausted> + Send + 'static,
+    P::Error: From<RetryExhausted> + fmt::Display + Send + 'static,
 {
     stream::iter(items.into_iter().map(move |item| {
         let client = client.clone();
@@ -289,11 +302,23 @@ where
             let detail = match client.get_html(&path).await {
                 Ok(html) => match P::parse_detail(&path, &html) {
                     Ok(detail) => Some(detail),
-                    Err(error) if options.fail_on_detail_error => return Err(error),
-                    Err(_) => None,
+                    Err(error) if options.fail_on_detail_error => {
+                        warn!(%path, error = %error, "source detail page parse failed");
+                        return Err(error);
+                    },
+                    Err(error) => {
+                        warn!(%path, error = %error, "source detail page parse failed; continuing without detail");
+                        None
+                    },
                 },
-                Err(error) if options.fail_on_detail_error => return Err(error.into()),
-                Err(_) => None,
+                Err(error) if options.fail_on_detail_error => {
+                    warn!(%path, error = %error, "source detail page request failed");
+                    return Err(error.into());
+                },
+                Err(error) => {
+                    warn!(%path, error = %error, "source detail page request failed; continuing without detail");
+                    None
+                },
             };
 
             Ok((item, detail))

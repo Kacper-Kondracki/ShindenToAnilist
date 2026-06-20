@@ -17,6 +17,7 @@ use tonic::{
     Code,
     Status,
 };
+use tracing::warn;
 
 use crate::pb::{
     AppError,
@@ -35,6 +36,11 @@ use crate::pb::{
 
 impl AppError {
     pub fn into_status(self) -> Status {
+        warn!(
+            kind = ?self.kind(),
+            message = %self.message,
+            "returning application error"
+        );
         Status::with_details(Code::Internal, self.message.clone(), self.encode_to_vec().into())
     }
 }

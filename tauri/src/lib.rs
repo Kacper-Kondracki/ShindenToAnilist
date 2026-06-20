@@ -34,9 +34,25 @@ use commands::{
     },
 };
 use state::AppState;
+use tracing_subscriber::{
+    EnvFilter,
+    fmt,
+};
+
+fn init_tracing() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new(
+            "shinden_to_anilist_core=info,shinden_to_anilist_grpc=info,shinden_to_anilist_tauri=info",
+        )
+    });
+
+    let _ = fmt().with_env_filter(filter).try_init();
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    init_tracing();
+
     let client = reqwest::Client::builder()
         .cookie_store(true)
         .build()
