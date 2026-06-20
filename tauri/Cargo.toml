@@ -17,6 +17,8 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tokio-util = "0.7"
 tonic = "0.14"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }

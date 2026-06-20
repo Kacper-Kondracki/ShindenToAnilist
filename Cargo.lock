@@ -5016,6 +5016,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "unicode-normalization",
  "unicode-segmentation",
  "wana_kana",
@@ -5059,6 +5060,8 @@ dependencies = [
  "tauri-plugin-opener",
  "tokio-util",
  "tonic",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

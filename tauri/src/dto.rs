@@ -12,6 +12,7 @@ use serde::{
 };
 use shinden_to_anilist_grpc::pb;
 use tonic::Status;
+use tracing::warn;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct WireNumberDto(pub(crate) u64);
@@ -540,7 +541,14 @@ impl From<SourceIdPairDto> for pb::SourceIdPair {
     }
 }
 
-pub(crate) fn command_error(status: Status) -> String { status.message().to_owned() }
+pub(crate) fn command_error(status: Status) -> String {
+    warn!(
+        code = ?status.code(),
+        message = %status.message(),
+        "tauri command failed"
+    );
+    status.message().to_owned()
+}
 
 pub(crate) fn wire_numbers(values: Vec<u64>) -> Vec<WireNumberDto> {
     values.into_iter().map(Into::into).collect()

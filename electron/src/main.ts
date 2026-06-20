@@ -208,6 +208,7 @@ function startSidecar(): Promise<string> {
 
     child.stderr.on('data', (chunk: string) => {
       stderrBuffer += chunk;
+      process.stderr.write(chunk);
     });
 
     child.on('error', (error) => {
