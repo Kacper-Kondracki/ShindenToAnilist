@@ -113,7 +113,7 @@
 
     {#snippet meta()}
       <span class="text-xs font-semibold">{scoreLabel}</span>
-      <span class="text-xs text-muted">
+      <span class="text-muted text-xs">
         {formatEpisodeCount(entry.episodes)} odc.
       </span>
     {/snippet}

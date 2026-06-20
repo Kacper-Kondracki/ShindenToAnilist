@@ -28,7 +28,7 @@
       type="button"
       class:provider-button--selected={selectedProvider === provider.id}
       class:btn-ghost={selectedProvider !== provider.id}
-      class="provider-button btn join-item border-0 btn-soft"
+      class="provider-button btn join-item btn-soft border-0"
       style:--provider-button-accent={provider.accent}
       disabled={provider.disabled}
       aria-disabled={locked || undefined}

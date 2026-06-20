@@ -29,7 +29,7 @@
     </AuroraPanel>
   {:else}
     <AnimatedGridPanel
-      class="empty-workspace-panel grid place-items-center overflow-hidden surface-panel"
+      class="empty-workspace-panel surface-panel grid place-items-center overflow-hidden"
     >
       <div
         class="isolate grid max-w-3xl justify-items-center gap-2 px-6 text-center"
@@ -41,7 +41,7 @@
             {provider.label} jest jeszcze w budowie
           {/if}
         </p>
-        <p class="text-base font-medium text-muted md:text-xl">
+        <p class="text-muted text-base font-medium md:text-xl">
           {#if canLoadProvider}
             Aktywny import z {provider.label}, pozostałe źródła w budowie
           {:else}

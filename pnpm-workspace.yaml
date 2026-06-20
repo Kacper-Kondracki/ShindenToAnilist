@@ -4,5 +4,6 @@ packages:
   - 'tauri'
 allowBuilds:
   '@bufbuild/buf': true
+  '@tombi-toml/tombi': true
   electron-winstaller: true
   protobufjs: true

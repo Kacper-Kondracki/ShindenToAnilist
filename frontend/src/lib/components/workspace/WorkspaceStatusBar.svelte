@@ -84,7 +84,6 @@
     isExportWarningOpen = false;
     void onExport();
   }
-
 </script>
 
 <footer class="app-status-bar">
@@ -95,7 +94,7 @@
       bind:this={badges.summaryElement}
     >
       {#if matchErrorMessage !== null}
-        <span class="text-sm font-medium text-error" data-status-required>
+        <span class="text-error text-sm font-medium" data-status-required>
           Błąd dopasowania: {matchErrorMessage}
         </span>
       {/if}

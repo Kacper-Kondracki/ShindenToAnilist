@@ -383,7 +383,7 @@
     />
     <button
       type="button"
-      class="btn btn-primary btn-soft border-0 btn-square btn-sm clear-manual-override-button"
+      class="btn btn-primary btn-soft btn-square btn-sm clear-manual-override-button border-0"
       aria-label="Resetuj wpis"
       title="Resetuj wpis"
       disabled={!canReset}
@@ -394,7 +394,7 @@
     <button
       type="button"
       class:btn-active={isIgnored}
-      class="btn btn-neutral btn-soft border-0 btn-square btn-sm ignore-entry-button"
+      class="btn btn-neutral btn-soft btn-square btn-sm ignore-entry-button border-0"
       aria-label={isIgnored ? 'Przestań ignorować wpis' : 'Ignoruj wpis'}
       title={isIgnored ? 'Przestań ignorować wpis' : 'Ignoruj wpis'}
       onclick={selector.applyIgnore}
@@ -461,7 +461,7 @@
           </li>
         {/each}
         {#if selector.automaticResults.length > 0 && selector.searchResults.length === 0}
-          <li class="search-message text-sm font-medium text-muted">
+          <li class="search-message text-muted text-sm font-medium">
             Brak wyników
           </li>
         {/if}
@@ -474,11 +474,11 @@
         {/if}
       </ul>
     {:else if selector.errorMessage !== null}
-      <p class="search-message text-sm font-medium text-error">
+      <p class="search-message text-error text-sm font-medium">
         {selector.errorMessage}
       </p>
     {:else}
-      <p class="search-message text-sm font-medium text-muted">Brak wyników</p>
+      <p class="search-message text-muted text-sm font-medium">Brak wyników</p>
     {/if}
   </div>
 </div>

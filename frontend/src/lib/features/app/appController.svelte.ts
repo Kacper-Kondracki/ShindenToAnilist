@@ -162,7 +162,12 @@ export function createAppController() {
     const abortController = new AbortController();
     activeUserListAbortController = abortController;
     const startedAt = performance.now();
-    userListRequestState = { status: 'loading', provider, query, progress: null };
+    userListRequestState = {
+      status: 'loading',
+      provider,
+      query,
+      progress: null
+    };
 
     try {
       const fetchStartedAt = performance.now();
@@ -447,7 +452,8 @@ function assertConsistentWorkspaceVersions(
   matchResult: MatchListResult,
   sourceIdsVersion: WireNumber
 ) {
-  const matchedSourceVersion = matchResult.sourceVersion ?? matchResult.shindenVersion;
+  const matchedSourceVersion =
+    matchResult.sourceVersion ?? matchResult.shindenVersion;
   if (
     !wireNumberEquals(fetchedSourceVersion, matchedSourceVersion) ||
     !wireNumberEquals(fullSourceVersion, matchedSourceVersion) ||

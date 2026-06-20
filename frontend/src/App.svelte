@@ -19,7 +19,7 @@
 </script>
 
 <main
-  class="flex min-h-dvh flex-col bg-base-300"
+  class="bg-base-300 flex min-h-dvh flex-col"
   style:--provider-accent={app.selectedProviderDetails.accent}
 >
   <AppHeader

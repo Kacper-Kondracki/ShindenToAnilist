@@ -1,5 +1,8 @@
 import { create } from '@bufbuild/protobuf';
-import { AnimeListSortedBy, SourceProvider } from '../gen/shinden_to_anilist/v1/common_pb';
+import {
+  AnimeListSortedBy,
+  SourceProvider
+} from '../gen/shinden_to_anilist/v1/common_pb';
 import { SourceIdPairSchema } from '../gen/shinden_to_anilist/v1/export_pb';
 import type {
   DatabaseMetadata,
@@ -333,7 +336,10 @@ export async function matchSourceList(options: SearchOptions = {}) {
   });
 }
 
-export async function exportXml(matches: MatchSelection[], resolvedPath: string) {
+export async function exportXml(
+  matches: MatchSelection[],
+  resolvedPath: string
+) {
   return callRpc(async (client): Promise<ExportResult> => {
     const selectedPath = await selectExportPath(resolvedPath);
 

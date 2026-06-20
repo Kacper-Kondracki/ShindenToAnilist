@@ -60,7 +60,10 @@
     matchSelectorQueries: WireNumberRecord<string>;
     winnerClaimsByDatabaseId: ReadonlyMap<WireNumber, readonly WireNumber[]>;
     initialMatchSearch: MatchSelectorInitialSearch | null;
-    onSetManualOverride: (shindenId: WireNumber, databaseId: WireNumber) => void;
+    onSetManualOverride: (
+      shindenId: WireNumber,
+      databaseId: WireNumber
+    ) => void;
     onSetIgnored: (shindenId: WireNumber) => void;
     onClearManualOverride: (shindenId: WireNumber) => void;
     onSetMatchSelectorQuery: (shindenId: WireNumber, query: string) => void;
@@ -162,11 +165,11 @@
 >
   <div class="workspace-pane__body">
     {#if selectedWinnerState.status === 'no-selection'}
-      <p class="workspace-empty text-sm font-medium text-muted">
+      <p class="workspace-empty text-muted text-sm font-medium">
         Wybierz wpis z listy
       </p>
     {:else if selectedShindenEntry === null}
-      <p class="workspace-empty text-sm font-medium text-muted">
+      <p class="workspace-empty text-muted text-sm font-medium">
         Nie znaleziono wpisu źródłowego
       </p>
     {:else}
