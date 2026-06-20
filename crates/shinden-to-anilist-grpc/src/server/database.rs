@@ -217,9 +217,10 @@ pub(super) async fn spawn_blocking_status<T>(
 where
     T: Send + 'static,
 {
-    tokio::task::spawn_blocking(f)
-        .await
-        .map_err(|err| Status::internal(format!("{operation} blocking task failed: {err}")))?
+    tokio::task::spawn_blocking(f).await.map_err(|err| {
+        tracing::warn!(operation, error = %err, "database blocking task failed");
+        Status::internal("Operacja na bazie danych nie powiodła się.")
+    })?
 }
 
 fn database_sidecar_path(path: impl AsRef<Path>) -> PathBuf {

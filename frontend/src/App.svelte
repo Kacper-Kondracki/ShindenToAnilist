@@ -3,10 +3,12 @@
 
   import AppHeader from './lib/components/AppHeader.svelte';
   import EmptyWorkspace from './lib/components/EmptyWorkspace.svelte';
+  import NotificationLayer from './lib/components/NotificationLayer.svelte';
   import WorkspaceView from './lib/components/WorkspaceView.svelte';
   import { createAppController } from './lib/features/app/appController.svelte';
 
   const app = createAppController();
+  let enableViewEnterAnimations = $state(false);
 
   onMount(() => {
     void app.initializeDatabase();
@@ -14,6 +16,7 @@
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
+    enableViewEnterAnimations = true;
     await app.submitUserList();
   }
 </script>
@@ -43,17 +46,24 @@
     {#if app.workspace.state.status === 'empty' || app.shouldShowSourceImportProgress}
       <div
         class="view-frame"
-        class:view-frame--enter={app.shouldShowSourceImportProgress}
+        class:view-frame--enter={enableViewEnterAnimations &&
+          app.shouldShowSourceImportProgress}
       >
-        <EmptyWorkspace
-          provider={app.userListRequestProviderDetails}
-          canLoadProvider={app.isProviderSupported}
-          userListRequestState={app.userListRequestState}
-          onCancelLoad={app.cancelUserListLoad}
-        />
+        {#key app.shouldShowSourceImportProgress}
+          <EmptyWorkspace
+            provider={app.userListRequestProviderDetails}
+            animateOnMount={enableViewEnterAnimations}
+            canLoadProvider={app.isProviderSupported}
+            userListRequestState={app.userListRequestState}
+            onCancelLoad={app.cancelUserListLoad}
+          />
+        {/key}
       </div>
     {:else}
-      <div class="view-frame view-frame--enter">
+      <div
+        class="view-frame"
+        class:view-frame--enter={enableViewEnterAnimations}
+      >
         {#key app.workspace.state}
           <WorkspaceView
             providerLabel={app.activeProviderDetails.label}
@@ -64,6 +74,8 @@
       </div>
     {/if}
   </div>
+
+  <NotificationLayer controller={app.notifications} />
 </main>
 
 <style>

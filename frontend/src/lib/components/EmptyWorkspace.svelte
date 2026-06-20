@@ -1,35 +1,57 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import type { ProviderOption } from '../config/providers';
   import type { UserListRequestState } from '../domain/anime';
+  import { SourceFetchPhase } from '../gen/shinden_to_anilist/v1/source_pb';
   import AnimatedGridPanel from './AnimatedGridPanel.svelte';
   import AuroraPanel from './AuroraPanel.svelte';
   import SourceImportProgress from './SourceImportProgress.svelte';
 
   let {
     provider,
+    animateOnMount = true,
     canLoadProvider,
     userListRequestState,
     onCancelLoad
   }: {
     provider: ProviderOption;
+    animateOnMount?: boolean;
     canLoadProvider: boolean;
     userListRequestState: UserListRequestState;
     onCancelLoad: () => void;
   } = $props();
+  const shouldAnimateOnMount = untrack(() => animateOnMount);
+  let readySourceImportProgress = $derived.by(() => {
+    if (
+      userListRequestState.status !== 'loading' ||
+      !provider.supportsSourceImportProgress ||
+      userListRequestState.progress === null
+    ) {
+      return null;
+    }
+
+    return userListRequestState.progress.total > 0 ||
+      userListRequestState.progress.phase !== SourceFetchPhase.FETCHING_LIST
+      ? userListRequestState.progress
+      : null;
+  });
 </script>
 
 <section class="grid flex-1 p-4">
-  {#if userListRequestState.status === 'loading' && provider.supportsSourceImportProgress}
+  {#if readySourceImportProgress !== null}
     <AuroraPanel>
       <SourceImportProgress
         providerLabel={provider.label}
-        progress={userListRequestState.progress}
+        progress={readySourceImportProgress}
         onCancel={onCancelLoad}
       />
     </AuroraPanel>
   {:else}
     <AnimatedGridPanel
-      class="empty-workspace-panel surface-panel grid place-items-center overflow-hidden"
+      class={`empty-workspace-panel surface-panel grid place-items-center overflow-hidden ${
+        shouldAnimateOnMount ? 'empty-workspace-panel--enter' : ''
+      }`}
     >
       <div
         class="isolate grid max-w-3xl justify-items-center gap-2 px-6 text-center"
@@ -54,7 +76,7 @@
 </section>
 
 <style>
-  :global(.empty-workspace-panel) {
+  :global(.empty-workspace-panel--enter) {
     animation: empty-workspace-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
     backface-visibility: hidden;
     transform: translateZ(0);
@@ -74,7 +96,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :global(.empty-workspace-panel) {
+    :global(.empty-workspace-panel--enter) {
       animation: none;
     }
   }

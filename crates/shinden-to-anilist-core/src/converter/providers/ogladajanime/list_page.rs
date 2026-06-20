@@ -24,6 +24,8 @@ pub(super) fn parse_list_page(
     html: &str,
 ) -> Result<(Vec<OgladajAnimeListItem>, usize), OgladajAnimeError> {
     let document = Html::parse_document(html);
+    reject_private_list(path, &document)?;
+
     let row_selector = selector("table#my_anime_table tbody tr[id^=\"anime_list_item_\"]");
     let cell_selector = selector("td");
     let title_selector = selector("a[href^=\"/anime/\"]");
@@ -89,6 +91,24 @@ pub(super) fn parse_list_page(
     Ok((items, 1))
 }
 
+fn reject_private_list(path: &str, document: &Html) -> Result<(), OgladajAnimeError> {
+    let body_selector = selector("body");
+    let is_private = document
+        .select(&body_selector)
+        .next()
+        .map(element_text)
+        .is_some_and(|text| text.contains("Ta lista anime jest prywatna"));
+
+    if is_private {
+        return Err(OgladajAnimeError::Parse {
+            path: path.to_string(),
+            message: "anime list is private".to_string(),
+        });
+    }
+
+    Ok(())
+}
+
 fn parse_row_id(value: &str) -> Option<AnimeId> {
     value
         .strip_prefix("anime_list_item_")
@@ -146,7 +166,7 @@ pub(super) fn parse_watch_status(value: &str) -> Option<WatchStatus> {
         "Obejrzane" => Some(WatchStatus::Completed),
         "Planuje" | "Planuję" => Some(WatchStatus::PlanToWatch),
         "Wstrzymane" => Some(WatchStatus::OnHold),
-        "Porzucone" => Some(WatchStatus::Dropped),
+        "Porzucone" | "Nie oglądam" | "Nie ogladam" => Some(WatchStatus::Dropped),
         _ => None,
     }
 }
@@ -208,5 +228,50 @@ mod tests {
 
         assert_eq!(item.watched_episodes, 238);
         assert_eq!(item.total_episodes, Some(238));
+    }
+
+    #[test]
+    fn treats_not_watching_status_as_dropped() {
+        let html = r#"
+            <table id="my_anime_table">
+                <tbody>
+                    <tr id="anime_list_item_8853">
+                        <td>32</td>
+                        <td></td>
+                        <td><a href="/anime/kuroshitsuji-2">Kuroshitsuji 2</a></td>
+                        <td>Nie oglądam</td>
+                        <td>0</td>
+                        <td>12/12</td>
+                        <td>TV</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let (items, _) = parse_list_page("/anime_list/302395", html).unwrap();
+        let item = items.first().expect("fixture row should parse");
+
+        assert_eq!(item.watch_status, WatchStatus::Dropped);
+    }
+
+    #[test]
+    fn rejects_private_list_page() {
+        let html = r#"
+            <html>
+                <body>
+                    <p>Ta lista anime jest prywatna.</p>
+                </body>
+            </html>
+        "#;
+
+        let error = parse_list_page("/anime_list/547515", html).expect_err("private list should fail");
+
+        assert!(matches!(
+            error,
+            OgladajAnimeError::Parse {
+                ref message,
+                ..
+            } if message == "anime list is private"
+        ));
     }
 }

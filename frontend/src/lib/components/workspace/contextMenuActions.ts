@@ -71,7 +71,9 @@ function validatedExternalUrl(url: string) {
   const parsedUrl = new URL(url);
 
   if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
-    throw new Error(`Unsupported external URL protocol: ${parsedUrl.protocol}`);
+    throw new Error(
+      `Nieobsługiwany protokół adresu URL: ${parsedUrl.protocol}`
+    );
   }
 
   return parsedUrl.toString();

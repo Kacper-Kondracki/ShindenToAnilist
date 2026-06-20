@@ -20,8 +20,10 @@ import {
   errorMessage,
   initializeDatabaseState
 } from '../database/initializeDatabase';
+import { createNotificationController } from '../notifications/notificationController.svelte';
 import {
   isSourceImportPreviewInput,
+  parseMockNotificationCount,
   parseSourceUser,
   providerFromInput
 } from '../source/userInput';
@@ -32,6 +34,7 @@ export type AppController = ReturnType<typeof createAppController>;
 export function createAppController() {
   const animeData = createLoadedAnimeData();
   const workspace = createWorkspaceController(animeData);
+  const notifications = createNotificationController();
 
   let selectedProvider = $state<Provider>('shinden');
   let userQuery = $state('');
@@ -41,6 +44,7 @@ export function createAppController() {
   let activeUserListAbortController: AbortController | null = null;
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
   let sourceImportPreviewInterval: number | null = null;
+  let lastDatabaseNotificationMessage = '';
 
   let trimmedQuery = $derived(userQuery.trim());
   let selectedProviderDetails = $derived(providerById(selectedProvider));
@@ -76,7 +80,11 @@ export function createAppController() {
   let isProviderSupported = $derived(selectedProviderDetails.supportsUserList);
   let shouldShowSourceImportProgress = $derived(
     userListRequestState.status === 'loading' &&
-      providerById(userListRequestState.provider).supportsSourceImportProgress
+      providerById(userListRequestState.provider)
+        .supportsSourceImportProgress &&
+      userListRequestState.progress !== null &&
+      (userListRequestState.progress.total > 0 ||
+        userListRequestState.progress.phase !== SourceFetchPhase.FETCHING_LIST)
   );
   let isWaitingForDatabase = $derived(
     userListRequestState.status === 'loading' &&
@@ -96,6 +104,17 @@ export function createAppController() {
     databaseState = { status: 'loading' };
     databaseInitializationPromise = initializeDatabaseState(animeData);
     databaseState = await databaseInitializationPromise;
+    if (
+      databaseState.status === 'error' &&
+      databaseState.message !== lastDatabaseNotificationMessage
+    ) {
+      lastDatabaseNotificationMessage = databaseState.message;
+      notifications.error(
+        'Nie udało się wczytać bazy danych',
+        databaseState.message
+      );
+    }
+
     return databaseState;
   }
 
@@ -144,15 +163,23 @@ export function createAppController() {
       return;
     }
 
+    const mockNotificationCount = parseMockNotificationCount(query);
+    if (mockNotificationCount !== null) {
+      showMockNotifications(mockNotificationCount);
+      return;
+    }
+
     const sourceUser = parseSourceUser(provider, query);
 
     if (sourceUser === null) {
+      const message = `Nie udało się rozpoznać użytkownika ${selectedProviderDetails.label}`;
       userListRequestState = {
         status: 'error',
         provider,
         query,
-        message: `Nie udało się rozpoznać użytkownika ${selectedProviderDetails.label}`
+        message
       };
+      notifications.error('Nieprawidłowy użytkownik', message);
       return;
     }
 
@@ -253,6 +280,10 @@ export function createAppController() {
         query,
         entryIdsByView
       };
+      notifications.success(
+        'Lista została wczytana',
+        `Zaimportowano ${allIds.entryIds.length} pozycji z ${providerById(provider).label}.`
+      );
       workspace.activate({
         provider,
         query,
@@ -268,12 +299,17 @@ export function createAppController() {
       }
 
       console.error('Unable to load source user list', error);
+      const message = errorMessage(error);
       userListRequestState = {
         status: 'error',
         provider,
         query,
-        message: errorMessage(error)
+        message
       };
+      notifications.error(
+        `Nie udało się wczytać listy z ${providerById(provider).label}`,
+        message
+      );
     } finally {
       if (activeRequestId === requestId) {
         activeUserListAbortController = null;
@@ -373,6 +409,24 @@ export function createAppController() {
     sourceImportPreviewInterval = null;
   }
 
+  function showMockNotifications(count: number) {
+    const tones = ['info', 'success', 'warning', 'error'] as const;
+
+    for (let index = 0; index < count; index += 1) {
+      const notificationNumber = index + 1;
+      const tone = tones[index % tones.length] ?? 'info';
+      notifications.notify({
+        tone,
+        title: `Testowe powiadomienie ${notificationNumber}`,
+        message:
+          notificationNumber % 2 === 0
+            ? 'To powiadomienie pozwala sprawdzić bufor i kolejkę wyświetlania.'
+            : 'Kliknij powiadomienie, żeby zamknąć je ręcznie.',
+        timeoutMs: 10000
+      });
+    }
+  }
+
   async function waitForReadyDatabase() {
     if (databaseState.status === 'ready' || databaseState.status === 'error') {
       return databaseState;
@@ -389,6 +443,7 @@ export function createAppController() {
     providers,
     animeData,
     workspace,
+    notifications,
     get selectedProvider() {
       return selectedProvider;
     },

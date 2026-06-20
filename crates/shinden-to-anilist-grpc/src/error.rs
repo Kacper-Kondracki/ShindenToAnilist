@@ -72,13 +72,17 @@ impl IntoStatus for XmlExportError {
 pub fn shinden_list_not_loaded() -> AppError {
     unloaded_resource_error(
         ErrorKind::ShindenListNotLoaded,
-        "shinden list is not loaded",
+        "Lista użytkownika nie została jeszcze wczytana.",
         "shinden_list",
     )
 }
 
 pub fn database_not_loaded() -> AppError {
-    unloaded_resource_error(ErrorKind::DatabaseNotLoaded, "database is not loaded", "database")
+    unloaded_resource_error(
+        ErrorKind::DatabaseNotLoaded,
+        "Baza danych nie została jeszcze wczytana.",
+        "database",
+    )
 }
 
 pub fn database_sidecar_io_error(
@@ -120,19 +124,21 @@ pub fn database_error(error: DatabaseError) -> AppError {
         ),
         DatabaseError::Json(error) => json_error(ErrorKind::DatabaseJson, error, None),
         DatabaseError::Request(error) => http_error(ErrorKind::DatabaseHttp, error),
-        DatabaseError::Empty => simple_error(ErrorKind::DatabaseEmpty, "can not parse empty file"),
+        DatabaseError::Empty => simple_error(
+            ErrorKind::DatabaseEmpty,
+            "Plik bazy danych jest pusty i nie można go wczytać.",
+        ),
         DatabaseError::MissingReleaseAsset { asset } => AppError {
             kind: ErrorKind::DatabaseMissingReleaseAsset.into(),
-            message: format!("latest anime-offline-database release does not contain {asset}"),
+            message: format!("Najnowsze wydanie anime-offline-database nie zawiera pliku {asset}."),
             details: Some(Details::MissingReleaseAsset(MissingReleaseAssetError {
                 asset: asset.to_string(),
             })),
         },
         DatabaseError::DigestMismatch { expected, actual } => AppError {
             kind: ErrorKind::DatabaseDigestMismatch.into(),
-            message: format!(
-                "downloaded anime-offline-database asset sha256 mismatch: expected {expected}, got {actual}"
-            ),
+            message: "Pobrana baza danych ma nieprawidłową sumę kontrolną. Spróbuj pobrać ją ponownie."
+                .to_string(),
             details: Some(Details::DigestMismatch(DigestMismatchError { expected, actual })),
         },
     }
@@ -151,7 +157,7 @@ pub fn shinden_error(error: ShindenError) -> AppError {
         ShindenError::Request(error) => http_error(ErrorKind::ShindenHttp, error),
         ShindenError::Shinden(message) => AppError {
             kind: ErrorKind::ShindenApi.into(),
-            message: format!("shinden api returned error: {message}"),
+            message: shinden_api_user_message(&message),
             details: Some(Details::ShindenApi(ShindenApiError { message })),
         },
     }
@@ -173,7 +179,7 @@ pub fn animezone_error(error: AnimeZoneError) -> AppError {
             source,
         } => AppError {
             kind: ErrorKind::AnimeZoneRetryExhausted.into(),
-            message: format!("animezone request to {path} failed after {attempts} attempts"),
+            message: format!("Nie udało się pobrać danych z AnimeZone po {attempts} próbach."),
             details: Some(Details::Http(HttpError {
                 message: source.to_string(),
                 url: path,
@@ -185,7 +191,7 @@ pub fn animezone_error(error: AnimeZoneError) -> AppError {
         },
         AnimeZoneError::Parse { path, message } => AppError {
             kind: ErrorKind::AnimeZoneParse.into(),
-            message: format!("animezone parse error at {path}: {message}"),
+            message: animezone_parse_user_message(&path, &message),
             details: None,
         },
     }
@@ -207,7 +213,7 @@ pub fn ogladajanime_error(error: OgladajAnimeError) -> AppError {
             source,
         } => AppError {
             kind: ErrorKind::OgladajAnimeRetryExhausted.into(),
-            message: format!("ogladajanime request to {path} failed after {attempts} attempts"),
+            message: format!("Nie udało się pobrać danych z Oglądaj Anime po {attempts} próbach."),
             details: Some(Details::Http(HttpError {
                 message: source.to_string(),
                 url: path,
@@ -219,7 +225,7 @@ pub fn ogladajanime_error(error: OgladajAnimeError) -> AppError {
         },
         OgladajAnimeError::Parse { path, message } => AppError {
             kind: ErrorKind::OgladajAnimeParse.into(),
-            message: format!("ogladajanime parse error at {path}: {message}"),
+            message: ogladajanime_parse_user_message(&path, &message),
             details: None,
         },
     }
@@ -229,14 +235,14 @@ pub fn xml_export_error(error: XmlExportError) -> AppError {
     match error {
         XmlExportError::Xml(error) => AppError {
             kind: ErrorKind::ExportXml.into(),
-            message: error.to_string(),
+            message: "Nie udało się utworzyć pliku XML eksportu.".to_string(),
             details: Some(Details::XmlExport(PbXmlExportError {
                 message: error.to_string(),
             })),
         },
         XmlExportError::OutOfIndex(id, collection) => AppError {
             kind: ErrorKind::ExportOutOfIndex.into(),
-            message: format!("id {id} for {collection} is out of index"),
+            message: "Eksport odwołuje się do wpisu, którego nie ma na wczytanej liście.".to_string(),
             details: Some(Details::OutOfIndex(OutOfIndexError {
                 id,
                 collection: collection.to_string(),
@@ -274,15 +280,16 @@ fn io_error(
     operation: impl Into<String>,
     os_error_kind: Option<io::ErrorKind>,
 ) -> AppError {
+    let operation = operation.into();
     AppError {
         kind: kind.into(),
-        message: message.clone(),
+        message: io_user_message(kind, path, &operation),
         details: Some(Details::Io(IoError {
             message,
             path: path
                 .map(|path| path.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-            operation: operation.into(),
+            operation,
             os_error_kind: os_error_kind.map(|kind| format!("{kind:?}")).unwrap_or_default(),
         })),
     }
@@ -292,7 +299,7 @@ fn json_error(kind: ErrorKind, error: serde_json::Error, path: Option<&Path>) ->
     let message = error.to_string();
     AppError {
         kind: kind.into(),
-        message: message.clone(),
+        message: json_user_message(kind, path, error.line(), error.column()),
         details: Some(Details::Json(JsonError {
             message,
             path: path
@@ -307,9 +314,10 @@ fn json_error(kind: ErrorKind, error: serde_json::Error, path: Option<&Path>) ->
 
 fn http_error(kind: ErrorKind, error: reqwest::Error) -> AppError {
     let message = error.to_string();
+    let user_message = http_user_message(kind, &error);
     AppError {
         kind: kind.into(),
-        message: message.clone(),
+        message: user_message,
         details: Some(Details::Http(HttpError {
             message,
             url: error.url().map(ToString::to_string).unwrap_or_default(),
@@ -319,6 +327,93 @@ fn http_error(kind: ErrorKind, error: reqwest::Error) -> AppError {
                 .unwrap_or_default(),
         })),
     }
+}
+
+fn io_user_message(kind: ErrorKind, path: Option<&Path>, operation: &str) -> String {
+    let target = path
+        .map(|path| format!(" ({})", path.to_string_lossy()))
+        .unwrap_or_default();
+
+    match kind {
+        ErrorKind::DatabaseIo | ErrorKind::DatabaseSidecarIo => {
+            format!("Nie udało się odczytać lub zapisać bazy danych{target}.")
+        },
+        ErrorKind::ExportIo => format!("Nie udało się zapisać pliku eksportu{target}."),
+        ErrorKind::ShindenIo => "Nie udało się odczytać danych Shindena.".to_string(),
+        ErrorKind::AnimeZoneIo => "Nie udało się odczytać danych AnimeZone.".to_string(),
+        ErrorKind::OgladajAnimeIo => "Nie udało się odczytać danych Oglądaj Anime.".to_string(),
+        _ => format!("Nie udało się wykonać operacji „{operation}”{target}."),
+    }
+}
+
+fn json_user_message(kind: ErrorKind, path: Option<&Path>, line: usize, column: usize) -> String {
+    let location = if line > 0 || column > 0 {
+        format!(" Linia {line}, kolumna {column}.")
+    } else {
+        String::new()
+    };
+    let target = path
+        .map(|path| format!(" ({})", path.to_string_lossy()))
+        .unwrap_or_default();
+
+    match kind {
+        ErrorKind::DatabaseJson | ErrorKind::DatabaseSidecarJson => {
+            format!("Plik bazy danych ma nieprawidłowy format JSON{target}.{location}")
+        },
+        ErrorKind::ShindenJson => format!("Shinden zwrócił nieprawidłowe dane JSON.{location}"),
+        _ => format!("Nie udało się odczytać danych JSON{target}.{location}"),
+    }
+}
+
+fn http_user_message(kind: ErrorKind, error: &reqwest::Error) -> String {
+    let status = error
+        .status()
+        .map(|status| format!(" Kod odpowiedzi: {status}."))
+        .unwrap_or_default();
+
+    match kind {
+        ErrorKind::DatabaseHttp => {
+            format!("Nie udało się pobrać informacji o bazie danych.{status}")
+        },
+        ErrorKind::ShindenHttp => format!("Nie udało się połączyć z Shindenem.{status}"),
+        ErrorKind::AnimeZoneHttp => format!("Nie udało się połączyć z AnimeZone.{status}"),
+        ErrorKind::OgladajAnimeHttp => {
+            format!("Nie udało się połączyć z Oglądaj Anime.{status}")
+        },
+        _ => format!("Nie udało się wykonać żądania HTTP.{status}"),
+    }
+}
+
+fn shinden_api_user_message(message: &str) -> String {
+    let normalized = message.to_ascii_lowercase();
+    if normalized.contains("private") || normalized.contains("prywat") {
+        return "Lista użytkownika Shinden jest prywatna albo niedostępna.".to_string();
+    }
+
+    if normalized.contains("not found") || normalized.contains("nie znaleziono") {
+        return "Nie znaleziono listy użytkownika Shinden.".to_string();
+    }
+
+    format!("Shinden zwrócił błąd: {message}")
+}
+
+fn animezone_parse_user_message(_path: &str, message: &str) -> String {
+    let normalized = message.to_ascii_lowercase();
+    if normalized.contains("missing title link") && normalized.contains("anime card") {
+        return "Nie udało się odczytać listy AnimeZone. Sprawdź nazwę użytkownika albo widoczność listy."
+            .to_string();
+    }
+
+    "Nie udało się odczytać listy AnimeZone. Strona mogła zmienić format danych.".to_string()
+}
+
+fn ogladajanime_parse_user_message(_path: &str, message: &str) -> String {
+    let normalized = message.to_ascii_lowercase();
+    if normalized.contains("private") || normalized.contains("prywat") {
+        return "Lista użytkownika Oglądaj Anime jest prywatna albo niedostępna.".to_string();
+    }
+
+    "Nie udało się odczytać listy Oglądaj Anime. Strona mogła zmienić format danych.".to_string()
 }
 
 #[cfg(test)]

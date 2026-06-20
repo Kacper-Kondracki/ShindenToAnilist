@@ -56,7 +56,7 @@ where
     loop {
         let event = tokio::select! {
             () = cancellation_token.cancelled() => {
-                return Err(Status::cancelled("source fetch cancelled"));
+                return Err(Status::cancelled("Pobieranie listy zostało anulowane."));
             },
             event = stream.next() => event,
         };

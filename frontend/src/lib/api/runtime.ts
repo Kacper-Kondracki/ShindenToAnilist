@@ -91,7 +91,7 @@ export async function selectExportPath(defaultPath: string) {
 
 export async function callRpc<T>(run: (client: AppClient) => Promise<T>) {
   if (clientPromise === null) {
-    throw new Error('gRPC client is not available in Tauri runtime');
+    throw new Error('Klient gRPC nie jest dostępny w trybie Tauri');
   }
 
   try {
@@ -115,7 +115,9 @@ export async function callTauri<T>(
 function normalizeRpcError(error: unknown) {
   const connectError = ConnectError.from(error);
   const detail = appErrorFromConnectError(connectError);
-  return new Error(detail?.message || connectError.rawMessage);
+  return new Error(
+    detail?.message || transportErrorMessage(connectError.rawMessage)
+  );
 }
 
 function normalizeTauriError(error: unknown) {
@@ -128,6 +130,28 @@ function normalizeTauriError(error: unknown) {
   }
 
   return new Error('Nie udało się wykonać polecenia Tauri');
+}
+
+function transportErrorMessage(message: string) {
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('fetch failed') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed')
+  ) {
+    return 'Nie udało się połączyć z usługą aplikacji. Sprawdź, czy proces pomocniczy działa.';
+  }
+
+  if (normalized.includes('aborted') || normalized.includes('cancelled')) {
+    return 'Operacja została anulowana.';
+  }
+
+  if (message.trim() === '') {
+    return 'Nie udało się wykonać operacji.';
+  }
+
+  return message;
 }
 
 function appErrorFromConnectError(error: ConnectError) {
