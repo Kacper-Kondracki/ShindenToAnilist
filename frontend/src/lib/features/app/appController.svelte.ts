@@ -25,6 +25,11 @@ import {
 } from '../database/initializeDatabase';
 import { createNotificationController } from '../notifications/notificationController.svelte';
 import {
+  clearShindenCloudflareClearance,
+  readShindenCloudflareClearance,
+  writeShindenCloudflareClearance
+} from '../shinden/cloudflareClearanceStorage';
+import {
   isSourceImportPreviewInput,
   parseMockNotificationCount,
   parseSourceUser,
@@ -43,6 +48,7 @@ export function createAppController() {
   const shindenCloudflare = createShindenCloudflareController({
     openVerification: openShindenCloudflareVerification,
     applyClearance: setShindenCloudflareClearance,
+    saveClearance: writeShindenCloudflareClearance,
     retry: async (request) => {
       await loadParsedSourceUser(
         request.provider,
@@ -56,9 +62,6 @@ export function createAppController() {
         'Weryfikacja Shindena zakończona',
         'Import został wznowiony po weryfikacji Cloudflare.'
       );
-    },
-    onError: (message) => {
-      notifications.error('Nie udało się zweryfikować Shindena', message);
     }
   });
 
@@ -241,6 +244,13 @@ export function createAppController() {
     };
 
     try {
+      if (provider === 'shinden') {
+        await applySavedShindenCloudflareClearance();
+        if (activeRequestId !== requestId) {
+          return false;
+        }
+      }
+
       const fetchStartedAt = performance.now();
       const fetchedList = await fetchSourceList(
         sourceUser.provider,
@@ -346,6 +356,8 @@ export function createAppController() {
       console.error('Unable to load source user list', error);
       const message = errorMessage(error);
       if (provider === 'shinden' && isShindenCloudflareChallengeError(error)) {
+        clearShindenCloudflareClearance();
+
         if (!handleCloudflare) {
           throw new Error(
             'Shinden nadal wymaga weryfikacji Cloudflare. Spróbuj ponownie przejść weryfikację.'
@@ -359,10 +371,6 @@ export function createAppController() {
           sourceUser,
           message
         });
-        notifications.error(
-          'Shinden wymaga weryfikacji',
-          'Otwórz okno Shindena, przejdź weryfikację Cloudflare i zamknij je, żeby kontynuować import.'
-        );
         return false;
       }
 
@@ -385,6 +393,26 @@ export function createAppController() {
       if (activeRequestId === requestId) {
         activeUserListAbortController = null;
       }
+    }
+  }
+
+  async function applySavedShindenCloudflareClearance() {
+    const clearance = readShindenCloudflareClearance();
+    if (clearance === null) {
+      return;
+    }
+
+    try {
+      const applied = await setShindenCloudflareClearance(clearance);
+      if (!applied.accepted) {
+        clearShindenCloudflareClearance();
+      }
+    } catch (error) {
+      clearShindenCloudflareClearance();
+      console.warn(
+        'Unable to apply persisted Shinden Cloudflare clearance',
+        error
+      );
     }
   }
 

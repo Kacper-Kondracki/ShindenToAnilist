@@ -1,4 +1,5 @@
 import { fuzzyMatch } from '../../api/appService';
+import { toUserFacingErrorMessage } from '../../api/runtime';
 import type {
   DatabaseEntry,
   MatchResult,
@@ -434,13 +435,5 @@ function orderCandidatesByIds(
 }
 
 function errorToMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  return 'Nie udało się wyszukać dopasowań';
+  return toUserFacingErrorMessage(error, 'Nie udało się wyszukać dopasowań');
 }

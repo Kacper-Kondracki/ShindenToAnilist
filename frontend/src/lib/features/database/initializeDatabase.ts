@@ -1,4 +1,5 @@
 import { ensureDatabase, getDatabaseFull } from '../../api/appService';
+import { toUserFacingErrorMessage } from '../../api/runtime';
 import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
 import type { DatabaseState } from '../../domain/anime';
 
@@ -37,15 +38,7 @@ export async function initializeDatabaseState(
 }
 
 export function errorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  return 'Nie udało się wczytać bazy danych';
+  return toUserFacingErrorMessage(error, 'Nie udało się wczytać bazy danych');
 }
 
 function delay(ms: number) {

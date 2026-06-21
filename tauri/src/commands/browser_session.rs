@@ -34,6 +34,7 @@ use crate::{
 };
 
 const SHINDEN_VERIFICATION_LABEL: &str = "shinden-cloudflare-verification";
+const SHINDEN_HOMEPAGE_URL: &str = "https://shinden.pl/";
 const CF_CLEARANCE_COOKIE: &str = "cf_clearance";
 
 #[tauri::command]
@@ -48,7 +49,7 @@ pub(crate) async fn open_shinden_cloudflare_verification(
     let (tx, rx) = std::sync::mpsc::channel::<Result<ShindenCloudflareClearanceDto, String>>();
     let tx = Arc::new(std::sync::Mutex::new(Some(tx)));
     let capture_started = Arc::new(AtomicBool::new(false));
-    let shinden_url = Url::parse(SHINDEN_ORIGIN).map_err(|err| err.to_string())?;
+    let shinden_url = Url::parse(SHINDEN_HOMEPAGE_URL).map_err(|err| err.to_string())?;
     let data_directory = app
         .path()
         .data_dir()
@@ -117,9 +118,15 @@ fn capture_tauri_cookies(
     user_agent: String,
 ) -> Result<ShindenCloudflareClearanceDto, String> {
     let url = Url::parse(SHINDEN_ORIGIN).map_err(|err| err.to_string())?;
-    let cookies = window
-        .cookies_for_url(url)
+    let homepage_url = Url::parse(SHINDEN_HOMEPAGE_URL).map_err(|err| err.to_string())?;
+    let mut cookies = window
+        .cookies_for_url(homepage_url)
         .map_err(|err| format!("Nie udało się odczytać ciasteczek Shinden: {err}"))?;
+    cookies.extend(
+        window
+            .cookies_for_url(url)
+            .map_err(|err| format!("Nie udało się odczytać ciasteczek Shinden: {err}"))?,
+    );
     let cookie = best_clearance_cookie(cookies)
         .ok_or_else(|| "Nie udało się odczytać ciasteczka Cloudflare z okna weryfikacji.".to_string())?;
 

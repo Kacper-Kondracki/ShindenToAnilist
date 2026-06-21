@@ -45,7 +45,10 @@
         </div>
 
         <p class="text-sm leading-6">
-          Otwórz okno Shindena, przejdź weryfikację, a potem zamknij to okno.
+          <strong>
+            Otwórz stronę Shindena, poczekaj aż się w pełni załaduje, a potem
+            zamknij okno weryfikacji.
+          </strong>
           Import zostanie wznowiony automatycznie po odczytaniu weryfikacji.
         </p>
 
