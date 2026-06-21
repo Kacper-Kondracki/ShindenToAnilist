@@ -10,11 +10,20 @@ const acceptLanguages = 'pl-PL,pl,en-US,en';
 const cloudflareClearanceCookie = 'cf_clearance';
 const autoCloseTestCookie = 'sess_shinden';
 const clearancePollingIntervalMs = 750;
+const blockedShindenAdHost = 'reklama.shinden.eu';
 const shindenRequestFilter = {
   urls: [
     'https://lista.shinden.pl/*',
     'https://*.shinden.pl/*',
     'https://challenges.cloudflare.com/*'
+  ]
+};
+const blockedShindenAdRequestFilter = {
+  urls: [
+    `http://${blockedShindenAdHost}/*`,
+    `https://${blockedShindenAdHost}/*`,
+    `http://*.${blockedShindenAdHost}/*`,
+    `https://*.${blockedShindenAdHost}/*`
   ]
 };
 
@@ -75,6 +84,7 @@ async function openShindenCloudflareVerification(
   });
   browserSession.setUserAgent(userAgent, acceptLanguages);
   configureShindenRequestHeaders(browserSession, userAgent);
+  blockShindenAdRequests(browserSession);
   console.info('Opening Shinden Cloudflare verification window', {
     partition: shindenSessionPartition,
     userAgentLength: userAgent.length,
@@ -102,6 +112,18 @@ async function openShindenCloudflareVerification(
 
     verificationWindow = win;
     win.webContents.setUserAgent(userAgent);
+    win.webContents.setWindowOpenHandler((details) => {
+      console.info('Blocked popup from Shinden verification window', {
+        url: details.url
+      });
+      return { action: 'deny' };
+    });
+    win.webContents.on('will-navigate', (event, url) => {
+      if (isBlockedShindenAdUrl(url)) {
+        console.info('Blocked Shinden ad navigation', { url });
+        event.preventDefault();
+      }
+    });
     let captureStarted = false;
     let settled = false;
     let pollInFlight = false;
@@ -365,6 +387,28 @@ function configureShindenRequestHeaders(
       callback({ requestHeaders });
     }
   );
+}
+
+function blockShindenAdRequests(browserSession: Electron.Session) {
+  browserSession.webRequest.onBeforeRequest(
+    blockedShindenAdRequestFilter,
+    (details, callback) => {
+      console.info('Blocked Shinden ad request', { url: details.url });
+      callback({ cancel: true });
+    }
+  );
+}
+
+function isBlockedShindenAdUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return (
+      url.hostname === blockedShindenAdHost ||
+      url.hostname.endsWith(`.${blockedShindenAdHost}`)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function setHeader(

@@ -22,6 +22,7 @@ use tauri::{
     WindowEvent,
     webview::{
         Cookie,
+        NewWindowResponse,
         WebviewWindow,
         WebviewWindowBuilder,
     },
@@ -44,6 +45,7 @@ const SHINDEN_HOMEPAGE_URL: &str = "https://shinden.pl/";
 const CLOUDFLARE_CLEARANCE_COOKIE: &str = "cf_clearance";
 const AUTO_CLOSE_TEST_COOKIE: &str = "sess_shinden";
 const CLEARANCE_POLLING_INTERVAL: Duration = Duration::from_millis(750);
+const BLOCKED_SHINDEN_AD_HOST: &str = "reklama.shinden.eu";
 
 type ClearanceResult = Result<ShindenCloudflareClearanceDto, String>;
 type ClearanceSender = Sender<ClearanceResult>;
@@ -81,6 +83,18 @@ pub(crate) async fn open_shinden_cloudflare_verification(
     .inner_size(960.0, 760.0)
     .min_inner_size(720.0, 600.0)
     .data_directory(data_directory)
+    .on_navigation(|url| {
+        if is_blocked_shinden_ad_url(url) {
+            info!(url = %url, "blocked Shinden ad navigation");
+            false
+        } else {
+            true
+        }
+    })
+    .on_new_window(|url, _features| {
+        info!(url = %url, "blocked popup from Shinden verification webview");
+        NewWindowResponse::Deny
+    })
     .build()
     .map_err(|err| err.to_string())?;
 
@@ -274,6 +288,15 @@ fn verification_cookie_name(options: Option<&ShindenCloudflareVerificationOption
     } else {
         CLOUDFLARE_CLEARANCE_COOKIE
     }
+}
+
+fn is_blocked_shinden_ad_url(url: &Url) -> bool {
+    url.host_str()
+        .map(|host| {
+            let host = host.trim_end_matches('.').to_ascii_lowercase();
+            host == BLOCKED_SHINDEN_AD_HOST || host.ends_with(&format!(".{BLOCKED_SHINDEN_AD_HOST}"))
+        })
+        .unwrap_or(false)
 }
 
 fn shinden_domain_score(domain: &str) -> usize {
