@@ -74,10 +74,7 @@ export function providerFromInput(value: string): Provider | null {
     return 'anime-zone';
   }
 
-  if (
-    ogladajAnimeUserPattern.test(value.trim()) ||
-    numericUserIdPattern.test(value.trim())
-  ) {
+  if (ogladajAnimeUserPattern.test(value.trim())) {
     return 'ogladaj-anime';
   }
 
