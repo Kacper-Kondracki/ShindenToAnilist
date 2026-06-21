@@ -5,6 +5,7 @@ import {
   getSourceIds,
   isShindenCloudflareChallengeError,
   matchSourceList,
+  openShindenCloudflareAutoCloseTest,
   openShindenCloudflareVerification,
   setShindenCloudflareClearance
 } from '../../api/appService';
@@ -29,14 +30,15 @@ import {
   readShindenCloudflareClearance,
   writeShindenCloudflareClearance
 } from '../shinden/cloudflareClearanceStorage';
+import { createShindenCloudflareController } from '../shinden/cloudflareController.svelte';
 import {
+  isShindenCloudflareAutoCloseTestInput,
   isSourceImportPreviewInput,
   parseMockNotificationCount,
   parseSourceUser,
   providerFromInput,
   type ParsedSourceUser
 } from '../source/userInput';
-import { createShindenCloudflareController } from '../shinden/cloudflareController.svelte';
 import { createWorkspaceController } from '../workspace/workspaceController.svelte';
 
 export type AppController = ReturnType<typeof createAppController>;
@@ -196,6 +198,11 @@ export function createAppController() {
 
     if (isSourceImportPreviewInput(userQuery)) {
       startSourceImportPreview(query);
+      return;
+    }
+
+    if (isShindenCloudflareAutoCloseTestInput(query)) {
+      await runShindenCloudflareAutoCloseTest();
       return;
     }
 
@@ -523,6 +530,29 @@ export function createAppController() {
             : 'Kliknij powiadomienie, żeby zamknąć je ręcznie.',
         timeoutMs: 10000
       });
+    }
+  }
+
+  async function runShindenCloudflareAutoCloseTest() {
+    try {
+      notifications.info(
+        'Test okna Shindena',
+        'Otwieram okno i czekam na ciasteczko sess_shinden.'
+      );
+      await openShindenCloudflareAutoCloseTest();
+      notifications.success(
+        'Test zakończony',
+        'Okno Shindena zamknęło się po wykryciu ciasteczka sess_shinden.'
+      );
+    } catch (error) {
+      const message = errorMessage(error);
+      userListRequestState = {
+        status: 'error',
+        provider: 'shinden',
+        query: trimmedQuery,
+        message
+      };
+      notifications.error('Test okna Shindena nie powiódł się', message);
     }
   }
 

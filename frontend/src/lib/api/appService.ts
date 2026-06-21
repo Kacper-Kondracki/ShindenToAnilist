@@ -68,6 +68,10 @@ export function fetchShindenList(userId: number) {
 
 export { openShindenCloudflareVerification };
 
+export function openShindenCloudflareAutoCloseTest() {
+  return openShindenCloudflareVerification({ mode: 'autocloseTest' });
+}
+
 export function setShindenCloudflareClearance(
   clearance: ShindenCloudflareClearance
 ) {

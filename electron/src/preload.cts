@@ -12,6 +12,9 @@ type AppConfig = {
 type SelectExportPathOptions = {
   defaultPath?: string;
 };
+type ShindenCloudflareVerificationOptions = {
+  mode?: 'clearance' | 'autocloseTest';
+};
 
 const configArgumentPrefix = '--shinden-to-anilist-config=';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
@@ -40,8 +43,13 @@ contextBridge.exposeInMainWorld('shindenToAnilist', {
   paths: config.paths,
   getGrpcBaseUrl: () =>
     ipcRenderer.invoke(getGrpcBaseUrlChannel) as Promise<string>,
-  openShindenCloudflareVerification: () =>
-    ipcRenderer.invoke(openShindenCloudflareVerificationChannel) as Promise<{
+  openShindenCloudflareVerification: (
+    options?: ShindenCloudflareVerificationOptions
+  ) =>
+    ipcRenderer.invoke(
+      openShindenCloudflareVerificationChannel,
+      options
+    ) as Promise<{
       userAgent: string;
       cfClearance: string;
       domain: string;
