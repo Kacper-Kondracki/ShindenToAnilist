@@ -25,6 +25,7 @@ type ShindenCloudflareControllerInput = {
   applyClearance: (
     clearance: ShindenCloudflareClearance
   ) => Promise<{ accepted: boolean }>;
+  saveClearance?: (clearance: ShindenCloudflareClearance) => void;
   retry: (request: ShindenCloudflareRequest) => Promise<void>;
   onResolved?: () => void;
   onError?: (message: string) => void;
@@ -77,6 +78,7 @@ export function createShindenCloudflareController(
 
       state = { ...request, status: 'retrying' };
       await input.retry(request);
+      input.saveClearance?.(clearance);
       state = { status: 'idle' };
       input.onResolved?.();
     } catch (error) {
