@@ -22,6 +22,7 @@ pub mod pb {
 
 pub mod error;
 mod export;
+pub mod http;
 pub mod mapper;
 mod matching;
 pub mod server;

@@ -29,6 +29,7 @@ use tonic::{
 use crate::{
     DatabaseState,
     VersionedArcOption,
+    http::AppHttpClients,
     pb::{
         shinden_to_anilist_service_server::ShindenToAnilistService,
         *,
@@ -39,9 +40,9 @@ use crate::{
 const DATABASE_DOWNLOAD_LOCK_TIMEOUT: Duration = Duration::from_secs(10);
 const SHINDEN_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct ShindenToAnilist {
-    pub(super) http_client: reqwest::Client,
+    pub(super) http_clients: AppHttpClients,
     pub(super) shinden_list: VersionedArcOption<ShindenList>,
     pub(super) source_list: VersionedArcOption<SourceList>,
     pub(super) database: VersionedArcOption<DatabaseState>,
@@ -49,9 +50,11 @@ pub struct ShindenToAnilist {
 }
 
 impl ShindenToAnilist {
-    pub fn new(http_client: reqwest::Client) -> Self {
+    pub fn new() -> Result<Self, reqwest::Error> { Ok(Self::with_http_clients(AppHttpClients::new()?)) }
+
+    pub fn with_http_clients(http_clients: AppHttpClients) -> Self {
         Self {
-            http_client,
+            http_clients,
             shinden_list: VersionedArcOption::empty(),
             source_list: VersionedArcOption::empty(),
             database: VersionedArcOption::empty(),
