@@ -12,7 +12,9 @@ interface Window {
       export: string;
     };
     getGrpcBaseUrl?: () => Promise<string>;
-    openShindenCloudflareVerification?: () => Promise<{
+    openShindenCloudflareVerification?: (options?: {
+      mode?: 'clearance' | 'autocloseTest';
+    }) => Promise<{
       userAgent: string;
       cfClearance: string;
       domain: string;

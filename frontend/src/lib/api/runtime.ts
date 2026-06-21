@@ -28,6 +28,12 @@ export type ShindenCloudflareClearance = {
   capturedAtMs: number;
 };
 
+export type ShindenCloudflareVerificationMode = 'clearance' | 'autocloseTest';
+
+export type ShindenCloudflareVerificationOptions = {
+  mode?: ShindenCloudflareVerificationMode;
+};
+
 type RuntimeHttpError = {
   message: string;
   url: string;
@@ -124,18 +130,21 @@ export async function selectExportPath(defaultPath: string) {
   return defaultPath;
 }
 
-export async function openShindenCloudflareVerification() {
+export async function openShindenCloudflareVerification(
+  options: ShindenCloudflareVerificationOptions = {}
+) {
   const openVerification =
     globalThis.shindenToAnilist?.openShindenCloudflareVerification;
 
   try {
     if (openVerification !== undefined) {
-      return await openVerification();
+      return await openVerification(options);
     }
 
     if (isTauriRuntime()) {
       return await callTauri<ShindenCloudflareClearance>(
-        'open_shinden_cloudflare_verification'
+        'open_shinden_cloudflare_verification',
+        { options }
       );
     }
   } catch (error) {

@@ -7,12 +7,23 @@ const shindenListOrigin = 'https://lista.shinden.pl/';
 const shindenHomepageOrigin = 'https://shinden.pl/';
 const shindenSessionPartition = 'persist:shinden-cloudflare';
 const acceptLanguages = 'pl-PL,pl,en-US,en';
-const cfClearanceCookie = 'cf_clearance';
+const cloudflareClearanceCookie = 'cf_clearance';
+const autoCloseTestCookie = 'sess_shinden';
+const clearancePollingIntervalMs = 750;
+const blockedShindenAdHost = 'reklama.shinden.eu';
 const shindenRequestFilter = {
   urls: [
     'https://lista.shinden.pl/*',
     'https://*.shinden.pl/*',
     'https://challenges.cloudflare.com/*'
+  ]
+};
+const blockedShindenAdRequestFilter = {
+  urls: [
+    `http://${blockedShindenAdHost}/*`,
+    `https://${blockedShindenAdHost}/*`,
+    `http://*.${blockedShindenAdHost}/*`,
+    `https://*.${blockedShindenAdHost}/*`
   ]
 };
 
@@ -36,18 +47,30 @@ type RegisterOptions = {
   getIconPath: () => string | undefined;
 };
 
+type VerificationOptions = {
+  mode?: 'clearance' | 'autocloseTest';
+};
+
 let verificationWindow: BrowserWindow | undefined;
 
 export function registerShindenCloudflareIpc(options: RegisterOptions): void {
-  ipcMain.handle(openShindenCloudflareVerificationChannel, async (event) => {
-    const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-    return await openShindenCloudflareVerification(parent, options);
-  });
+  ipcMain.handle(
+    openShindenCloudflareVerificationChannel,
+    async (event, verificationOptions?: VerificationOptions) => {
+      const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+      return await openShindenCloudflareVerification(
+        parent,
+        options,
+        verificationOptions
+      );
+    }
+  );
 }
 
 async function openShindenCloudflareVerification(
   parent: BrowserWindow | undefined,
-  options: RegisterOptions
+  options: RegisterOptions,
+  verificationOptions: VerificationOptions = {}
 ): Promise<ShindenCloudflareClearance> {
   if (verificationWindow !== undefined && !verificationWindow.isDestroyed()) {
     verificationWindow.focus();
@@ -55,14 +78,17 @@ async function openShindenCloudflareVerification(
   }
 
   const userAgent = chromiumUserAgent();
+  const cookieName = verificationCookieName(verificationOptions);
   const browserSession = session.fromPartition(shindenSessionPartition, {
     cache: true
   });
   browserSession.setUserAgent(userAgent, acceptLanguages);
   configureShindenRequestHeaders(browserSession, userAgent);
+  blockShindenAdRequests(browserSession);
   console.info('Opening Shinden Cloudflare verification window', {
     partition: shindenSessionPartition,
-    userAgentLength: userAgent.length
+    userAgentLength: userAgent.length,
+    cookieName
   });
 
   return await new Promise((resolve, reject) => {
@@ -86,8 +112,52 @@ async function openShindenCloudflareVerification(
 
     verificationWindow = win;
     win.webContents.setUserAgent(userAgent);
+    win.webContents.setWindowOpenHandler((details) => {
+      console.info('Blocked popup from Shinden verification window', {
+        url: details.url
+      });
+      return { action: 'deny' };
+    });
+    win.webContents.on('will-navigate', (event, url) => {
+      if (isBlockedShindenAdUrl(url)) {
+        console.info('Blocked Shinden ad navigation', { url });
+        event.preventDefault();
+      }
+    });
     let captureStarted = false;
     let settled = false;
+    let pollInFlight = false;
+    const clearancePoll = setInterval(() => {
+      if (captureStarted || pollInFlight || win.isDestroyed()) {
+        return;
+      }
+
+      pollInFlight = true;
+      void captureElectronClearance(win, {
+        cookieName,
+        warnOnMissingCookie: false
+      })
+        .then((clearance) => {
+          if (captureStarted || settled || win.isDestroyed()) {
+            return;
+          }
+
+          captureStarted = true;
+          settled = true;
+          clearInterval(clearancePoll);
+          console.info(
+            'Shinden Cloudflare verification completed automatically; closing window'
+          );
+          resolve(clearance);
+          win.destroy();
+        })
+        .catch(() => {
+          // Missing clearance is expected while Cloudflare is still running.
+        })
+        .finally(() => {
+          pollInFlight = false;
+        });
+    }, clearancePollingIntervalMs);
 
     win.on('close', (event) => {
       if (captureStarted) {
@@ -99,7 +169,10 @@ async function openShindenCloudflareVerification(
       console.info(
         'Shinden Cloudflare verification window closed by user; capturing cookies'
       );
-      void captureElectronClearance(win)
+      void captureElectronClearance(win, {
+        cookieName,
+        warnOnMissingCookie: true
+      })
         .then((clearance) => {
           settled = true;
           resolve(clearance);
@@ -109,6 +182,7 @@ async function openShindenCloudflareVerification(
           reject(error instanceof Error ? error : new Error(String(error)));
         })
         .finally(() => {
+          clearInterval(clearancePoll);
           if (verificationWindow === win) {
             verificationWindow = undefined;
           }
@@ -117,6 +191,7 @@ async function openShindenCloudflareVerification(
     });
 
     win.on('closed', () => {
+      clearInterval(clearancePoll);
       if (verificationWindow === win) {
         verificationWindow = undefined;
       }
@@ -134,6 +209,7 @@ async function openShindenCloudflareVerification(
       })
       .catch((error: unknown) => {
         settled = true;
+        clearInterval(clearancePoll);
         reject(error instanceof Error ? error : new Error(String(error)));
         win.destroy();
       });
@@ -141,35 +217,52 @@ async function openShindenCloudflareVerification(
 }
 
 async function captureElectronClearance(
-  win: BrowserWindow
+  win: BrowserWindow,
+  options: { cookieName: string; warnOnMissingCookie: boolean }
 ): Promise<ShindenCloudflareClearance> {
   const userAgent = await browserWindowUserAgent(win);
   await win.webContents.session.cookies.flushStore();
-  const cookies = await collectElectronCookies(win.webContents.session);
+  const cookies = await collectElectronCookies(
+    win.webContents.session,
+    options.cookieName
+  );
   const cookie =
-    bestElectronClearanceCookie(cookies) ??
-    (await browserWindowClearanceCookie(win));
+    bestElectronCookie(cookies, options.cookieName) ??
+    (await browserWindowClearanceCookie(win, {
+      cookieName: options.cookieName,
+      warnOnReadError: options.warnOnMissingCookie
+    }));
 
   if (cookie === undefined) {
-    console.warn(
-      'Shinden Cloudflare verification did not produce cf_clearance',
-      {
-        cookieCount: cookies.length,
-        currentUrl: win.webContents.getURL(),
-        cookies: summarizeCookies(cookies)
-      }
-    );
+    if (options.warnOnMissingCookie) {
+      console.warn(
+        'Shinden verification window did not produce the expected cookie',
+        {
+          cookieName: options.cookieName,
+          cookieCount: cookies.length,
+          currentUrl: win.webContents.getURL(),
+          cookies: summarizeCookies(cookies)
+        }
+      );
+    }
     throw new Error(
-      'Nie udało się odczytać ciasteczka Cloudflare z okna weryfikacji.'
+      `Nie udało się odczytać ciasteczka ${options.cookieName} z okna weryfikacji.`
     );
   }
 
-  console.info('Captured Shinden Cloudflare clearance from Electron window', {
+  console.info('Captured Shinden verification cookie from Electron window', {
+    cookieName: options.cookieName,
     userAgentLength: userAgent.length,
     cookieLength: cookie.value.length,
     domain: cookie.domain,
     path: cookie.path
   });
+  if (options.cookieName === autoCloseTestCookie) {
+    console.info('Captured Shinden autoclose test cookie value', {
+      cookieName: options.cookieName,
+      cookieValue: cookie.value
+    });
+  }
 
   return {
     userAgent,
@@ -183,22 +276,28 @@ async function captureElectronClearance(
   };
 }
 
-async function collectElectronCookies(browserSession: Electron.Session) {
+async function collectElectronCookies(
+  browserSession: Electron.Session,
+  cookieName: string
+) {
   const cookies = await Promise.all([
     browserSession.cookies.get({ url: shindenHomepageOrigin }),
     browserSession.cookies.get({ url: shindenListOrigin }),
-    browserSession.cookies.get({ name: cfClearanceCookie }),
+    browserSession.cookies.get({ name: cookieName }),
     browserSession.cookies.get({})
   ]);
 
   return uniqueCookies(cookies.flat());
 }
 
-function bestElectronClearanceCookie(
-  cookies: Electron.Cookie[]
+function bestElectronCookie(
+  cookies: Electron.Cookie[],
+  cookieName: string
 ): CapturedClearanceCookie | undefined {
   const cookie = cookies
-    .filter((candidate) => candidate.name.toLowerCase() === cfClearanceCookie)
+    .filter(
+      (candidate) => candidate.name.toLowerCase() === cookieName.toLowerCase()
+    )
     .filter((candidate) =>
       isShindenCookieDomain(candidate.domain ?? 'lista.shinden.pl')
     )
@@ -220,7 +319,8 @@ function bestElectronClearanceCookie(
 }
 
 async function browserWindowClearanceCookie(
-  win: BrowserWindow
+  win: BrowserWindow,
+  options: { cookieName: string; warnOnReadError: boolean }
 ): Promise<CapturedClearanceCookie | undefined> {
   try {
     const value = (await win.webContents.executeJavaScript(
@@ -232,20 +332,31 @@ async function browserWindowClearanceCookie(
       return undefined;
     }
 
-    const cfClearance = parseDocumentCookie(value, cfClearanceCookie);
-    if (cfClearance === undefined) {
+    const cookie = parseDocumentCookie(value, options.cookieName);
+    if (cookie === undefined) {
       return undefined;
     }
 
     return {
-      value: cfClearance,
+      value: cookie,
       domain: 'shinden.pl',
       path: '/'
     };
   } catch (error: unknown) {
-    console.warn('Unable to read Shinden verification document.cookie', error);
+    if (options.warnOnReadError) {
+      console.warn(
+        'Unable to read Shinden verification document.cookie',
+        error
+      );
+    }
     return undefined;
   }
+}
+
+function verificationCookieName(options: VerificationOptions) {
+  return options.mode === 'autocloseTest'
+    ? autoCloseTestCookie
+    : cloudflareClearanceCookie;
 }
 
 function parseDocumentCookie(cookieHeader: string, name: string) {
@@ -276,6 +387,28 @@ function configureShindenRequestHeaders(
       callback({ requestHeaders });
     }
   );
+}
+
+function blockShindenAdRequests(browserSession: Electron.Session) {
+  browserSession.webRequest.onBeforeRequest(
+    blockedShindenAdRequestFilter,
+    (details, callback) => {
+      console.info('Blocked Shinden ad request', { url: details.url });
+      callback({ cancel: true });
+    }
+  );
+}
+
+function isBlockedShindenAdUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return (
+      url.hostname === blockedShindenAdHost ||
+      url.hostname.endsWith(`.${blockedShindenAdHost}`)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function setHeader(

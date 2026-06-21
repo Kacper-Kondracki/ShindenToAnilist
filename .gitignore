@@ -6,3 +6,5 @@ electron/build/sidecar/
 anime-offline-database.jsonl
 animedb.jsonl
 animedb.info.json
+anime-offline-database.jsonl.lock
+db-test.json

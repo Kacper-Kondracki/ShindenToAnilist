@@ -10,6 +10,8 @@ const animeZoneUserPattern =
 const ogladajAnimeUserPattern =
   /^(?:https?:\/\/)?(?:www\.)?ogladajanime\.pl\/(?:anime_list|profile)\/(\d+)(?:\/[0-5])?\/?(?:[?#].*)?$/i;
 const sourceImportPreviewInput = 'shindentoanilist:source-import-preview';
+const shindenCloudflareAutoCloseTestInput =
+  'shindentoanilist:shinden-cf-autoclose-test';
 const showNotificationsPattern = /^shindentoanilist:show-notifications:(\d+)$/;
 
 const usernamePattern = /^[A-Za-z0-9_-]+$/;
@@ -62,6 +64,10 @@ export function parseSourceUser(provider: Provider, value: string) {
 }
 
 export function providerFromInput(value: string): Provider | null {
+  if (isShindenCloudflareAutoCloseTestInput(value)) {
+    return 'shinden';
+  }
+
   if (isSourceImportPreviewInput(value)) {
     return 'anime-zone';
   }
@@ -74,10 +80,7 @@ export function providerFromInput(value: string): Provider | null {
     return 'anime-zone';
   }
 
-  if (
-    ogladajAnimeUserPattern.test(value.trim()) ||
-    numericUserIdPattern.test(value.trim())
-  ) {
+  if (ogladajAnimeUserPattern.test(value.trim())) {
     return 'ogladaj-anime';
   }
 
@@ -86,6 +89,10 @@ export function providerFromInput(value: string): Provider | null {
 
 export function isSourceImportPreviewInput(value: string) {
   return value === sourceImportPreviewInput;
+}
+
+export function isShindenCloudflareAutoCloseTestInput(value: string) {
+  return value === shindenCloudflareAutoCloseTestInput;
 }
 
 export function parseMockNotificationCount(value: string) {

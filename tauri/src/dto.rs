@@ -115,6 +115,13 @@ pub(crate) struct ShindenCloudflareClearanceDto {
     pub(crate) captured_at_ms: u64,
 }
 
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ShindenCloudflareVerificationOptionsDto {
+    #[serde(default)]
+    pub(crate) mode: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SetShindenCloudflareClearanceResponseDto {

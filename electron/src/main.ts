@@ -29,7 +29,7 @@ const rendererContentSecurityPolicy = [
   "object-src 'none'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  "img-src 'self' data: https:",
   "font-src 'self' data:",
   "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*"
 ].join('; ');
