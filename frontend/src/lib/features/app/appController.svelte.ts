@@ -62,9 +62,6 @@ export function createAppController() {
         'Weryfikacja Shindena zakończona',
         'Import został wznowiony po weryfikacji Cloudflare.'
       );
-    },
-    onError: (message) => {
-      notifications.error('Nie udało się zweryfikować Shindena', message);
     }
   });
 
@@ -374,10 +371,6 @@ export function createAppController() {
           sourceUser,
           message
         });
-        notifications.error(
-          'Shinden wymaga weryfikacji',
-          'Otwórz okno Shindena, przejdź weryfikację Cloudflare i zamknij je, żeby kontynuować import.'
-        );
         return false;
       }
 

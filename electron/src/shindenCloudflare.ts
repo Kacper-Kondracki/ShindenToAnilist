@@ -3,8 +3,8 @@ import { BrowserWindow, ipcMain, session } from 'electron';
 export const openShindenCloudflareVerificationChannel =
   'shinden-to-anilist:open-shinden-cloudflare-verification';
 
-const shindenOrigin = 'https://lista.shinden.pl/';
-const shindenParentOrigin = 'https://shinden.pl/';
+const shindenListOrigin = 'https://lista.shinden.pl/';
+const shindenHomepageOrigin = 'https://shinden.pl/';
 const shindenSessionPartition = 'persist:shinden-cloudflare';
 const acceptLanguages = 'pl-PL,pl,en-US,en';
 const cfClearanceCookie = 'cf_clearance';
@@ -128,7 +128,7 @@ async function openShindenCloudflareVerification(
     });
 
     win
-      .loadURL(shindenOrigin, {
+      .loadURL(shindenHomepageOrigin, {
         userAgent,
         extraHeaders: `Accept-Language: ${acceptLanguages}`
       })
@@ -185,8 +185,8 @@ async function captureElectronClearance(
 
 async function collectElectronCookies(browserSession: Electron.Session) {
   const cookies = await Promise.all([
-    browserSession.cookies.get({ url: shindenOrigin }),
-    browserSession.cookies.get({ url: shindenParentOrigin }),
+    browserSession.cookies.get({ url: shindenHomepageOrigin }),
+    browserSession.cookies.get({ url: shindenListOrigin }),
     browserSession.cookies.get({ name: cfClearanceCookie }),
     browserSession.cookies.get({})
   ]);
@@ -239,7 +239,7 @@ async function browserWindowClearanceCookie(
 
     return {
       value: cfClearance,
-      domain: 'lista.shinden.pl',
+      domain: 'shinden.pl',
       path: '/'
     };
   } catch (error: unknown) {

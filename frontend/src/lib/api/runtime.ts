@@ -128,13 +128,20 @@ export async function openShindenCloudflareVerification() {
   const openVerification =
     globalThis.shindenToAnilist?.openShindenCloudflareVerification;
 
-  if (openVerification !== undefined) {
-    return await openVerification();
-  }
+  try {
+    if (openVerification !== undefined) {
+      return await openVerification();
+    }
 
-  if (isTauriRuntime()) {
-    return await callTauri<ShindenCloudflareClearance>(
-      'open_shinden_cloudflare_verification'
+    if (isTauriRuntime()) {
+      return await callTauri<ShindenCloudflareClearance>(
+        'open_shinden_cloudflare_verification'
+      );
+    }
+  } catch (error) {
+    throw normalizeFrontendError(
+      error,
+      'Nie udało się otworzyć okna weryfikacji Cloudflare.'
     );
   }
 
@@ -211,7 +218,10 @@ function appErrorMessageFromRuntime(detail: RuntimeAppError) {
     return `Shinden zwrócił nieoczekiwaną odpowiedź.${statusMessage}`;
   }
 
-  return userFacingErrorMessage(detail.message);
+  return (
+    userMessageForErrorKind(detail.kind, detail.http?.status ?? 0) ??
+    userFacingErrorMessage(detail.message)
+  );
 }
 
 export function isShindenCloudflareChallengeError(error: unknown) {
@@ -234,7 +244,38 @@ export function isShindenCloudflareChallengeError(error: unknown) {
   return message.toLowerCase().includes('cf-mitigated: challenge');
 }
 
+export function toUserFacingErrorMessage(
+  error: unknown,
+  fallback = 'Nie udało się wykonać operacji.'
+) {
+  if (error instanceof BackendError) {
+    return error.appError === null
+      ? userFacingErrorMessage(error.message)
+      : appErrorMessageFromRuntime(error.appError);
+  }
+
+  if (error instanceof Error) {
+    return userFacingErrorMessage(error.message);
+  }
+
+  if (typeof error === 'string') {
+    return userFacingErrorMessage(error);
+  }
+
+  return fallback;
+}
+
+function normalizeFrontendError(error: unknown, fallback: string) {
+  if (error instanceof BackendError) {
+    return error;
+  }
+
+  return new BackendError(toUserFacingErrorMessage(error, fallback));
+}
+
 function userFacingErrorMessage(message: string) {
+  const trimmed = message.trim();
+  const normalized = trimmed.toLowerCase();
   const shindenHttpMatch = message.match(
     /shinden api returned http ([^;]+?)(?: for [^;]+)?;/i
   );
@@ -242,7 +283,74 @@ function userFacingErrorMessage(message: string) {
     return `Shinden zwrócił nieoczekiwaną odpowiedź. Kod odpowiedzi: ${shindenHttpMatch[1]}.`;
   }
 
-  return message;
+  if (normalized.includes('cf-mitigated: challenge')) {
+    return 'Shinden wymaga weryfikacji Cloudflare.';
+  }
+
+  if (normalized.includes('private') || normalized.includes('prywat')) {
+    return 'Lista użytkownika Shinden jest prywatna albo niedostępna.';
+  }
+
+  if (
+    normalized.includes('not found') ||
+    normalized.includes('nie znaleziono')
+  ) {
+    return 'Nie znaleziono listy użytkownika Shinden.';
+  }
+
+  const clearanceMessage = cloudflareClearanceMessage(normalized);
+  if (clearanceMessage !== null) {
+    return clearanceMessage;
+  }
+
+  if (normalized.includes('deadline exceeded')) {
+    return 'Operacja trwała zbyt długo. Spróbuj ponownie za chwilę.';
+  }
+
+  if (normalized.includes('aborted') || normalized.includes('cancelled')) {
+    return 'Operacja została anulowana.';
+  }
+
+  if (normalized.includes('permission denied')) {
+    return 'Brak uprawnień do wykonania operacji.';
+  }
+
+  if (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('fetch failed') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed') ||
+    normalized.includes('connection refused') ||
+    normalized.includes('connection reset') ||
+    normalized.includes('connection closed')
+  ) {
+    return 'Nie udało się połączyć z usługą aplikacji. Sprawdź, czy proces pomocniczy działa.';
+  }
+
+  if (
+    normalized.includes('invalid argument') ||
+    normalized.includes('invalid_argument')
+  ) {
+    return 'Aplikacja otrzymała nieprawidłowe dane.';
+  }
+
+  if (
+    normalized.includes('internal') ||
+    normalized.includes('unknown') ||
+    normalized.includes('failed')
+  ) {
+    return 'Operacja nie powiodła się.';
+  }
+
+  if (looksLikeTechnicalEnglishMessage(trimmed)) {
+    return 'Operacja nie powiodła się.';
+  }
+
+  if (trimmed === '') {
+    return 'Nie udało się wykonać operacji.';
+  }
+
+  return trimmed;
 }
 
 function transportErrorMessage(message: string) {
@@ -260,11 +368,139 @@ function transportErrorMessage(message: string) {
     return 'Operacja została anulowana.';
   }
 
+  const clearanceMessage = cloudflareClearanceMessage(normalized);
+  if (clearanceMessage !== null) {
+    return clearanceMessage;
+  }
+
   if (message.trim() === '') {
     return 'Nie udało się wykonać operacji.';
   }
 
   return userFacingErrorMessage(message);
+}
+
+function cloudflareClearanceMessage(normalizedMessage: string) {
+  if (normalizedMessage.includes('missing cloudflare browser user agent')) {
+    return 'Nie udało się odczytać danych przeglądarki z okna weryfikacji Cloudflare.';
+  }
+
+  if (normalizedMessage.includes('cloudflare browser user agent is too long')) {
+    return 'Dane przeglądarki z okna weryfikacji Cloudflare są zbyt długie.';
+  }
+
+  if (
+    normalizedMessage.includes('missing cf_clearance cookie') ||
+    normalizedMessage.includes('did not produce cf_clearance')
+  ) {
+    return 'Nie udało się odczytać ciasteczka Cloudflare z okna weryfikacji.';
+  }
+
+  if (normalizedMessage.includes('cf_clearance cookie is too long')) {
+    return 'Ciasteczko Cloudflare z okna weryfikacji jest zbyt długie.';
+  }
+
+  if (
+    normalizedMessage.includes(
+      'cf_clearance cookie contains invalid characters'
+    )
+  ) {
+    return 'Ciasteczko Cloudflare z okna weryfikacji ma nieprawidłowy format.';
+  }
+
+  if (
+    normalizedMessage.includes(
+      'cf_clearance cookie domain is not a shinden domain'
+    )
+  ) {
+    return 'Ciasteczko Cloudflare pochodzi z nieobsługiwanej domeny.';
+  }
+
+  if (normalizedMessage.includes('cf_clearance cookie path is invalid')) {
+    return 'Ciasteczko Cloudflare ma nieprawidłową ścieżkę.';
+  }
+
+  if (normalizedMessage.includes('cf_clearance cookie is expired')) {
+    return 'Weryfikacja Cloudflare wygasła. Otwórz okno weryfikacji ponownie.';
+  }
+
+  if (normalizedMessage.includes('internal shinden cookie url is invalid')) {
+    return 'Nie udało się przygotować ciasteczka Cloudflare dla Shindena.';
+  }
+
+  if (normalizedMessage.includes('failed to build shinden http client')) {
+    return 'Nie udało się zastosować weryfikacji Cloudflare dla Shindena.';
+  }
+
+  return null;
+}
+
+function looksLikeTechnicalEnglishMessage(message: string) {
+  return (
+    /\b(error|failed|failure|invalid|missing|unable|cannot|timeout|network|socket|connection|refused|reset|closed|denied|unavailable)\b/i.test(
+      message
+    ) || /\bERR_[A-Z0-9_]+\b/.test(message)
+  );
+}
+
+function userMessageForErrorKind(kind: ErrorKind, status: number) {
+  const statusMessage = status === 0 ? '' : ` Kod odpowiedzi: ${status}.`;
+
+  switch (kind) {
+    case ErrorKind.SHINDEN_LIST_NOT_LOADED:
+      return 'Lista Shinden nie została jeszcze wczytana.';
+    case ErrorKind.DATABASE_NOT_LOADED:
+      return 'Baza danych nie została jeszcze wczytana.';
+    case ErrorKind.SHINDEN_IO:
+      return 'Nie udało się odczytać danych Shindena.';
+    case ErrorKind.SHINDEN_JSON:
+      return 'Shinden zwrócił nieprawidłowe dane JSON.';
+    case ErrorKind.SHINDEN_HTTP:
+      return `Nie udało się połączyć z Shindenem.${statusMessage}`;
+    case ErrorKind.DATABASE_IO:
+    case ErrorKind.DATABASE_SIDECAR_IO:
+      return 'Nie udało się odczytać lub zapisać bazy danych.';
+    case ErrorKind.DATABASE_JSON:
+    case ErrorKind.DATABASE_SIDECAR_JSON:
+      return 'Plik bazy danych ma nieprawidłowy format JSON.';
+    case ErrorKind.DATABASE_HTTP:
+      return `Nie udało się pobrać informacji o bazie danych.${statusMessage}`;
+    case ErrorKind.DATABASE_EMPTY:
+      return 'Baza danych jest pusta.';
+    case ErrorKind.DATABASE_MISSING_RELEASE_ASSET:
+      return 'Nie znaleziono wymaganego pliku bazy danych w wydaniu.';
+    case ErrorKind.DATABASE_DIGEST_MISMATCH:
+      return 'Pobrana baza danych nie przeszła sprawdzania integralności.';
+    case ErrorKind.EXPORT_XML:
+      return 'Nie udało się przygotować pliku XML.';
+    case ErrorKind.EXPORT_OUT_OF_INDEX:
+      return 'Nie udało się wyeksportować jednej z wybranych pozycji.';
+    case ErrorKind.EXPORT_IO:
+      return 'Nie udało się zapisać pliku eksportu.';
+    case ErrorKind.ANIME_ZONE_IO:
+      return 'Nie udało się odczytać danych AnimeZone.';
+    case ErrorKind.ANIME_ZONE_HTTP:
+      return `Nie udało się połączyć z AnimeZone.${statusMessage}`;
+    case ErrorKind.ANIME_ZONE_PARSE:
+      return 'Nie udało się odczytać listy AnimeZone. Strona mogła zmienić format danych.';
+    case ErrorKind.ANIME_ZONE_RETRY_EXHAUSTED:
+      return 'Nie udało się pobrać listy AnimeZone po kilku próbach.';
+    case ErrorKind.OGLADAJ_ANIME_IO:
+      return 'Nie udało się odczytać danych Oglądaj Anime.';
+    case ErrorKind.OGLADAJ_ANIME_HTTP:
+      return `Nie udało się połączyć z Oglądaj Anime.${statusMessage}`;
+    case ErrorKind.OGLADAJ_ANIME_PARSE:
+      return 'Nie udało się odczytać listy Oglądaj Anime. Strona mogła zmienić format danych.';
+    case ErrorKind.OGLADAJ_ANIME_RETRY_EXHAUSTED:
+      return 'Nie udało się pobrać listy Oglądaj Anime po kilku próbach.';
+    case ErrorKind.UNKNOWN:
+    case ErrorKind.UNSPECIFIED:
+      return 'Operacja nie powiodła się.';
+    case ErrorKind.SHINDEN_API:
+      return null;
+  }
+
+  return null;
 }
 
 function appErrorFromConnectError(error: ConnectError) {

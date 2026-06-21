@@ -1,3 +1,4 @@
+import { toUserFacingErrorMessage } from '../../api/runtime';
 import type { Provider } from '../../config/providers';
 import type { ShindenCloudflareClearance } from '../../domain/anime';
 import type { ParsedSourceUser } from '../source/userInput';
@@ -28,7 +29,6 @@ type ShindenCloudflareControllerInput = {
   saveClearance?: (clearance: ShindenCloudflareClearance) => void;
   retry: (request: ShindenCloudflareRequest) => Promise<void>;
   onResolved?: () => void;
-  onError?: (message: string) => void;
 };
 
 export function createShindenCloudflareController(
@@ -84,7 +84,6 @@ export function createShindenCloudflareController(
     } catch (error) {
       const message = errorToMessage(error);
       state = { ...request, status: 'failed', message };
-      input.onError?.(message);
     }
   }
 
@@ -105,13 +104,8 @@ export function createShindenCloudflareController(
 }
 
 function errorToMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  return 'Nie udało się zakończyć weryfikacji Cloudflare.';
+  return toUserFacingErrorMessage(
+    error,
+    'Nie udało się zakończyć weryfikacji Cloudflare.'
+  );
 }

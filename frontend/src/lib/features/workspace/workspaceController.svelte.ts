@@ -1,4 +1,5 @@
 import { exportXml } from '../../api/appService';
+import { toUserFacingErrorMessage } from '../../api/runtime';
 import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
 import type {
   DatabaseEntry,
@@ -907,13 +908,8 @@ function stringifyWireNumberRecord(record: WireNumberRecord<WireNumber>) {
 }
 
 function errorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  return 'Nie udało się wyeksportować dopasowań';
+  return toUserFacingErrorMessage(
+    error,
+    'Nie udało się wyeksportować dopasowań'
+  );
 }
