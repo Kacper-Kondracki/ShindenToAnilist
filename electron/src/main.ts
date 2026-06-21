@@ -1,4 +1,12 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  dialog,
+  ipcMain,
+  session,
+  shell
+} from 'electron';
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -15,6 +23,16 @@ const appConfigArgumentPrefix = '--shinden-to-anilist-config=';
 const sidecarReadyTimeoutMs = 15_000;
 const sidecarShutdownTimeoutMs = 3_000;
 const defaultDevGrpcBaseUrl = 'http://127.0.0.1:45187';
+const rendererContentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*"
+].join('; ');
 
 type SelectExportPathOptions = {
   defaultPath?: string;
@@ -256,6 +274,34 @@ function shouldHideApplicationMenu(): boolean {
   );
 }
 
+function registerRendererContentSecurityPolicy(): void {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = details.responseHeaders ?? {};
+
+    if (!isRendererUrl(details.url)) {
+      callback({ responseHeaders });
+      return;
+    }
+
+    callback({
+      responseHeaders: {
+        ...responseHeaders,
+        'Content-Security-Policy': [rendererContentSecurityPolicy]
+      }
+    });
+  });
+}
+
+function isRendererUrl(url: string): boolean {
+  const devUrl = rendererDevUrl();
+
+  if (devUrl !== undefined) {
+    return url.startsWith(devUrl);
+  }
+
+  return url.startsWith('file://');
+}
+
 async function loadRenderer(win: BrowserWindow): Promise<void> {
   const devUrl = rendererDevUrl();
 
@@ -320,6 +366,7 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
   }
 
+  registerRendererContentSecurityPolicy();
   registerShindenCloudflareIpc({ getIconPath: appIconPath });
   rendererPaths = createRendererPaths();
   grpcBaseUrlPromise =
