@@ -62,7 +62,7 @@
       ></span>
       <div class="min-w-0">
         <p class="text-sm font-bold">{notification.title}</p>
-        <p class="text-sm leading-snug break-words opacity-90">
+        <p class="text-sm leading-snug wrap-break-word opacity-90">
           {notification.message}
         </p>
       </div>

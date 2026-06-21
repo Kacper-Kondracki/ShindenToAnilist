@@ -6,7 +6,11 @@ import {
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { invoke, isTauri as isTauriApi } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
-import { AppErrorSchema } from '../gen/shinden_to_anilist/v1/error_pb';
+import {
+  AppErrorSchema,
+  ErrorKind,
+  type AppError
+} from '../gen/shinden_to_anilist/v1/error_pb';
 import { ShindenToAnilistService } from '../gen/shinden_to_anilist/v1/service_pb';
 
 type AppPaths = {
@@ -116,20 +120,47 @@ function normalizeRpcError(error: unknown) {
   const connectError = ConnectError.from(error);
   const detail = appErrorFromConnectError(connectError);
   return new Error(
-    detail?.message || transportErrorMessage(connectError.rawMessage)
+    detail !== null
+      ? appErrorMessage(detail)
+      : transportErrorMessage(connectError.rawMessage)
   );
 }
 
 function normalizeTauriError(error: unknown) {
   if (error instanceof Error) {
-    return error;
+    return new Error(userFacingErrorMessage(error.message));
   }
 
   if (typeof error === 'string') {
-    return new Error(error);
+    return new Error(userFacingErrorMessage(error));
   }
 
   return new Error('Nie udało się wykonać polecenia Tauri');
+}
+
+function appErrorMessage(detail: AppError) {
+  if (
+    detail.kind === ErrorKind.SHINDEN_HTTP &&
+    detail.details.case === 'http'
+  ) {
+    const status = detail.details.value.status;
+    const statusMessage = status === 0 ? '' : ` Kod odpowiedzi: ${status}.`;
+
+    return `Shinden zwrócił nieoczekiwaną odpowiedź.${statusMessage}`;
+  }
+
+  return userFacingErrorMessage(detail.message);
+}
+
+function userFacingErrorMessage(message: string) {
+  const shindenHttpMatch = message.match(
+    /shinden api returned http ([^;]+?)(?: for [^;]+)?;/i
+  );
+  if (shindenHttpMatch !== null) {
+    return `Shinden zwrócił nieoczekiwaną odpowiedź. Kod odpowiedzi: ${shindenHttpMatch[1]}.`;
+  }
+
+  return message;
 }
 
 function transportErrorMessage(message: string) {
@@ -151,7 +182,7 @@ function transportErrorMessage(message: string) {
     return 'Nie udało się wykonać operacji.';
   }
 
-  return message;
+  return userFacingErrorMessage(message);
 }
 
 function appErrorFromConnectError(error: ConnectError) {

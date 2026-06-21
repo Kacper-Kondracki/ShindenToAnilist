@@ -62,7 +62,7 @@ impl ShindenToAnilist {
     ) -> Result<CheckDatabaseUpdateResponse, Status> {
         info!(path = %request.path, "checking database update");
 
-        let remote = latest_database_archive_asset(self.http_client.clone())
+        let remote = latest_database_archive_asset(self.http_clients.database.clone())
             .await
             .map_err(IntoStatus::into_status)?
             .conv::<CoreDatabaseReleaseInfo>();
@@ -91,7 +91,7 @@ impl ShindenToAnilist {
             })?;
         info!(path = %request.path, "database download lock acquired");
 
-        let status = update_latest_jsonl_from_github(self.http_client.clone(), &request.path)
+        let status = update_latest_jsonl_from_github(self.http_clients.database.clone(), &request.path)
             .await
             .map_err(IntoStatus::into_status)?
             .conv::<CoreDatabaseReleaseInfo>();

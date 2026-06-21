@@ -46,7 +46,10 @@ pub(in crate::server) async fn fetch_source_list(
         .parse::<u64>()
         .map_err(|_| Status::invalid_argument("Id użytkownika Oglądaj Anime musi być liczbą."))?;
 
-    let stream = OgladajAnimeList::stream_from_ogladajanime(service.http_client.clone(), user_id.to_string());
+    let stream = OgladajAnimeList::stream_from_ogladajanime(
+        service.http_clients.ogladajanime.clone(),
+        user_id.to_string(),
+    );
     let (entries, total_entries) = collect_entries(
         SourceProvider::OgladajAnime,
         stream,

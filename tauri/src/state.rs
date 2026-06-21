@@ -14,10 +14,10 @@ pub(crate) struct AppState {
 }
 
 impl AppState {
-    pub(crate) fn new(client: reqwest::Client) -> Self {
-        Self {
-            service: ShindenToAnilist::new(client),
+    pub(crate) fn new() -> Result<Self, reqwest::Error> {
+        Ok(Self {
+            service: ShindenToAnilist::new()?,
             source_fetch_cancellations: Mutex::new(HashMap::new()),
-        }
+        })
     }
 }

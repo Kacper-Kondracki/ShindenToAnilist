@@ -9,7 +9,7 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 name = "shinden_to_anilist_tauri"
 
 [dependencies]
-reqwest = { version = "0.13", features = ["cookies"] }
+reqwest = { version = "0.13", features = ["brotli", "cookies", "deflate", "gzip", "zstd"] }
 serde = { version = "1.0", features = ["derive"] }
 shinden-to-anilist-grpc = { path = "../crates/shinden-to-anilist-grpc" }
 tauri = { version = "2.11.2", features = [] }

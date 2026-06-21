@@ -53,15 +53,10 @@ fn init_tracing() {
 pub fn run() {
     init_tracing();
 
-    let client = reqwest::Client::builder()
-        .cookie_store(true)
-        .build()
-        .expect("failed to build HTTP client");
-
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(AppState::new(client))
+        .manage(AppState::new().expect("failed to build app HTTP clients"))
         .invoke_handler(tauri::generate_handler![
             app_paths,
             fetch_source_list,

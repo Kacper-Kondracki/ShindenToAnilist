@@ -8,7 +8,6 @@ use std::{
     thread,
 };
 
-use reqwest::Client;
 use shinden_to_anilist_grpc::{
     pb::shinden_to_anilist_service_server::ShindenToAnilistServiceServer,
     server::ShindenToAnilist,
@@ -101,8 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = config.listen_addr;
     let listener = TcpListener::bind(addr).await?;
     let addr = listener.local_addr()?;
-    let client = Client::builder().cookie_store(true).build()?;
-    let service = ShindenToAnilist::new(client);
+    let service = ShindenToAnilist::new()?;
     let stdin_shutdown = config.exit_on_stdin_close.then(stdin_close_shutdown);
 
     info!(%addr, "ShindenToAnilist gRPC listening");

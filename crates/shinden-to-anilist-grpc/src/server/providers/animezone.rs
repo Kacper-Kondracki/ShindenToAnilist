@@ -48,7 +48,8 @@ pub(in crate::server) async fn fetch_source_list(
         ));
     }
 
-    let stream = AnimeZoneList::stream_from_animezone(service.http_client.clone(), username.to_string());
+    let stream =
+        AnimeZoneList::stream_from_animezone(service.http_clients.animezone.clone(), username.to_string());
     let (entries, total_entries) = collect_entries(
         SourceProvider::AnimeZone,
         stream,
