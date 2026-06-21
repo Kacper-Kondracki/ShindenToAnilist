@@ -116,20 +116,31 @@ function normalizeRpcError(error: unknown) {
   const connectError = ConnectError.from(error);
   const detail = appErrorFromConnectError(connectError);
   return new Error(
-    detail?.message || transportErrorMessage(connectError.rawMessage)
+    detail !== null
+      ? userFacingErrorMessage(detail.message)
+      : transportErrorMessage(connectError.rawMessage)
   );
 }
 
 function normalizeTauriError(error: unknown) {
   if (error instanceof Error) {
-    return error;
+    return new Error(userFacingErrorMessage(error.message));
   }
 
   if (typeof error === 'string') {
-    return new Error(error);
+    return new Error(userFacingErrorMessage(error));
   }
 
   return new Error('Nie udało się wykonać polecenia Tauri');
+}
+
+function userFacingErrorMessage(message: string) {
+  const shindenHttpMatch = message.match(/shinden api returned http ([^;]+)/i);
+  if (shindenHttpMatch !== null) {
+    return `Shinden zwrócił nieoczekiwaną odpowiedź. Kod odpowiedzi: ${shindenHttpMatch[1]}.`;
+  }
+
+  return message;
 }
 
 function transportErrorMessage(message: string) {
@@ -151,7 +162,7 @@ function transportErrorMessage(message: string) {
     return 'Nie udało się wykonać operacji.';
   }
 
-  return message;
+  return userFacingErrorMessage(message);
 }
 
 function appErrorFromConnectError(error: ConnectError) {

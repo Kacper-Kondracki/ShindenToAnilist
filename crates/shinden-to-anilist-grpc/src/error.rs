@@ -155,6 +155,24 @@ pub fn shinden_error(error: ShindenError) -> AppError {
         ),
         ShindenError::Json(error) => json_error(ErrorKind::ShindenJson, error, None),
         ShindenError::Request(error) => http_error(ErrorKind::ShindenHttp, error),
+        ShindenError::Http {
+            status,
+            content_type,
+            cf_mitigated,
+            body_preview,
+        } => AppError {
+            kind: ErrorKind::ShindenHttp.into(),
+            message: format!(
+                "shinden api returned HTTP {status}; content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
+            ),
+            details: Some(Details::Http(HttpError {
+                message: format!(
+                    "content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
+                ),
+                url: String::new(),
+                status: status.as_u16().into(),
+            })),
+        },
         ShindenError::Shinden(message) => AppError {
             kind: ErrorKind::ShindenApi.into(),
             message: shinden_api_user_message(&message),
@@ -480,6 +498,15 @@ mod tests {
             (
                 shinden_error(ShindenError::Shinden("private list".to_string())),
                 ErrorKind::ShindenApi,
+            ),
+            (
+                shinden_error(ShindenError::Http {
+                    status: reqwest::StatusCode::FORBIDDEN,
+                    content_type: "text/html".to_string(),
+                    cf_mitigated: "challenge".to_string(),
+                    body_preview: "<html>challenge</html>".to_string(),
+                }),
+                ErrorKind::ShindenHttp,
             ),
         ];
 

@@ -5,7 +5,15 @@ use std::{
 
 use reqwest::{
     Client,
-    blocking::Client as BlockingClient,
+    Response as HttpResponse,
+    blocking::{
+        Client as BlockingClient,
+        Response as BlockingHttpResponse,
+    },
+    header::{
+        CONTENT_TYPE,
+        HeaderMap,
+    },
 };
 use thiserror::Error;
 
@@ -63,9 +71,78 @@ pub enum ShindenError {
     Json(#[from] serde_json::Error),
     /// HTTP request error.
     Request(#[from] reqwest::Error),
+    /// HTTP response was not a successful JSON API response.
+    #[error(
+        "shinden api returned HTTP {status}; content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
+    )]
+    Http {
+        status: reqwest::StatusCode,
+        content_type: String,
+        cf_mitigated: String,
+        body_preview: String,
+    },
     /// API returned an application-level error message.
     #[error("shinden api returned error: {0}")]
     Shinden(String),
+}
+
+const SHINDEN_API_URL: &str = "https://lista.shinden.pl/api/userlist";
+const BODY_PREVIEW_CHARS: usize = 200;
+
+fn shinden_url(user: u64, limit: u64, offset: u64) -> String {
+    format!("{SHINDEN_API_URL}/{user}/anime?limit={limit}&offset={offset}")
+}
+
+fn header_value(headers: &HeaderMap, name: &'static str) -> String {
+    headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("<missing>")
+        .to_owned()
+}
+
+fn body_preview(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(BODY_PREVIEW_CHARS)
+        .collect()
+}
+
+async fn read_shinden_response(response: HttpResponse) -> Result<Vec<u8>, ShindenError> {
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = response.bytes().await?.to_vec();
+
+    if status.is_success() {
+        return Ok(bytes);
+    }
+
+    Err(ShindenError::Http {
+        status,
+        content_type: header_value(&headers, CONTENT_TYPE.as_str()),
+        cf_mitigated: header_value(&headers, "cf-mitigated"),
+        body_preview: body_preview(&bytes),
+    })
+}
+
+fn read_shinden_response_blocking(response: BlockingHttpResponse) -> Result<Vec<u8>, ShindenError> {
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = response.bytes()?.to_vec();
+
+    if status.is_success() {
+        return Ok(bytes);
+    }
+
+    Err(ShindenError::Http {
+        status,
+        content_type: header_value(&headers, CONTENT_TYPE.as_str()),
+        cf_mitigated: header_value(&headers, "cf-mitigated"),
+        body_preview: body_preview(&bytes),
+    })
 }
 
 impl ShindenListLoad for ShindenList {
@@ -75,15 +152,8 @@ impl ShindenListLoad for ShindenList {
         limit: u64,
         offset: u64,
     ) -> Result<ShindenList, ShindenError> {
-        let bytes = client
-            .get(format!(
-                "https://lista.shinden.pl/api/userlist/{}/anime?limit={}&offset={}",
-                user, limit, offset
-            ))
-            .send()
-            .await?
-            .bytes()
-            .await?;
+        let response = client.get(shinden_url(user, limit, offset)).send().await?;
+        let bytes = read_shinden_response(response).await?;
 
         let data = serde_json::from_slice::<json::Response>(&bytes)?;
         let shinden_list = data.try_par_into_model().map_err(ShindenError::Shinden)?;
@@ -101,13 +171,8 @@ impl ShindenListLoad for ShindenList {
         limit: u64,
         offset: u64,
     ) -> Result<ShindenList, ShindenError> {
-        let bytes = client
-            .get(format!(
-                "https://lista.shinden.pl/api/userlist/{}/anime?limit={}&offset={}",
-                user, limit, offset
-            ))
-            .send()?
-            .bytes()?;
+        let response = client.get(shinden_url(user, limit, offset)).send()?;
+        let bytes = read_shinden_response_blocking(response)?;
 
         let data = serde_json::from_slice::<json::Response>(&bytes)?;
         data.try_par_into_model().map_err(ShindenError::Shinden)
