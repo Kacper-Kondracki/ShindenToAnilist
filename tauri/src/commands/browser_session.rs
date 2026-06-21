@@ -3,11 +3,14 @@ use std::{
     fs,
     sync::{
         Arc,
+        Mutex,
         atomic::{
             AtomicBool,
             Ordering,
         },
+        mpsc::Sender,
     },
+    time::Duration,
 };
 
 use shinden_to_anilist_grpc::cloudflare::SHINDEN_ORIGIN;
@@ -36,6 +39,10 @@ use crate::{
 const SHINDEN_VERIFICATION_LABEL: &str = "shinden-cloudflare-verification";
 const SHINDEN_HOMEPAGE_URL: &str = "https://shinden.pl/";
 const CF_CLEARANCE_COOKIE: &str = "cf_clearance";
+const CLEARANCE_POLLING_INTERVAL: Duration = Duration::from_millis(750);
+
+type ClearanceResult = Result<ShindenCloudflareClearanceDto, String>;
+type ClearanceSender = Sender<ClearanceResult>;
 
 #[tauri::command]
 pub(crate) async fn open_shinden_cloudflare_verification(
@@ -46,8 +53,8 @@ pub(crate) async fn open_shinden_cloudflare_verification(
         return Err("Okno weryfikacji Shinden jest już otwarte.".to_string());
     }
 
-    let (tx, rx) = std::sync::mpsc::channel::<Result<ShindenCloudflareClearanceDto, String>>();
-    let tx = Arc::new(std::sync::Mutex::new(Some(tx)));
+    let (tx, rx) = std::sync::mpsc::channel::<ClearanceResult>();
+    let tx = Arc::new(Mutex::new(Some(tx)));
     let capture_started = Arc::new(AtomicBool::new(false));
     let shinden_url = Url::parse(SHINDEN_HOMEPAGE_URL).map_err(|err| err.to_string())?;
     let data_directory = app
@@ -70,6 +77,8 @@ pub(crate) async fn open_shinden_cloudflare_verification(
     .data_directory(data_directory)
     .build()
     .map_err(|err| err.to_string())?;
+
+    poll_for_tauri_clearance(window.clone(), Arc::clone(&tx), Arc::clone(&capture_started));
 
     let capture_window = window.clone();
     window.on_window_event(move |event| {
@@ -102,6 +111,51 @@ pub(crate) async fn open_shinden_cloudflare_verification(
     .map_err(|err| err.to_string())?
 }
 
+fn poll_for_tauri_clearance(
+    window: WebviewWindow,
+    tx: Arc<Mutex<Option<ClearanceSender>>>,
+    capture_started: Arc<AtomicBool>,
+) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            sleep_clearance_polling_interval().await;
+
+            if capture_started.load(Ordering::SeqCst) {
+                break;
+            }
+
+            if !has_tauri_clearance_cookie(window.clone()).await {
+                continue;
+            }
+
+            let result = capture_tauri_clearance(window.clone()).await;
+            if result.is_err() || capture_started.swap(true, Ordering::SeqCst) {
+                continue;
+            }
+
+            info!("Shinden Cloudflare verification completed automatically; closing window");
+            if let Some(tx) = tx.lock().expect("Shinden Cloudflare sender lock poisoned").take() {
+                let _ = tx.send(result);
+            }
+            let _ = window.close();
+            break;
+        }
+    });
+}
+
+async fn sleep_clearance_polling_interval() {
+    let _ = tauri::async_runtime::spawn_blocking(|| {
+        std::thread::sleep(CLEARANCE_POLLING_INTERVAL);
+    })
+    .await;
+}
+
+async fn has_tauri_clearance_cookie(window: WebviewWindow) -> bool {
+    tauri::async_runtime::spawn_blocking(move || capture_tauri_clearance_cookie(&window).is_ok())
+        .await
+        .unwrap_or(false)
+}
+
 async fn capture_tauri_clearance(window: WebviewWindow) -> Result<ShindenCloudflareClearanceDto, String> {
     let user_agent = webview_user_agent(&window).await.unwrap_or_else(|error| {
         warn!(error = %error, "failed to read Shinden verification user agent");
@@ -117,18 +171,7 @@ fn capture_tauri_cookies(
     window: &WebviewWindow,
     user_agent: String,
 ) -> Result<ShindenCloudflareClearanceDto, String> {
-    let url = Url::parse(SHINDEN_ORIGIN).map_err(|err| err.to_string())?;
-    let homepage_url = Url::parse(SHINDEN_HOMEPAGE_URL).map_err(|err| err.to_string())?;
-    let mut cookies = window
-        .cookies_for_url(homepage_url)
-        .map_err(|err| format!("Nie udało się odczytać ciasteczek Shinden: {err}"))?;
-    cookies.extend(
-        window
-            .cookies_for_url(url)
-            .map_err(|err| format!("Nie udało się odczytać ciasteczek Shinden: {err}"))?,
-    );
-    let cookie = best_clearance_cookie(cookies)
-        .ok_or_else(|| "Nie udało się odczytać ciasteczka Cloudflare z okna weryfikacji.".to_string())?;
+    let cookie = capture_tauri_clearance_cookie(window)?;
 
     info!(
         user_agent_len = user_agent.len(),
@@ -148,6 +191,22 @@ fn capture_tauri_cookies(
             .map(|expires| expires.unix_timestamp() as f64),
         captured_at_ms: current_timestamp_ms(),
     })
+}
+
+fn capture_tauri_clearance_cookie(window: &WebviewWindow) -> Result<Cookie<'static>, String> {
+    let url = Url::parse(SHINDEN_ORIGIN).map_err(|err| err.to_string())?;
+    let homepage_url = Url::parse(SHINDEN_HOMEPAGE_URL).map_err(|err| err.to_string())?;
+    let mut cookies = window
+        .cookies_for_url(homepage_url)
+        .map_err(|err| format!("Nie udało się odczytać ciasteczek Shinden: {err}"))?;
+    cookies.extend(
+        window
+            .cookies_for_url(url)
+            .map_err(|err| format!("Nie udało się odczytać ciasteczek Shinden: {err}"))?,
+    );
+
+    best_clearance_cookie(cookies)
+        .ok_or_else(|| "Nie udało się odczytać ciasteczka Cloudflare z okna weryfikacji.".to_string())
 }
 
 fn best_clearance_cookie(cookies: Vec<Cookie<'static>>) -> Option<Cookie<'static>> {
