@@ -1,3 +1,4 @@
+pub(crate) mod browser_session;
 pub(crate) mod database;
 pub(crate) mod export;
 pub(crate) mod matching;

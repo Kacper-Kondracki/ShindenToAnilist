@@ -1,5 +1,6 @@
 use std::fmt;
 
+use prost::Message;
 use serde::{
     Deserialize,
     Deserializer,
@@ -101,6 +102,46 @@ struct DateDto {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FetchShindenListResponseDto {
     pub(crate) shinden_version: WireNumberDto,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ShindenCloudflareClearanceDto {
+    pub(crate) user_agent: String,
+    pub(crate) cf_clearance: String,
+    pub(crate) domain: String,
+    pub(crate) path: String,
+    pub(crate) expires_unix_seconds: Option<f64>,
+    pub(crate) captured_at_ms: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SetShindenCloudflareClearanceResponseDto {
+    pub(crate) accepted: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CommandHttpErrorDto {
+    pub(crate) message: String,
+    pub(crate) url: String,
+    pub(crate) status: u32,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CommandAppErrorDto {
+    pub(crate) kind: i32,
+    pub(crate) message: String,
+    pub(crate) http: Option<CommandHttpErrorDto>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CommandErrorDto {
+    pub(crate) message: String,
+    pub(crate) app_error: Option<CommandAppErrorDto>,
 }
 
 #[derive(Debug, Serialize)]
@@ -541,6 +582,19 @@ impl From<SourceIdPairDto> for pb::SourceIdPair {
     }
 }
 
+impl From<ShindenCloudflareClearanceDto> for pb::ShindenCloudflareClearance {
+    fn from(value: ShindenCloudflareClearanceDto) -> Self {
+        Self {
+            user_agent: value.user_agent,
+            cf_clearance: value.cf_clearance,
+            domain: value.domain,
+            path: value.path,
+            expires_unix_seconds: value.expires_unix_seconds,
+            captured_at_ms: value.captured_at_ms,
+        }
+    }
+}
+
 pub(crate) fn command_error(status: Status) -> String {
     warn!(
         code = ?status.code(),
@@ -548,6 +602,43 @@ pub(crate) fn command_error(status: Status) -> String {
         "tauri command failed"
     );
     status.message().to_owned()
+}
+
+pub(crate) fn command_app_error(status: Status) -> CommandErrorDto {
+    warn!(
+        code = ?status.code(),
+        message = %status.message(),
+        "tauri command failed"
+    );
+
+    CommandErrorDto {
+        message: status.message().to_owned(),
+        app_error: pb::AppError::decode(status.details())
+            .ok()
+            .map(command_app_error_dto),
+    }
+}
+
+pub(crate) fn command_simple_error(message: impl Into<String>) -> CommandErrorDto {
+    CommandErrorDto {
+        message: message.into(),
+        app_error: None,
+    }
+}
+
+fn command_app_error_dto(error: pb::AppError) -> CommandAppErrorDto {
+    CommandAppErrorDto {
+        kind: error.kind,
+        message: error.message,
+        http: match error.details {
+            Some(pb::app_error::Details::Http(http)) => Some(CommandHttpErrorDto {
+                message: http.message,
+                url: http.url,
+                status: http.status,
+            }),
+            _ => None,
+        },
+    }
 }
 
 pub(crate) fn wire_numbers(values: Vec<u64>) -> Vec<WireNumberDto> {

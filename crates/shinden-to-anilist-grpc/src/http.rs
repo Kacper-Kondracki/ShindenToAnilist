@@ -3,9 +3,27 @@
 /// Keep provider-specific reqwest settings here so cookies, headers, timeouts,
 /// and redirect behavior can be tuned without hunting through shell entrypoints
 /// or provider orchestration code.
+use std::sync::{
+    Arc,
+    RwLock,
+};
+
+use reqwest::{
+    cookie::Jar,
+    header::HeaderMap,
+};
+use tracing::info;
+
+use crate::cloudflare::{
+    AppliedShindenCloudflareClearance,
+    ClearanceError,
+    ShindenCloudflareClearance,
+    shinden_client_from_cloudflare_clearance,
+};
+
 #[derive(Debug, Clone)]
 pub struct AppHttpClients {
-    pub(crate) shinden: reqwest::Client,
+    shinden: ShindenHttpClient,
     pub(crate) animezone: reqwest::Client,
     pub(crate) ogladajanime: reqwest::Client,
     pub(crate) database: reqwest::Client,
@@ -17,6 +35,40 @@ const BROWSER_USER_AGENT: &str =
 
 pub struct AppHttpClientBuilder {
     inner: reqwest::ClientBuilder,
+}
+
+#[derive(Debug, Clone)]
+pub struct ShindenHttpClient {
+    inner: Arc<RwLock<reqwest::Client>>,
+}
+
+impl ShindenHttpClient {
+    pub fn new() -> Result<Self, reqwest::Error> {
+        Ok(Self {
+            inner: Arc::new(RwLock::new(shinden_client()?)),
+        })
+    }
+
+    pub fn client(&self) -> reqwest::Client {
+        self.inner
+            .read()
+            .expect("shinden HTTP client lock poisoned")
+            .clone()
+    }
+
+    pub fn apply_cloudflare_clearance(
+        &self,
+        clearance: ShindenCloudflareClearance,
+    ) -> Result<AppliedShindenCloudflareClearance, ClearanceError> {
+        let clearance_client = shinden_client_from_cloudflare_clearance(clearance)?;
+        *self.inner.write().expect("shinden HTTP client lock poisoned") = clearance_client.client;
+        info!(
+            accepted = clearance_client.applied.accepted,
+            "applied Shinden Cloudflare clearance to HTTP client"
+        );
+
+        Ok(clearance_client.applied)
+    }
 }
 
 impl Default for AppHttpClientBuilder {
@@ -42,9 +94,23 @@ impl AppHttpClientBuilder {
         }
     }
 
-    pub fn with_browser_user_agent(self) -> Self {
+    pub fn with_browser_user_agent(self) -> Self { self.with_user_agent(BROWSER_USER_AGENT) }
+
+    pub fn with_user_agent(self, user_agent: impl Into<String>) -> Self {
         Self {
-            inner: self.inner.user_agent(BROWSER_USER_AGENT),
+            inner: self.inner.user_agent(user_agent.into()),
+        }
+    }
+
+    pub fn with_cookie_provider(self, jar: Arc<Jar>) -> Self {
+        Self {
+            inner: self.inner.cookie_provider(jar),
+        }
+    }
+
+    pub fn with_default_headers(self, headers: HeaderMap) -> Self {
+        Self {
+            inner: self.inner.default_headers(headers),
         }
     }
 
@@ -60,11 +126,20 @@ impl AppHttpClientBuilder {
 impl AppHttpClients {
     pub fn new() -> Result<Self, reqwest::Error> {
         Ok(Self {
-            shinden: shinden_client()?,
+            shinden: ShindenHttpClient::new()?,
             animezone: animezone_client()?,
             ogladajanime: ogladajanime_client()?,
             database: database_client()?,
         })
+    }
+
+    pub(crate) fn shinden(&self) -> reqwest::Client { self.shinden.client() }
+
+    pub fn apply_shinden_cloudflare_clearance(
+        &self,
+        clearance: ShindenCloudflareClearance,
+    ) -> Result<AppliedShindenCloudflareClearance, ClearanceError> {
+        self.shinden.apply_cloudflare_clearance(clearance)
     }
 }
 

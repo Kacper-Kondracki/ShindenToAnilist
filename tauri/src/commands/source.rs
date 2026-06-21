@@ -12,6 +12,7 @@ use crate::{
         GetSourceFullResponseDto,
         GetSourceIdsResponseDto,
         SourceFetchProgressDto,
+        command_app_error,
         command_error,
         wire_numbers,
     },
@@ -25,13 +26,13 @@ pub(crate) async fn fetch_source_list(
     provider: i32,
     user: String,
     on_progress: Channel<SourceFetchProgressDto>,
-) -> Result<FetchSourceListResponseDto, String> {
+) -> Result<FetchSourceListResponseDto, crate::dto::CommandErrorDto> {
     let cancellation_token = CancellationToken::new();
     {
         let mut cancellations = state
             .source_fetch_cancellations
             .lock()
-            .map_err(|err| err.to_string())?;
+            .map_err(|err| crate::dto::command_simple_error(err.to_string()))?;
 
         if let Some(previous) = cancellations.insert(request_id, cancellation_token.clone()) {
             previous.cancel();
@@ -53,12 +54,12 @@ pub(crate) async fn fetch_source_list(
         .map(|response| FetchSourceListResponseDto {
             source_version: response.source_version.into(),
         })
-        .map_err(command_error);
+        .map_err(command_app_error);
 
     state
         .source_fetch_cancellations
         .lock()
-        .map_err(|err| err.to_string())?
+        .map_err(|err| crate::dto::command_simple_error(err.to_string()))?
         .remove(&request_id);
 
     result

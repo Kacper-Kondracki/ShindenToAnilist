@@ -5,6 +5,7 @@ import {
 import type {
   MatchSelection,
   SearchOptions,
+  ShindenCloudflareClearance,
   WireNumber
 } from '../domain/anime';
 import * as grpcService from './grpcService';
@@ -13,12 +14,14 @@ import {
   appPathsPromise,
   databasePath,
   exportPath,
-  isTauriRuntime
+  isTauriRuntime,
+  openShindenCloudflareVerification
 } from './runtime';
 import * as tauriService from './tauriService';
 import { currentVersions } from './versions';
 
 export { currentVersions, databasePath, exportPath };
+export { isShindenCloudflareChallengeError } from './runtime';
 export type { SourceFetchProgress };
 
 const backend = isTauriRuntime() ? tauriService : grpcService;
@@ -61,6 +64,14 @@ export function cancelSourceListFetch(requestId: number) {
 
 export function fetchShindenList(userId: number) {
   return backend.fetchShindenList(userId);
+}
+
+export { openShindenCloudflareVerification };
+
+export function setShindenCloudflareClearance(
+  clearance: ShindenCloudflareClearance
+) {
+  return backend.setShindenCloudflareClearance(clearance);
 }
 
 export function getSourceIds(sortedBy = AnimeListSortedBy.URGENCY) {

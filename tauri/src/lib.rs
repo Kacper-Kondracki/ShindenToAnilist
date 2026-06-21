@@ -3,6 +3,7 @@ mod dto;
 mod state;
 
 use commands::{
+    browser_session::open_shinden_cloudflare_verification,
     database::{
         check_database_update,
         download_database,
@@ -25,6 +26,7 @@ use commands::{
         get_shinden_entries,
         get_shinden_full,
         get_shinden_ids,
+        set_shinden_cloudflare_clearance,
     },
     source::{
         cancel_source_list_fetch,
@@ -64,6 +66,8 @@ pub fn run() {
             get_source_ids,
             get_source_full,
             fetch_shinden_list,
+            set_shinden_cloudflare_clearance,
+            open_shinden_cloudflare_verification,
             get_shinden_ids,
             get_shinden_entries,
             get_shinden_full,

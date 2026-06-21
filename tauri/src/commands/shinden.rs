@@ -7,8 +7,12 @@ use crate::{
         GetShindenEntriesResponseDto,
         GetShindenFullResponseDto,
         GetShindenIdsResponseDto,
+        SetShindenCloudflareClearanceResponseDto,
+        ShindenCloudflareClearanceDto,
         WireNumberDto,
+        command_app_error,
         command_error,
+        command_simple_error,
         wire_numbers,
     },
     state::AppState,
@@ -18,7 +22,7 @@ use crate::{
 pub(crate) async fn fetch_shinden_list(
     state: State<'_, AppState>,
     id: WireNumberDto,
-) -> Result<FetchShindenListResponseDto, String> {
+) -> Result<FetchShindenListResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .fetch_shinden_list(pb::FetchShindenListRequest { id: id.into() })
@@ -26,7 +30,23 @@ pub(crate) async fn fetch_shinden_list(
         .map(|response| FetchShindenListResponseDto {
             shinden_version: response.shinden_version.into(),
         })
-        .map_err(command_error)
+        .map_err(command_app_error)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) fn set_shinden_cloudflare_clearance(
+    state: State<'_, AppState>,
+    clearance: ShindenCloudflareClearanceDto,
+) -> Result<SetShindenCloudflareClearanceResponseDto, crate::dto::CommandErrorDto> {
+    state
+        .service
+        .set_shinden_cloudflare_clearance(pb::SetShindenCloudflareClearanceRequest {
+            clearance: Some(clearance.into()),
+        })
+        .map(|response| SetShindenCloudflareClearanceResponseDto {
+            accepted: response.accepted,
+        })
+        .map_err(|status| command_simple_error(status.message().to_owned()))
 }
 
 #[tauri::command(rename_all = "camelCase")]

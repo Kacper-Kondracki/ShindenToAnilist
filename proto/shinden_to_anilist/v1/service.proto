@@ -16,6 +16,7 @@ service ShindenToAnilistService {
   rpc GetSourceFull(GetSourceFullRequest) returns (stream GetSourceFullResponse);
 
   rpc FetchShindenList(FetchShindenListRequest) returns (FetchShindenListResponse);
+  rpc SetShindenCloudflareClearance(SetShindenCloudflareClearanceRequest) returns (SetShindenCloudflareClearanceResponse);
   rpc GetShindenIds(GetShindenIdsRequest) returns (GetShindenIdsResponse);
   rpc GetShindenEntries(GetShindenEntriesRequest) returns (GetShindenEntriesResponse);
   rpc GetShindenFull(GetShindenFullRequest) returns (stream GetShindenFullResponse);
@@ -68,6 +69,22 @@ message FetchShindenListRequest {
 }
 message FetchShindenListResponse {
   uint64 shinden_version = 1;
+}
+
+message ShindenCloudflareClearance {
+  string user_agent = 1;
+  string cf_clearance = 2;
+  string domain = 3;
+  string path = 4;
+  optional double expires_unix_seconds = 5;
+  uint64 captured_at_ms = 6;
+}
+
+message SetShindenCloudflareClearanceRequest {
+  ShindenCloudflareClearance clearance = 1;
+}
+message SetShindenCloudflareClearanceResponse {
+  bool accepted = 1;
 }
 
 message GetShindenIdsRequest {

@@ -68,6 +68,15 @@ export type SourceEntry = {
 
 export type ShindenEntry = SourceEntry;
 
+export type ShindenCloudflareClearance = {
+  userAgent: string;
+  cfClearance: string;
+  domain: string;
+  path: string;
+  expiresUnixSeconds?: number;
+  capturedAtMs: number;
+};
+
 export type DatabaseEntry = {
   id: WireNumber;
   sources: string[];

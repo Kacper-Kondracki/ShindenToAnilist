@@ -137,7 +137,7 @@ pub(in crate::server) fn match_source_list(
 }
 
 async fn fetch_list(service: &ShindenToAnilist, user_id: u64) -> Result<ShindenList, Status> {
-    let shinden = ShindenList::get_from_shinden(service.http_clients.shinden.clone(), user_id);
+    let shinden = ShindenList::get_from_shinden(service.http_clients.shinden(), user_id);
     timeout(SHINDEN_FETCH_TIMEOUT, shinden)
         .await
         .map_err(|_| {

@@ -24,7 +24,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shinden_to_anilist/v1/service.proto.
  */
 export const file_shinden_to_anilist_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("CiNzaGluZGVuX3RvX2FuaWxpc3QvdjEvc2VydmljZS5wcm90bxIVc2hpbmRlbl90b19hbmlsaXN0LnYxIl8KFkZldGNoU291cmNlTGlzdFJlcXVlc3QSNwoIcHJvdmlkZXIYASABKA4yJS5zaGluZGVuX3RvX2FuaWxpc3QudjEuU291cmNlUHJvdmlkZXISDAoEdXNlchgCIAEoCSJ9ChdGZXRjaFNvdXJjZUxpc3RSZXNwb25zZRIWCg5zb3VyY2VfdmVyc2lvbhgBIAEoBBI8Cghwcm9ncmVzcxgCIAEoCzIqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5Tb3VyY2VGZXRjaFByb2dyZXNzEgwKBGRvbmUYAyABKAgiUgoTR2V0U291cmNlSWRzUmVxdWVzdBI7Cglzb3J0ZWRfYnkYASABKA4yKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuQW5pbWVMaXN0U29ydGVkQnkiOwoUR2V0U291cmNlSWRzUmVzcG9uc2USFgoOc291cmNlX3ZlcnNpb24YASABKAQSCwoDaWRzGAIgAygEIhYKFEdldFNvdXJjZUZ1bGxSZXF1ZXN0ImQKFUdldFNvdXJjZUZ1bGxSZXNwb25zZRIWCg5zb3VyY2VfdmVyc2lvbhgBIAEoBBIzCgdlbnRyaWVzGAIgAygLMiIuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNvdXJjZUVudHJ5IiUKF0ZldGNoU2hpbmRlbkxpc3RSZXF1ZXN0EgoKAmlkGAEgASgEIjMKGEZldGNoU2hpbmRlbkxpc3RSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQiUwoUR2V0U2hpbmRlbklkc1JlcXVlc3QSOwoJc29ydGVkX2J5GAEgASgOMiguc2hpbmRlbl90b19hbmlsaXN0LnYxLkFuaW1lTGlzdFNvcnRlZEJ5Ij0KFUdldFNoaW5kZW5JZHNSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSCwoDaWRzGAIgAygEIicKGEdldFNoaW5kZW5FbnRyaWVzUmVxdWVzdBILCgNpZHMYASADKAQiagoZR2V0U2hpbmRlbkVudHJpZXNSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSNAoHZW50cmllcxgCIAMoCzIjLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TaGluZGVuRW50cnkiFwoVR2V0U2hpbmRlbkZ1bGxSZXF1ZXN0ImcKFkdldFNoaW5kZW5GdWxsUmVzcG9uc2USFwoPc2hpbmRlbl92ZXJzaW9uGAEgASgEEjQKB2VudHJpZXMYAiADKAsyIy5zaGluZGVuX3RvX2FuaWxpc3QudjEuU2hpbmRlbkVudHJ5IioKGkNoZWNrRGF0YWJhc2VVcGRhdGVSZXF1ZXN0EgwKBHBhdGgYASABKAkiWQobQ2hlY2tEYXRhYmFzZVVwZGF0ZVJlc3BvbnNlEjoKBnN0YXR1cxgBIAEoCzIqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5EYXRhYmFzZVVwZGF0ZUNoZWNrIicKF0Rvd25sb2FkRGF0YWJhc2VSZXF1ZXN0EgwKBHBhdGgYASABKAkiVgoYRG93bmxvYWREYXRhYmFzZVJlc3BvbnNlEjoKBnN0YXR1cxgBIAEoCzIqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5EYXRhYmFzZVJlbGVhc2VJbmZvIiMKE0xvYWREYXRhYmFzZVJlcXVlc3QSDAoEcGF0aBgBIAEoCSIwChRMb2FkRGF0YWJhc2VSZXNwb25zZRIYChBkYXRhYmFzZV92ZXJzaW9uGAEgASgEIioKGkdldERhdGFiYXNlTWV0YWRhdGFSZXF1ZXN0EgwKBHBhdGgYASABKAkiWAobR2V0RGF0YWJhc2VNZXRhZGF0YVJlc3BvbnNlEjkKCG1ldGFkYXRhGAEgASgLMicuc2hpbmRlbl90b19hbmlsaXN0LnYxLkRhdGFiYXNlTWV0YWRhdGEiVAoVR2V0RGF0YWJhc2VJZHNSZXF1ZXN0EjsKCXNvcnRlZF9ieRgBIAEoDjIoLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5BbmltZUxpc3RTb3J0ZWRCeSI/ChZHZXREYXRhYmFzZUlkc1Jlc3BvbnNlEhgKEGRhdGFiYXNlX3ZlcnNpb24YASABKAQSCwoDaWRzGAIgAygEIigKGUdldERhdGFiYXNlRW50cmllc1JlcXVlc3QSCwoDaWRzGAEgAygEIm0KGkdldERhdGFiYXNlRW50cmllc1Jlc3BvbnNlEhgKEGRhdGFiYXNlX3ZlcnNpb24YASABKAQSNQoHZW50cmllcxgCIAMoCzIkLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5EYXRhYmFzZUVudHJ5IhgKFkdldERhdGFiYXNlRnVsbFJlcXVlc3QiagoXR2V0RGF0YWJhc2VGdWxsUmVzcG9uc2USGAoQZGF0YWJhc2VfdmVyc2lvbhgBIAEoBBI1CgdlbnRyaWVzGAIgAygLMiQuc2hpbmRlbl90b19hbmlsaXN0LnYxLkRhdGFiYXNlRW50cnkiWgoSRnV6enlTZWFyY2hSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEjUKB29wdGlvbnMYAiABKAsyJC5zaGluZGVuX3RvX2FuaWxpc3QudjEuU2VhcmNoT3B0aW9ucyJlChNGdXp6eVNlYXJjaFJlc3BvbnNlEhgKEGRhdGFiYXNlX3ZlcnNpb24YASABKAQSNAoHcmVzdWx0cxgCIAMoCzIjLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TZWFyY2hSZXN1bHQipwEKEUZ1enp5TWF0Y2hSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEjUKB29wdGlvbnMYAiABKAsyJC5zaGluZGVuX3RvX2FuaWxpc3QudjEuU2VhcmNoT3B0aW9ucxIXCgpzaGluZGVuX2lkGAMgASgESACIAQESFgoJc291cmNlX2lkGAQgASgESAGIAQFCDQoLX3NoaW5kZW5faWRCDAoKX3NvdXJjZV9pZCJjChJGdXp6eU1hdGNoUmVzcG9uc2USGAoQZGF0YWJhc2VfdmVyc2lvbhgBIAEoBBIzCgdyZXN1bHRzGAIgAygLMiIuc2hpbmRlbl90b19hbmlsaXN0LnYxLk1hdGNoUmVzdWx0Ik8KFk1hdGNoU291cmNlTGlzdFJlcXVlc3QSNQoHb3B0aW9ucxgBIAEoCzIkLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TZWFyY2hPcHRpb25zIoYBChdNYXRjaFNvdXJjZUxpc3RSZXNwb25zZRIWCg5zb3VyY2VfdmVyc2lvbhgBIAEoBBIYChBkYXRhYmFzZV92ZXJzaW9uGAIgASgEEjkKB3Jlc3VsdHMYAyADKAsyKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuU291cmNlTWF0Y2hSZXN1bHQiUAoXTWF0Y2hTaGluZGVuTGlzdFJlcXVlc3QSNQoHb3B0aW9ucxgBIAEoCzIkLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TZWFyY2hPcHRpb25zIokBChhNYXRjaFNoaW5kZW5MaXN0UmVzcG9uc2USFwoPc2hpbmRlbl92ZXJzaW9uGAEgASgEEhgKEGRhdGFiYXNlX3ZlcnNpb24YAiABKAQSOgoHcmVzdWx0cxgDIAMoCzIpLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TaGluZGVuTWF0Y2hSZXN1bHQiVgoQRXhwb3J0WG1sUmVxdWVzdBI0CgdtYXRjaGVzGAEgAygLMiMuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNvdXJjZUlkUGFpchIMCgRwYXRoGAIgASgJIlIKEUV4cG9ydFhtbFJlc3BvbnNlEhYKDnNvdXJjZV92ZXJzaW9uGAEgASgEEgwKBHBhdGgYAiABKAkSFwoPc2hpbmRlbl92ZXJzaW9uGAMgASgEMvoQChdTaGluZGVuVG9BbmlsaXN0U2VydmljZRJyCg9GZXRjaFNvdXJjZUxpc3QSLS5zaGluZGVuX3RvX2FuaWxpc3QudjEuRmV0Y2hTb3VyY2VMaXN0UmVxdWVzdBouLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GZXRjaFNvdXJjZUxpc3RSZXNwb25zZTABEmcKDEdldFNvdXJjZUlkcxIqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTb3VyY2VJZHNSZXF1ZXN0Gisuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNvdXJjZUlkc1Jlc3BvbnNlEmwKDUdldFNvdXJjZUZ1bGwSKy5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U291cmNlRnVsbFJlcXVlc3QaLC5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U291cmNlRnVsbFJlc3BvbnNlMAEScwoQRmV0Y2hTaGluZGVuTGlzdBIuLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GZXRjaFNoaW5kZW5MaXN0UmVxdWVzdBovLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GZXRjaFNoaW5kZW5MaXN0UmVzcG9uc2USagoNR2V0U2hpbmRlbklkcxIrLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTaGluZGVuSWRzUmVxdWVzdBosLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTaGluZGVuSWRzUmVzcG9uc2USdgoRR2V0U2hpbmRlbkVudHJpZXMSLy5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U2hpbmRlbkVudHJpZXNSZXF1ZXN0GjAuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNoaW5kZW5FbnRyaWVzUmVzcG9uc2USbwoOR2V0U2hpbmRlbkZ1bGwSLC5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U2hpbmRlbkZ1bGxSZXF1ZXN0Gi0uc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNoaW5kZW5GdWxsUmVzcG9uc2UwARJ8ChNDaGVja0RhdGFiYXNlVXBkYXRlEjEuc2hpbmRlbl90b19hbmlsaXN0LnYxLkNoZWNrRGF0YWJhc2VVcGRhdGVSZXF1ZXN0GjIuc2hpbmRlbl90b19hbmlsaXN0LnYxLkNoZWNrRGF0YWJhc2VVcGRhdGVSZXNwb25zZRJzChBEb3dubG9hZERhdGFiYXNlEi4uc2hpbmRlbl90b19hbmlsaXN0LnYxLkRvd25sb2FkRGF0YWJhc2VSZXF1ZXN0Gi8uc2hpbmRlbl90b19hbmlsaXN0LnYxLkRvd25sb2FkRGF0YWJhc2VSZXNwb25zZRJnCgxMb2FkRGF0YWJhc2USKi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTG9hZERhdGFiYXNlUmVxdWVzdBorLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5Mb2FkRGF0YWJhc2VSZXNwb25zZRJ8ChNHZXREYXRhYmFzZU1ldGFkYXRhEjEuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldERhdGFiYXNlTWV0YWRhdGFSZXF1ZXN0GjIuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldERhdGFiYXNlTWV0YWRhdGFSZXNwb25zZRJtCg5HZXREYXRhYmFzZUlkcxIsLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUlkc1JlcXVlc3QaLS5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VJZHNSZXNwb25zZRJ5ChJHZXREYXRhYmFzZUVudHJpZXMSMC5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VFbnRyaWVzUmVxdWVzdBoxLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUVudHJpZXNSZXNwb25zZRJyCg9HZXREYXRhYmFzZUZ1bGwSLS5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VGdWxsUmVxdWVzdBouLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUZ1bGxSZXNwb25zZTABEmQKC0Z1enp5U2VhcmNoEikuc2hpbmRlbl90b19hbmlsaXN0LnYxLkZ1enp5U2VhcmNoUmVxdWVzdBoqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GdXp6eVNlYXJjaFJlc3BvbnNlEmEKCkZ1enp5TWF0Y2gSKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuRnV6enlNYXRjaFJlcXVlc3QaKS5zaGluZGVuX3RvX2FuaWxpc3QudjEuRnV6enlNYXRjaFJlc3BvbnNlEnIKD01hdGNoU291cmNlTGlzdBItLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFNvdXJjZUxpc3RSZXF1ZXN0Gi4uc2hpbmRlbl90b19hbmlsaXN0LnYxLk1hdGNoU291cmNlTGlzdFJlc3BvbnNlMAESdQoQTWF0Y2hTaGluZGVuTGlzdBIuLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFNoaW5kZW5MaXN0UmVxdWVzdBovLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFNoaW5kZW5MaXN0UmVzcG9uc2UwARJeCglFeHBvcnRYbWwSJy5zaGluZGVuX3RvX2FuaWxpc3QudjEuRXhwb3J0WG1sUmVxdWVzdBooLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5FeHBvcnRYbWxSZXNwb25zZWIGcHJvdG8z", [file_shinden_to_anilist_v1_common, file_shinden_to_anilist_v1_database, file_shinden_to_anilist_v1_export, file_shinden_to_anilist_v1_matching, file_shinden_to_anilist_v1_search, file_shinden_to_anilist_v1_shinden, file_shinden_to_anilist_v1_source]);
+  fileDesc("CiNzaGluZGVuX3RvX2FuaWxpc3QvdjEvc2VydmljZS5wcm90bxIVc2hpbmRlbl90b19hbmlsaXN0LnYxIl8KFkZldGNoU291cmNlTGlzdFJlcXVlc3QSNwoIcHJvdmlkZXIYASABKA4yJS5zaGluZGVuX3RvX2FuaWxpc3QudjEuU291cmNlUHJvdmlkZXISDAoEdXNlchgCIAEoCSJ9ChdGZXRjaFNvdXJjZUxpc3RSZXNwb25zZRIWCg5zb3VyY2VfdmVyc2lvbhgBIAEoBBI8Cghwcm9ncmVzcxgCIAEoCzIqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5Tb3VyY2VGZXRjaFByb2dyZXNzEgwKBGRvbmUYAyABKAgiUgoTR2V0U291cmNlSWRzUmVxdWVzdBI7Cglzb3J0ZWRfYnkYASABKA4yKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuQW5pbWVMaXN0U29ydGVkQnkiOwoUR2V0U291cmNlSWRzUmVzcG9uc2USFgoOc291cmNlX3ZlcnNpb24YASABKAQSCwoDaWRzGAIgAygEIhYKFEdldFNvdXJjZUZ1bGxSZXF1ZXN0ImQKFUdldFNvdXJjZUZ1bGxSZXNwb25zZRIWCg5zb3VyY2VfdmVyc2lvbhgBIAEoBBIzCgdlbnRyaWVzGAIgAygLMiIuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNvdXJjZUVudHJ5IiUKF0ZldGNoU2hpbmRlbkxpc3RSZXF1ZXN0EgoKAmlkGAEgASgEIjMKGEZldGNoU2hpbmRlbkxpc3RSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQiuAEKGlNoaW5kZW5DbG91ZGZsYXJlQ2xlYXJhbmNlEhIKCnVzZXJfYWdlbnQYASABKAkSFAoMY2ZfY2xlYXJhbmNlGAIgASgJEg4KBmRvbWFpbhgDIAEoCRIMCgRwYXRoGAQgASgJEiEKFGV4cGlyZXNfdW5peF9zZWNvbmRzGAUgASgBSACIAQESFgoOY2FwdHVyZWRfYXRfbXMYBiABKARCFwoVX2V4cGlyZXNfdW5peF9zZWNvbmRzImwKJFNldFNoaW5kZW5DbG91ZGZsYXJlQ2xlYXJhbmNlUmVxdWVzdBJECgljbGVhcmFuY2UYASABKAsyMS5zaGluZGVuX3RvX2FuaWxpc3QudjEuU2hpbmRlbkNsb3VkZmxhcmVDbGVhcmFuY2UiOQolU2V0U2hpbmRlbkNsb3VkZmxhcmVDbGVhcmFuY2VSZXNwb25zZRIQCghhY2NlcHRlZBgBIAEoCCJTChRHZXRTaGluZGVuSWRzUmVxdWVzdBI7Cglzb3J0ZWRfYnkYASABKA4yKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuQW5pbWVMaXN0U29ydGVkQnkiPQoVR2V0U2hpbmRlbklkc1Jlc3BvbnNlEhcKD3NoaW5kZW5fdmVyc2lvbhgBIAEoBBILCgNpZHMYAiADKAQiJwoYR2V0U2hpbmRlbkVudHJpZXNSZXF1ZXN0EgsKA2lkcxgBIAMoBCJqChlHZXRTaGluZGVuRW50cmllc1Jlc3BvbnNlEhcKD3NoaW5kZW5fdmVyc2lvbhgBIAEoBBI0CgdlbnRyaWVzGAIgAygLMiMuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNoaW5kZW5FbnRyeSIXChVHZXRTaGluZGVuRnVsbFJlcXVlc3QiZwoWR2V0U2hpbmRlbkZ1bGxSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSNAoHZW50cmllcxgCIAMoCzIjLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TaGluZGVuRW50cnkiKgoaQ2hlY2tEYXRhYmFzZVVwZGF0ZVJlcXVlc3QSDAoEcGF0aBgBIAEoCSJZChtDaGVja0RhdGFiYXNlVXBkYXRlUmVzcG9uc2USOgoGc3RhdHVzGAEgASgLMiouc2hpbmRlbl90b19hbmlsaXN0LnYxLkRhdGFiYXNlVXBkYXRlQ2hlY2siJwoXRG93bmxvYWREYXRhYmFzZVJlcXVlc3QSDAoEcGF0aBgBIAEoCSJWChhEb3dubG9hZERhdGFiYXNlUmVzcG9uc2USOgoGc3RhdHVzGAEgASgLMiouc2hpbmRlbl90b19hbmlsaXN0LnYxLkRhdGFiYXNlUmVsZWFzZUluZm8iIwoTTG9hZERhdGFiYXNlUmVxdWVzdBIMCgRwYXRoGAEgASgJIjAKFExvYWREYXRhYmFzZVJlc3BvbnNlEhgKEGRhdGFiYXNlX3ZlcnNpb24YASABKAQiKgoaR2V0RGF0YWJhc2VNZXRhZGF0YVJlcXVlc3QSDAoEcGF0aBgBIAEoCSJYChtHZXREYXRhYmFzZU1ldGFkYXRhUmVzcG9uc2USOQoIbWV0YWRhdGEYASABKAsyJy5zaGluZGVuX3RvX2FuaWxpc3QudjEuRGF0YWJhc2VNZXRhZGF0YSJUChVHZXREYXRhYmFzZUlkc1JlcXVlc3QSOwoJc29ydGVkX2J5GAEgASgOMiguc2hpbmRlbl90b19hbmlsaXN0LnYxLkFuaW1lTGlzdFNvcnRlZEJ5Ij8KFkdldERhdGFiYXNlSWRzUmVzcG9uc2USGAoQZGF0YWJhc2VfdmVyc2lvbhgBIAEoBBILCgNpZHMYAiADKAQiKAoZR2V0RGF0YWJhc2VFbnRyaWVzUmVxdWVzdBILCgNpZHMYASADKAQibQoaR2V0RGF0YWJhc2VFbnRyaWVzUmVzcG9uc2USGAoQZGF0YWJhc2VfdmVyc2lvbhgBIAEoBBI1CgdlbnRyaWVzGAIgAygLMiQuc2hpbmRlbl90b19hbmlsaXN0LnYxLkRhdGFiYXNlRW50cnkiGAoWR2V0RGF0YWJhc2VGdWxsUmVxdWVzdCJqChdHZXREYXRhYmFzZUZ1bGxSZXNwb25zZRIYChBkYXRhYmFzZV92ZXJzaW9uGAEgASgEEjUKB2VudHJpZXMYAiADKAsyJC5zaGluZGVuX3RvX2FuaWxpc3QudjEuRGF0YWJhc2VFbnRyeSJaChJGdXp6eVNlYXJjaFJlcXVlc3QSDQoFcXVlcnkYASABKAkSNQoHb3B0aW9ucxgCIAEoCzIkLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TZWFyY2hPcHRpb25zImUKE0Z1enp5U2VhcmNoUmVzcG9uc2USGAoQZGF0YWJhc2VfdmVyc2lvbhgBIAEoBBI0CgdyZXN1bHRzGAIgAygLMiMuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNlYXJjaFJlc3VsdCKnAQoRRnV6enlNYXRjaFJlcXVlc3QSDQoFcXVlcnkYASABKAkSNQoHb3B0aW9ucxgCIAEoCzIkLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5TZWFyY2hPcHRpb25zEhcKCnNoaW5kZW5faWQYAyABKARIAIgBARIWCglzb3VyY2VfaWQYBCABKARIAYgBAUINCgtfc2hpbmRlbl9pZEIMCgpfc291cmNlX2lkImMKEkZ1enp5TWF0Y2hSZXNwb25zZRIYChBkYXRhYmFzZV92ZXJzaW9uGAEgASgEEjMKB3Jlc3VsdHMYAiADKAsyIi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTWF0Y2hSZXN1bHQiTwoWTWF0Y2hTb3VyY2VMaXN0UmVxdWVzdBI1CgdvcHRpb25zGAEgASgLMiQuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNlYXJjaE9wdGlvbnMihgEKF01hdGNoU291cmNlTGlzdFJlc3BvbnNlEhYKDnNvdXJjZV92ZXJzaW9uGAEgASgEEhgKEGRhdGFiYXNlX3ZlcnNpb24YAiABKAQSOQoHcmVzdWx0cxgDIAMoCzIoLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5Tb3VyY2VNYXRjaFJlc3VsdCJQChdNYXRjaFNoaW5kZW5MaXN0UmVxdWVzdBI1CgdvcHRpb25zGAEgASgLMiQuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNlYXJjaE9wdGlvbnMiiQEKGE1hdGNoU2hpbmRlbkxpc3RSZXNwb25zZRIXCg9zaGluZGVuX3ZlcnNpb24YASABKAQSGAoQZGF0YWJhc2VfdmVyc2lvbhgCIAEoBBI6CgdyZXN1bHRzGAMgAygLMikuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNoaW5kZW5NYXRjaFJlc3VsdCJWChBFeHBvcnRYbWxSZXF1ZXN0EjQKB21hdGNoZXMYASADKAsyIy5zaGluZGVuX3RvX2FuaWxpc3QudjEuU291cmNlSWRQYWlyEgwKBHBhdGgYAiABKAkiUgoRRXhwb3J0WG1sUmVzcG9uc2USFgoOc291cmNlX3ZlcnNpb24YASABKAQSDAoEcGF0aBgCIAEoCRIXCg9zaGluZGVuX3ZlcnNpb24YAyABKAQylxIKF1NoaW5kZW5Ub0FuaWxpc3RTZXJ2aWNlEnIKD0ZldGNoU291cmNlTGlzdBItLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GZXRjaFNvdXJjZUxpc3RSZXF1ZXN0Gi4uc2hpbmRlbl90b19hbmlsaXN0LnYxLkZldGNoU291cmNlTGlzdFJlc3BvbnNlMAESZwoMR2V0U291cmNlSWRzEiouc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNvdXJjZUlkc1JlcXVlc3QaKy5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U291cmNlSWRzUmVzcG9uc2USbAoNR2V0U291cmNlRnVsbBIrLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTb3VyY2VGdWxsUmVxdWVzdBosLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTb3VyY2VGdWxsUmVzcG9uc2UwARJzChBGZXRjaFNoaW5kZW5MaXN0Ei4uc2hpbmRlbl90b19hbmlsaXN0LnYxLkZldGNoU2hpbmRlbkxpc3RSZXF1ZXN0Gi8uc2hpbmRlbl90b19hbmlsaXN0LnYxLkZldGNoU2hpbmRlbkxpc3RSZXNwb25zZRKaAQodU2V0U2hpbmRlbkNsb3VkZmxhcmVDbGVhcmFuY2USOy5zaGluZGVuX3RvX2FuaWxpc3QudjEuU2V0U2hpbmRlbkNsb3VkZmxhcmVDbGVhcmFuY2VSZXF1ZXN0Gjwuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNldFNoaW5kZW5DbG91ZGZsYXJlQ2xlYXJhbmNlUmVzcG9uc2USagoNR2V0U2hpbmRlbklkcxIrLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTaGluZGVuSWRzUmVxdWVzdBosLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXRTaGluZGVuSWRzUmVzcG9uc2USdgoRR2V0U2hpbmRlbkVudHJpZXMSLy5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U2hpbmRlbkVudHJpZXNSZXF1ZXN0GjAuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNoaW5kZW5FbnRyaWVzUmVzcG9uc2USbwoOR2V0U2hpbmRlbkZ1bGwSLC5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0U2hpbmRlbkZ1bGxSZXF1ZXN0Gi0uc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldFNoaW5kZW5GdWxsUmVzcG9uc2UwARJ8ChNDaGVja0RhdGFiYXNlVXBkYXRlEjEuc2hpbmRlbl90b19hbmlsaXN0LnYxLkNoZWNrRGF0YWJhc2VVcGRhdGVSZXF1ZXN0GjIuc2hpbmRlbl90b19hbmlsaXN0LnYxLkNoZWNrRGF0YWJhc2VVcGRhdGVSZXNwb25zZRJzChBEb3dubG9hZERhdGFiYXNlEi4uc2hpbmRlbl90b19hbmlsaXN0LnYxLkRvd25sb2FkRGF0YWJhc2VSZXF1ZXN0Gi8uc2hpbmRlbl90b19hbmlsaXN0LnYxLkRvd25sb2FkRGF0YWJhc2VSZXNwb25zZRJnCgxMb2FkRGF0YWJhc2USKi5zaGluZGVuX3RvX2FuaWxpc3QudjEuTG9hZERhdGFiYXNlUmVxdWVzdBorLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5Mb2FkRGF0YWJhc2VSZXNwb25zZRJ8ChNHZXREYXRhYmFzZU1ldGFkYXRhEjEuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldERhdGFiYXNlTWV0YWRhdGFSZXF1ZXN0GjIuc2hpbmRlbl90b19hbmlsaXN0LnYxLkdldERhdGFiYXNlTWV0YWRhdGFSZXNwb25zZRJtCg5HZXREYXRhYmFzZUlkcxIsLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUlkc1JlcXVlc3QaLS5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VJZHNSZXNwb25zZRJ5ChJHZXREYXRhYmFzZUVudHJpZXMSMC5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VFbnRyaWVzUmVxdWVzdBoxLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUVudHJpZXNSZXNwb25zZRJyCg9HZXREYXRhYmFzZUZ1bGwSLS5zaGluZGVuX3RvX2FuaWxpc3QudjEuR2V0RGF0YWJhc2VGdWxsUmVxdWVzdBouLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5HZXREYXRhYmFzZUZ1bGxSZXNwb25zZTABEmQKC0Z1enp5U2VhcmNoEikuc2hpbmRlbl90b19hbmlsaXN0LnYxLkZ1enp5U2VhcmNoUmVxdWVzdBoqLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5GdXp6eVNlYXJjaFJlc3BvbnNlEmEKCkZ1enp5TWF0Y2gSKC5zaGluZGVuX3RvX2FuaWxpc3QudjEuRnV6enlNYXRjaFJlcXVlc3QaKS5zaGluZGVuX3RvX2FuaWxpc3QudjEuRnV6enlNYXRjaFJlc3BvbnNlEnIKD01hdGNoU291cmNlTGlzdBItLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFNvdXJjZUxpc3RSZXF1ZXN0Gi4uc2hpbmRlbl90b19hbmlsaXN0LnYxLk1hdGNoU291cmNlTGlzdFJlc3BvbnNlMAESdQoQTWF0Y2hTaGluZGVuTGlzdBIuLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFNoaW5kZW5MaXN0UmVxdWVzdBovLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NYXRjaFNoaW5kZW5MaXN0UmVzcG9uc2UwARJeCglFeHBvcnRYbWwSJy5zaGluZGVuX3RvX2FuaWxpc3QudjEuRXhwb3J0WG1sUmVxdWVzdBooLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5FeHBvcnRYbWxSZXNwb25zZWIGcHJvdG8z", [file_shinden_to_anilist_v1_common, file_shinden_to_anilist_v1_database, file_shinden_to_anilist_v1_export, file_shinden_to_anilist_v1_matching, file_shinden_to_anilist_v1_search, file_shinden_to_anilist_v1_shinden, file_shinden_to_anilist_v1_source]);
 
 /**
  * @generated from message shinden_to_anilist.v1.FetchSourceListRequest
@@ -184,6 +184,82 @@ export const FetchShindenListResponseSchema: GenMessage<FetchShindenListResponse
   messageDesc(file_shinden_to_anilist_v1_service, 7);
 
 /**
+ * @generated from message shinden_to_anilist.v1.ShindenCloudflareClearance
+ */
+export type ShindenCloudflareClearance = Message<"shinden_to_anilist.v1.ShindenCloudflareClearance"> & {
+  /**
+   * @generated from field: string user_agent = 1;
+   */
+  userAgent: string;
+
+  /**
+   * @generated from field: string cf_clearance = 2;
+   */
+  cfClearance: string;
+
+  /**
+   * @generated from field: string domain = 3;
+   */
+  domain: string;
+
+  /**
+   * @generated from field: string path = 4;
+   */
+  path: string;
+
+  /**
+   * @generated from field: optional double expires_unix_seconds = 5;
+   */
+  expiresUnixSeconds?: number | undefined;
+
+  /**
+   * @generated from field: uint64 captured_at_ms = 6;
+   */
+  capturedAtMs: bigint;
+};
+
+/**
+ * Describes the message shinden_to_anilist.v1.ShindenCloudflareClearance.
+ * Use `create(ShindenCloudflareClearanceSchema)` to create a new message.
+ */
+export const ShindenCloudflareClearanceSchema: GenMessage<ShindenCloudflareClearance> = /*@__PURE__*/
+  messageDesc(file_shinden_to_anilist_v1_service, 8);
+
+/**
+ * @generated from message shinden_to_anilist.v1.SetShindenCloudflareClearanceRequest
+ */
+export type SetShindenCloudflareClearanceRequest = Message<"shinden_to_anilist.v1.SetShindenCloudflareClearanceRequest"> & {
+  /**
+   * @generated from field: shinden_to_anilist.v1.ShindenCloudflareClearance clearance = 1;
+   */
+  clearance?: ShindenCloudflareClearance | undefined;
+};
+
+/**
+ * Describes the message shinden_to_anilist.v1.SetShindenCloudflareClearanceRequest.
+ * Use `create(SetShindenCloudflareClearanceRequestSchema)` to create a new message.
+ */
+export const SetShindenCloudflareClearanceRequestSchema: GenMessage<SetShindenCloudflareClearanceRequest> = /*@__PURE__*/
+  messageDesc(file_shinden_to_anilist_v1_service, 9);
+
+/**
+ * @generated from message shinden_to_anilist.v1.SetShindenCloudflareClearanceResponse
+ */
+export type SetShindenCloudflareClearanceResponse = Message<"shinden_to_anilist.v1.SetShindenCloudflareClearanceResponse"> & {
+  /**
+   * @generated from field: bool accepted = 1;
+   */
+  accepted: boolean;
+};
+
+/**
+ * Describes the message shinden_to_anilist.v1.SetShindenCloudflareClearanceResponse.
+ * Use `create(SetShindenCloudflareClearanceResponseSchema)` to create a new message.
+ */
+export const SetShindenCloudflareClearanceResponseSchema: GenMessage<SetShindenCloudflareClearanceResponse> = /*@__PURE__*/
+  messageDesc(file_shinden_to_anilist_v1_service, 10);
+
+/**
  * @generated from message shinden_to_anilist.v1.GetShindenIdsRequest
  */
 export type GetShindenIdsRequest = Message<"shinden_to_anilist.v1.GetShindenIdsRequest"> & {
@@ -198,7 +274,7 @@ export type GetShindenIdsRequest = Message<"shinden_to_anilist.v1.GetShindenIdsR
  * Use `create(GetShindenIdsRequestSchema)` to create a new message.
  */
 export const GetShindenIdsRequestSchema: GenMessage<GetShindenIdsRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 8);
+  messageDesc(file_shinden_to_anilist_v1_service, 11);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetShindenIdsResponse
@@ -220,7 +296,7 @@ export type GetShindenIdsResponse = Message<"shinden_to_anilist.v1.GetShindenIds
  * Use `create(GetShindenIdsResponseSchema)` to create a new message.
  */
 export const GetShindenIdsResponseSchema: GenMessage<GetShindenIdsResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 9);
+  messageDesc(file_shinden_to_anilist_v1_service, 12);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetShindenEntriesRequest
@@ -237,7 +313,7 @@ export type GetShindenEntriesRequest = Message<"shinden_to_anilist.v1.GetShinden
  * Use `create(GetShindenEntriesRequestSchema)` to create a new message.
  */
 export const GetShindenEntriesRequestSchema: GenMessage<GetShindenEntriesRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 10);
+  messageDesc(file_shinden_to_anilist_v1_service, 13);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetShindenEntriesResponse
@@ -259,7 +335,7 @@ export type GetShindenEntriesResponse = Message<"shinden_to_anilist.v1.GetShinde
  * Use `create(GetShindenEntriesResponseSchema)` to create a new message.
  */
 export const GetShindenEntriesResponseSchema: GenMessage<GetShindenEntriesResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 11);
+  messageDesc(file_shinden_to_anilist_v1_service, 14);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetShindenFullRequest
@@ -272,7 +348,7 @@ export type GetShindenFullRequest = Message<"shinden_to_anilist.v1.GetShindenFul
  * Use `create(GetShindenFullRequestSchema)` to create a new message.
  */
 export const GetShindenFullRequestSchema: GenMessage<GetShindenFullRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 12);
+  messageDesc(file_shinden_to_anilist_v1_service, 15);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetShindenFullResponse
@@ -294,7 +370,7 @@ export type GetShindenFullResponse = Message<"shinden_to_anilist.v1.GetShindenFu
  * Use `create(GetShindenFullResponseSchema)` to create a new message.
  */
 export const GetShindenFullResponseSchema: GenMessage<GetShindenFullResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 13);
+  messageDesc(file_shinden_to_anilist_v1_service, 16);
 
 /**
  * @generated from message shinden_to_anilist.v1.CheckDatabaseUpdateRequest
@@ -311,7 +387,7 @@ export type CheckDatabaseUpdateRequest = Message<"shinden_to_anilist.v1.CheckDat
  * Use `create(CheckDatabaseUpdateRequestSchema)` to create a new message.
  */
 export const CheckDatabaseUpdateRequestSchema: GenMessage<CheckDatabaseUpdateRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 14);
+  messageDesc(file_shinden_to_anilist_v1_service, 17);
 
 /**
  * @generated from message shinden_to_anilist.v1.CheckDatabaseUpdateResponse
@@ -328,7 +404,7 @@ export type CheckDatabaseUpdateResponse = Message<"shinden_to_anilist.v1.CheckDa
  * Use `create(CheckDatabaseUpdateResponseSchema)` to create a new message.
  */
 export const CheckDatabaseUpdateResponseSchema: GenMessage<CheckDatabaseUpdateResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 15);
+  messageDesc(file_shinden_to_anilist_v1_service, 18);
 
 /**
  * @generated from message shinden_to_anilist.v1.DownloadDatabaseRequest
@@ -345,7 +421,7 @@ export type DownloadDatabaseRequest = Message<"shinden_to_anilist.v1.DownloadDat
  * Use `create(DownloadDatabaseRequestSchema)` to create a new message.
  */
 export const DownloadDatabaseRequestSchema: GenMessage<DownloadDatabaseRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 16);
+  messageDesc(file_shinden_to_anilist_v1_service, 19);
 
 /**
  * @generated from message shinden_to_anilist.v1.DownloadDatabaseResponse
@@ -362,7 +438,7 @@ export type DownloadDatabaseResponse = Message<"shinden_to_anilist.v1.DownloadDa
  * Use `create(DownloadDatabaseResponseSchema)` to create a new message.
  */
 export const DownloadDatabaseResponseSchema: GenMessage<DownloadDatabaseResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 17);
+  messageDesc(file_shinden_to_anilist_v1_service, 20);
 
 /**
  * @generated from message shinden_to_anilist.v1.LoadDatabaseRequest
@@ -379,7 +455,7 @@ export type LoadDatabaseRequest = Message<"shinden_to_anilist.v1.LoadDatabaseReq
  * Use `create(LoadDatabaseRequestSchema)` to create a new message.
  */
 export const LoadDatabaseRequestSchema: GenMessage<LoadDatabaseRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 18);
+  messageDesc(file_shinden_to_anilist_v1_service, 21);
 
 /**
  * @generated from message shinden_to_anilist.v1.LoadDatabaseResponse
@@ -396,7 +472,7 @@ export type LoadDatabaseResponse = Message<"shinden_to_anilist.v1.LoadDatabaseRe
  * Use `create(LoadDatabaseResponseSchema)` to create a new message.
  */
 export const LoadDatabaseResponseSchema: GenMessage<LoadDatabaseResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 19);
+  messageDesc(file_shinden_to_anilist_v1_service, 22);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseMetadataRequest
@@ -413,7 +489,7 @@ export type GetDatabaseMetadataRequest = Message<"shinden_to_anilist.v1.GetDatab
  * Use `create(GetDatabaseMetadataRequestSchema)` to create a new message.
  */
 export const GetDatabaseMetadataRequestSchema: GenMessage<GetDatabaseMetadataRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 20);
+  messageDesc(file_shinden_to_anilist_v1_service, 23);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseMetadataResponse
@@ -430,7 +506,7 @@ export type GetDatabaseMetadataResponse = Message<"shinden_to_anilist.v1.GetData
  * Use `create(GetDatabaseMetadataResponseSchema)` to create a new message.
  */
 export const GetDatabaseMetadataResponseSchema: GenMessage<GetDatabaseMetadataResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 21);
+  messageDesc(file_shinden_to_anilist_v1_service, 24);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseIdsRequest
@@ -447,7 +523,7 @@ export type GetDatabaseIdsRequest = Message<"shinden_to_anilist.v1.GetDatabaseId
  * Use `create(GetDatabaseIdsRequestSchema)` to create a new message.
  */
 export const GetDatabaseIdsRequestSchema: GenMessage<GetDatabaseIdsRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 22);
+  messageDesc(file_shinden_to_anilist_v1_service, 25);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseIdsResponse
@@ -469,7 +545,7 @@ export type GetDatabaseIdsResponse = Message<"shinden_to_anilist.v1.GetDatabaseI
  * Use `create(GetDatabaseIdsResponseSchema)` to create a new message.
  */
 export const GetDatabaseIdsResponseSchema: GenMessage<GetDatabaseIdsResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 23);
+  messageDesc(file_shinden_to_anilist_v1_service, 26);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseEntriesRequest
@@ -486,7 +562,7 @@ export type GetDatabaseEntriesRequest = Message<"shinden_to_anilist.v1.GetDataba
  * Use `create(GetDatabaseEntriesRequestSchema)` to create a new message.
  */
 export const GetDatabaseEntriesRequestSchema: GenMessage<GetDatabaseEntriesRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 24);
+  messageDesc(file_shinden_to_anilist_v1_service, 27);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseEntriesResponse
@@ -508,7 +584,7 @@ export type GetDatabaseEntriesResponse = Message<"shinden_to_anilist.v1.GetDatab
  * Use `create(GetDatabaseEntriesResponseSchema)` to create a new message.
  */
 export const GetDatabaseEntriesResponseSchema: GenMessage<GetDatabaseEntriesResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 25);
+  messageDesc(file_shinden_to_anilist_v1_service, 28);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseFullRequest
@@ -521,7 +597,7 @@ export type GetDatabaseFullRequest = Message<"shinden_to_anilist.v1.GetDatabaseF
  * Use `create(GetDatabaseFullRequestSchema)` to create a new message.
  */
 export const GetDatabaseFullRequestSchema: GenMessage<GetDatabaseFullRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 26);
+  messageDesc(file_shinden_to_anilist_v1_service, 29);
 
 /**
  * @generated from message shinden_to_anilist.v1.GetDatabaseFullResponse
@@ -543,7 +619,7 @@ export type GetDatabaseFullResponse = Message<"shinden_to_anilist.v1.GetDatabase
  * Use `create(GetDatabaseFullResponseSchema)` to create a new message.
  */
 export const GetDatabaseFullResponseSchema: GenMessage<GetDatabaseFullResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 27);
+  messageDesc(file_shinden_to_anilist_v1_service, 30);
 
 /**
  * @generated from message shinden_to_anilist.v1.FuzzySearchRequest
@@ -565,7 +641,7 @@ export type FuzzySearchRequest = Message<"shinden_to_anilist.v1.FuzzySearchReque
  * Use `create(FuzzySearchRequestSchema)` to create a new message.
  */
 export const FuzzySearchRequestSchema: GenMessage<FuzzySearchRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 28);
+  messageDesc(file_shinden_to_anilist_v1_service, 31);
 
 /**
  * @generated from message shinden_to_anilist.v1.FuzzySearchResponse
@@ -587,7 +663,7 @@ export type FuzzySearchResponse = Message<"shinden_to_anilist.v1.FuzzySearchResp
  * Use `create(FuzzySearchResponseSchema)` to create a new message.
  */
 export const FuzzySearchResponseSchema: GenMessage<FuzzySearchResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 29);
+  messageDesc(file_shinden_to_anilist_v1_service, 32);
 
 /**
  * @generated from message shinden_to_anilist.v1.FuzzyMatchRequest
@@ -619,7 +695,7 @@ export type FuzzyMatchRequest = Message<"shinden_to_anilist.v1.FuzzyMatchRequest
  * Use `create(FuzzyMatchRequestSchema)` to create a new message.
  */
 export const FuzzyMatchRequestSchema: GenMessage<FuzzyMatchRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 30);
+  messageDesc(file_shinden_to_anilist_v1_service, 33);
 
 /**
  * @generated from message shinden_to_anilist.v1.FuzzyMatchResponse
@@ -641,7 +717,7 @@ export type FuzzyMatchResponse = Message<"shinden_to_anilist.v1.FuzzyMatchRespon
  * Use `create(FuzzyMatchResponseSchema)` to create a new message.
  */
 export const FuzzyMatchResponseSchema: GenMessage<FuzzyMatchResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 31);
+  messageDesc(file_shinden_to_anilist_v1_service, 34);
 
 /**
  * @generated from message shinden_to_anilist.v1.MatchSourceListRequest
@@ -658,7 +734,7 @@ export type MatchSourceListRequest = Message<"shinden_to_anilist.v1.MatchSourceL
  * Use `create(MatchSourceListRequestSchema)` to create a new message.
  */
 export const MatchSourceListRequestSchema: GenMessage<MatchSourceListRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 32);
+  messageDesc(file_shinden_to_anilist_v1_service, 35);
 
 /**
  * @generated from message shinden_to_anilist.v1.MatchSourceListResponse
@@ -685,7 +761,7 @@ export type MatchSourceListResponse = Message<"shinden_to_anilist.v1.MatchSource
  * Use `create(MatchSourceListResponseSchema)` to create a new message.
  */
 export const MatchSourceListResponseSchema: GenMessage<MatchSourceListResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 33);
+  messageDesc(file_shinden_to_anilist_v1_service, 36);
 
 /**
  * @generated from message shinden_to_anilist.v1.MatchShindenListRequest
@@ -702,7 +778,7 @@ export type MatchShindenListRequest = Message<"shinden_to_anilist.v1.MatchShinde
  * Use `create(MatchShindenListRequestSchema)` to create a new message.
  */
 export const MatchShindenListRequestSchema: GenMessage<MatchShindenListRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 34);
+  messageDesc(file_shinden_to_anilist_v1_service, 37);
 
 /**
  * @generated from message shinden_to_anilist.v1.MatchShindenListResponse
@@ -729,7 +805,7 @@ export type MatchShindenListResponse = Message<"shinden_to_anilist.v1.MatchShind
  * Use `create(MatchShindenListResponseSchema)` to create a new message.
  */
 export const MatchShindenListResponseSchema: GenMessage<MatchShindenListResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 35);
+  messageDesc(file_shinden_to_anilist_v1_service, 38);
 
 /**
  * @generated from message shinden_to_anilist.v1.ExportXmlRequest
@@ -751,7 +827,7 @@ export type ExportXmlRequest = Message<"shinden_to_anilist.v1.ExportXmlRequest">
  * Use `create(ExportXmlRequestSchema)` to create a new message.
  */
 export const ExportXmlRequestSchema: GenMessage<ExportXmlRequest> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 36);
+  messageDesc(file_shinden_to_anilist_v1_service, 39);
 
 /**
  * @generated from message shinden_to_anilist.v1.ExportXmlResponse
@@ -778,7 +854,7 @@ export type ExportXmlResponse = Message<"shinden_to_anilist.v1.ExportXmlResponse
  * Use `create(ExportXmlResponseSchema)` to create a new message.
  */
 export const ExportXmlResponseSchema: GenMessage<ExportXmlResponse> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_service, 37);
+  messageDesc(file_shinden_to_anilist_v1_service, 40);
 
 /**
  * @generated from service shinden_to_anilist.v1.ShindenToAnilistService
@@ -815,6 +891,14 @@ export const ShindenToAnilistService: GenService<{
     methodKind: "unary";
     input: typeof FetchShindenListRequestSchema;
     output: typeof FetchShindenListResponseSchema;
+  },
+  /**
+   * @generated from rpc shinden_to_anilist.v1.ShindenToAnilistService.SetShindenCloudflareClearance
+   */
+  setShindenCloudflareClearance: {
+    methodKind: "unary";
+    input: typeof SetShindenCloudflareClearanceRequestSchema;
+    output: typeof SetShindenCloudflareClearanceResponseSchema;
   },
   /**
    * @generated from rpc shinden_to_anilist.v1.ShindenToAnilistService.GetShindenIds
