@@ -64,6 +64,14 @@ jobs:
       - name: Build Linux Electron AppImages
         run: pnpm export:linux
 
+      - name: Build Linux Tauri executable
+        run: pnpm bundle:tauri:linux
+
+      - name: Verify Tauri Linux executable links WebKitGTK
+        run: |
+          ldd dist/tauri-linux/*-linux-x64-tauri
+          ldd dist/tauri-linux/*-linux-x64-tauri | grep 'libwebkit2gtk-4.1.so'
+
       - name: Build Linux Tauri AppImage
         run: pnpm bundle:tauri:appimage
 
@@ -75,6 +83,7 @@ jobs:
           path: |
             dist/*.AppImage
             dist/electron-builder/*.AppImage
+            dist/tauri-linux/*-linux-x64-tauri
             dist/tauri-appimage/*.AppImage
 
   windows-native:
