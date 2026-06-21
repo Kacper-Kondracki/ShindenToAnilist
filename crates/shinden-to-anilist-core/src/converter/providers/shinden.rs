@@ -73,10 +73,11 @@ pub enum ShindenError {
     Request(#[from] reqwest::Error),
     /// HTTP response was not a successful JSON API response.
     #[error(
-        "shinden api returned HTTP {status}; content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
+        "shinden api returned HTTP {status} for {url}; content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
     )]
     Http {
         status: reqwest::StatusCode,
+        url: String,
         content_type: String,
         cf_mitigated: String,
         body_preview: String,
@@ -87,6 +88,7 @@ pub enum ShindenError {
 }
 
 const SHINDEN_API_URL: &str = "https://lista.shinden.pl/api/userlist";
+const BODY_PREVIEW_READ_BYTES: usize = 8192;
 const BODY_PREVIEW_CHARS: usize = 200;
 
 fn shinden_url(user: u64, limit: u64, offset: u64) -> String {
@@ -111,37 +113,62 @@ fn body_preview(bytes: &[u8]) -> String {
         .collect()
 }
 
+async fn response_body_preview(mut response: HttpResponse) -> Result<String, ShindenError> {
+    let mut bytes = Vec::with_capacity(BODY_PREVIEW_READ_BYTES);
+
+    while bytes.len() < BODY_PREVIEW_READ_BYTES {
+        let Some(chunk) = response.chunk().await? else {
+            break;
+        };
+        let remaining = BODY_PREVIEW_READ_BYTES - bytes.len();
+        let chunk_len = chunk.len().min(remaining);
+        bytes.extend_from_slice(&chunk[..chunk_len]);
+    }
+
+    Ok(body_preview(&bytes))
+}
+
+fn response_body_preview_blocking(response: BlockingHttpResponse) -> Result<String, ShindenError> {
+    let mut bytes = Vec::with_capacity(BODY_PREVIEW_READ_BYTES);
+    let mut limited = response.take(BODY_PREVIEW_READ_BYTES as u64);
+    limited.read_to_end(&mut bytes)?;
+
+    Ok(body_preview(&bytes))
+}
+
 async fn read_shinden_response(response: HttpResponse) -> Result<Vec<u8>, ShindenError> {
     let status = response.status();
+    let url = response.url().to_string();
     let headers = response.headers().clone();
-    let bytes = response.bytes().await?.to_vec();
 
     if status.is_success() {
-        return Ok(bytes);
+        return Ok(response.bytes().await?.to_vec());
     }
 
     Err(ShindenError::Http {
         status,
+        url,
         content_type: header_value(&headers, CONTENT_TYPE.as_str()),
         cf_mitigated: header_value(&headers, "cf-mitigated"),
-        body_preview: body_preview(&bytes),
+        body_preview: response_body_preview(response).await?,
     })
 }
 
 fn read_shinden_response_blocking(response: BlockingHttpResponse) -> Result<Vec<u8>, ShindenError> {
     let status = response.status();
+    let url = response.url().to_string();
     let headers = response.headers().clone();
-    let bytes = response.bytes()?.to_vec();
 
     if status.is_success() {
-        return Ok(bytes);
+        return Ok(response.bytes()?.to_vec());
     }
 
     Err(ShindenError::Http {
         status,
+        url,
         content_type: header_value(&headers, CONTENT_TYPE.as_str()),
         cf_mitigated: header_value(&headers, "cf-mitigated"),
-        body_preview: body_preview(&bytes),
+        body_preview: response_body_preview_blocking(response)?,
     })
 }
 

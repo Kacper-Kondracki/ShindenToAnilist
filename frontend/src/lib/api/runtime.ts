@@ -6,7 +6,11 @@ import {
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { invoke, isTauri as isTauriApi } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
-import { AppErrorSchema } from '../gen/shinden_to_anilist/v1/error_pb';
+import {
+  AppErrorSchema,
+  ErrorKind,
+  type AppError
+} from '../gen/shinden_to_anilist/v1/error_pb';
 import { ShindenToAnilistService } from '../gen/shinden_to_anilist/v1/service_pb';
 
 type AppPaths = {
@@ -117,7 +121,7 @@ function normalizeRpcError(error: unknown) {
   const detail = appErrorFromConnectError(connectError);
   return new Error(
     detail !== null
-      ? userFacingErrorMessage(detail.message)
+      ? appErrorMessage(detail)
       : transportErrorMessage(connectError.rawMessage)
   );
 }
@@ -134,8 +138,24 @@ function normalizeTauriError(error: unknown) {
   return new Error('Nie udało się wykonać polecenia Tauri');
 }
 
+function appErrorMessage(detail: AppError) {
+  if (
+    detail.kind === ErrorKind.SHINDEN_HTTP &&
+    detail.details.case === 'http'
+  ) {
+    const status = detail.details.value.status;
+    const statusMessage = status === 0 ? '' : ` Kod odpowiedzi: ${status}.`;
+
+    return `Shinden zwrócił nieoczekiwaną odpowiedź.${statusMessage}`;
+  }
+
+  return userFacingErrorMessage(detail.message);
+}
+
 function userFacingErrorMessage(message: string) {
-  const shindenHttpMatch = message.match(/shinden api returned http ([^;]+)/i);
+  const shindenHttpMatch = message.match(
+    /shinden api returned http ([^;]+?)(?: for [^;]+)?;/i
+  );
   if (shindenHttpMatch !== null) {
     return `Shinden zwrócił nieoczekiwaną odpowiedź. Kod odpowiedzi: ${shindenHttpMatch[1]}.`;
   }

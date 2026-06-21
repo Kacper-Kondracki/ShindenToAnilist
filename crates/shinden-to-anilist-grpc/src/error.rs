@@ -157,19 +157,20 @@ pub fn shinden_error(error: ShindenError) -> AppError {
         ShindenError::Request(error) => http_error(ErrorKind::ShindenHttp, error),
         ShindenError::Http {
             status,
+            url,
             content_type,
             cf_mitigated,
             body_preview,
         } => AppError {
             kind: ErrorKind::ShindenHttp.into(),
             message: format!(
-                "shinden api returned HTTP {status}; content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
+                "shinden api returned HTTP {status} for {url}; content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
             ),
             details: Some(Details::Http(HttpError {
                 message: format!(
                     "content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
                 ),
-                url: String::new(),
+                url,
                 status: status.as_u16().into(),
             })),
         },
@@ -502,6 +503,7 @@ mod tests {
             (
                 shinden_error(ShindenError::Http {
                     status: reqwest::StatusCode::FORBIDDEN,
+                    url: "https://lista.shinden.pl/api/userlist/1/anime?limit=1&offset=0".to_string(),
                     content_type: "text/html".to_string(),
                     cf_mitigated: "challenge".to_string(),
                     body_preview: "<html>challenge</html>".to_string(),
@@ -513,6 +515,26 @@ mod tests {
         for (error, kind) in cases {
             assert_eq!(error.kind(), kind);
         }
+    }
+
+    #[test]
+    fn shinden_http_error_preserves_response_details() {
+        let url = "https://lista.shinden.pl/api/userlist/1/anime?limit=1&offset=0";
+        let error = shinden_error(ShindenError::Http {
+            status: reqwest::StatusCode::FORBIDDEN,
+            url: url.to_string(),
+            content_type: "text/html".to_string(),
+            cf_mitigated: "challenge".to_string(),
+            body_preview: "<html>challenge</html>".to_string(),
+        });
+
+        assert_eq!(error.kind(), ErrorKind::ShindenHttp);
+        let Some(Details::Http(details)) = error.details else {
+            panic!("expected HTTP details");
+        };
+        assert_eq!(details.status, u32::from(reqwest::StatusCode::FORBIDDEN.as_u16()));
+        assert_eq!(details.url, url);
+        assert!(details.message.contains("cf-mitigated: challenge"));
     }
 
     #[tokio::test]
