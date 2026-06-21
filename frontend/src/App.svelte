@@ -55,6 +55,7 @@
             provider={app.userListRequestProviderDetails}
             animateOnMount={enableViewEnterAnimations}
             canLoadProvider={app.isProviderSupported}
+            sourceImportProgressDebounced={app.isSourceImportProgressDebounced}
             userListRequestState={app.userListRequestState}
             onCancelLoad={app.cancelUserListLoad}
           />

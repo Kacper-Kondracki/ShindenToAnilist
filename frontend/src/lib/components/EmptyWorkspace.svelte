@@ -3,7 +3,7 @@
 
   import type { ProviderOption } from '../config/providers';
   import type { UserListRequestState } from '../domain/anime';
-  import { SourceFetchPhase } from '../gen/shinden_to_anilist/v1/source_pb';
+  import { isReadySourceImportProgress } from '../features/source/sourceImportProgressVisibility';
   import AnimatedGridPanel from './AnimatedGridPanel.svelte';
   import AuroraPanel from './AuroraPanel.svelte';
   import SourceImportProgress from './SourceImportProgress.svelte';
@@ -12,12 +12,14 @@
     provider,
     animateOnMount = true,
     canLoadProvider,
+    sourceImportProgressDebounced = false,
     userListRequestState,
     onCancelLoad
   }: {
     provider: ProviderOption;
     animateOnMount?: boolean;
     canLoadProvider: boolean;
+    sourceImportProgressDebounced?: boolean;
     userListRequestState: UserListRequestState;
     onCancelLoad: () => void;
   } = $props();
@@ -31,8 +33,13 @@
       return null;
     }
 
-    return userListRequestState.progress.total > 0 ||
-      userListRequestState.progress.phase !== SourceFetchPhase.FETCHING_LIST
+    return isReadySourceImportProgress(
+      provider.id,
+      userListRequestState.progress,
+      {
+        animeZoneListProgressDebounced: sourceImportProgressDebounced
+      }
+    )
       ? userListRequestState.progress
       : null;
   });

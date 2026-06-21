@@ -39,6 +39,11 @@ import {
   providerFromInput,
   type ParsedSourceUser
 } from '../source/userInput';
+import {
+  animeZoneSourceImportProgressDebounceMs,
+  isReadySourceImportProgress,
+  shouldDebounceAnimeZoneListProgress
+} from '../source/sourceImportProgressVisibility';
 import { createWorkspaceController } from '../workspace/workspaceController.svelte';
 
 export type AppController = ReturnType<typeof createAppController>;
@@ -75,6 +80,8 @@ export function createAppController() {
   let activeUserListAbortController: AbortController | null = null;
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
   let sourceImportPreviewInterval: number | null = null;
+  let sourceImportProgressDebounceTimeout: number | null = null;
+  let isSourceImportProgressDebounced = $state(false);
   let lastDatabaseNotificationMessage = '';
 
   let trimmedQuery = $derived(userQuery.trim());
@@ -113,9 +120,13 @@ export function createAppController() {
     userListRequestState.status === 'loading' &&
       providerById(userListRequestState.provider)
         .supportsSourceImportProgress &&
-      userListRequestState.progress !== null &&
-      (userListRequestState.progress.total > 0 ||
-        userListRequestState.progress.phase !== SourceFetchPhase.FETCHING_LIST)
+      isReadySourceImportProgress(
+        userListRequestState.provider,
+        userListRequestState.progress,
+        {
+          animeZoneListProgressDebounced: isSourceImportProgressDebounced
+        }
+      )
   );
   let isWaitingForDatabase = $derived(
     userListRequestState.status === 'loading' &&
@@ -240,6 +251,7 @@ export function createAppController() {
     const requestId = activeRequestId + 1;
     activeRequestId = requestId;
     activeUserListAbortController?.abort();
+    resetSourceImportProgressDebounce();
     const abortController = new AbortController();
     activeUserListAbortController = abortController;
     const startedAt = performance.now();
@@ -267,18 +279,24 @@ export function createAppController() {
             return;
           }
 
+          const nextProgress = {
+            phase: progress.phase,
+            current: progress.current,
+            total: progress.total,
+            latestTitle: progress.latestTitle,
+            startedAt
+          };
+
           userListRequestState = {
             status: 'loading',
             provider,
             query,
-            progress: {
-              phase: progress.phase,
-              current: progress.current,
-              total: progress.total,
-              latestTitle: progress.latestTitle,
-              startedAt
-            }
+            progress: nextProgress
           };
+
+          if (shouldDebounceAnimeZoneListProgress(provider, nextProgress)) {
+            scheduleSourceImportProgressDebounce(requestId);
+          }
         },
         {
           requestId,
@@ -341,6 +359,7 @@ export function createAppController() {
         query,
         entryIdsByView
       };
+      resetSourceImportProgressDebounce();
       notifications.success(
         'Lista została wczytana',
         `Zaimportowano ${allIds.entryIds.length} pozycji z ${providerById(provider).label}.`
@@ -381,6 +400,7 @@ export function createAppController() {
         return false;
       }
 
+      resetSourceImportProgressDebounce();
       if (throwErrors) {
         throw error;
       }
@@ -438,6 +458,7 @@ export function createAppController() {
     activeRequestId += 1;
     activeUserListAbortController?.abort();
     activeUserListAbortController = null;
+    resetSourceImportProgressDebounce();
     void cancelSourceListFetch(requestId).catch((error) => {
       console.warn('Unable to cancel source list fetch', error);
     });
@@ -449,6 +470,7 @@ export function createAppController() {
     activeRequestId += 1;
     activeUserListAbortController?.abort();
     activeUserListAbortController = null;
+    resetSourceImportProgressDebounce();
 
     const provider: Provider = 'anime-zone';
     const total = 180;
@@ -513,6 +535,36 @@ export function createAppController() {
 
     window.clearInterval(sourceImportPreviewInterval);
     sourceImportPreviewInterval = null;
+  }
+
+  function scheduleSourceImportProgressDebounce(requestId: number) {
+    if (
+      sourceImportProgressDebounceTimeout !== null ||
+      isSourceImportProgressDebounced
+    ) {
+      return;
+    }
+
+    sourceImportProgressDebounceTimeout = window.setTimeout(() => {
+      sourceImportProgressDebounceTimeout = null;
+
+      if (
+        activeRequestId === requestId &&
+        userListRequestState.status === 'loading' &&
+        userListRequestState.provider === 'anime-zone'
+      ) {
+        isSourceImportProgressDebounced = true;
+      }
+    }, animeZoneSourceImportProgressDebounceMs);
+  }
+
+  function resetSourceImportProgressDebounce() {
+    if (sourceImportProgressDebounceTimeout !== null) {
+      window.clearTimeout(sourceImportProgressDebounceTimeout);
+      sourceImportProgressDebounceTimeout = null;
+    }
+
+    isSourceImportProgressDebounced = false;
   }
 
   function showMockNotifications(count: number) {
@@ -618,6 +670,9 @@ export function createAppController() {
     },
     get shouldShowSourceImportProgress() {
       return shouldShowSourceImportProgress;
+    },
+    get isSourceImportProgressDebounced() {
+      return isSourceImportProgressDebounced;
     },
     initializeDatabase,
     setSelectedProvider,
