@@ -3,7 +3,10 @@ import {
   fetchSourceList,
   getSourceFull,
   getSourceIds,
-  matchSourceList
+  isShindenCloudflareChallengeError,
+  matchSourceList,
+  openShindenCloudflareVerification,
+  setShindenCloudflareClearance
 } from '../../api/appService';
 import { providerById, providers, type Provider } from '../../config/providers';
 import { createLoadedAnimeData } from '../../data/loadedAnimeData.svelte';
@@ -25,8 +28,10 @@ import {
   isSourceImportPreviewInput,
   parseMockNotificationCount,
   parseSourceUser,
-  providerFromInput
+  providerFromInput,
+  type ParsedSourceUser
 } from '../source/userInput';
+import { createShindenCloudflareController } from '../shinden/cloudflareController.svelte';
 import { createWorkspaceController } from '../workspace/workspaceController.svelte';
 
 export type AppController = ReturnType<typeof createAppController>;
@@ -35,6 +40,27 @@ export function createAppController() {
   const animeData = createLoadedAnimeData();
   const workspace = createWorkspaceController(animeData);
   const notifications = createNotificationController();
+  const shindenCloudflare = createShindenCloudflareController({
+    openVerification: openShindenCloudflareVerification,
+    applyClearance: setShindenCloudflareClearance,
+    retry: async (request) => {
+      await loadParsedSourceUser(
+        request.provider,
+        request.query,
+        request.sourceUser,
+        { throwErrors: true, handleCloudflare: false }
+      );
+    },
+    onResolved: () => {
+      notifications.success(
+        'Weryfikacja Shindena zakończona',
+        'Import został wznowiony po weryfikacji Cloudflare.'
+      );
+    },
+    onError: (message) => {
+      notifications.error('Nie udało się zweryfikować Shindena', message);
+    }
+  });
 
   let selectedProvider = $state<Provider>('shinden');
   let userQuery = $state('');
@@ -90,7 +116,9 @@ export function createAppController() {
     userListRequestState.status === 'loading' &&
       databaseState.status !== 'ready'
   );
-  let isLoadButtonBusy = $derived(isUserListLoading || isWaitingForDatabase);
+  let isLoadButtonBusy = $derived(
+    isUserListLoading || isWaitingForDatabase || shindenCloudflare.isBusy
+  );
   let hasUserListError = $derived(userListRequestState.status === 'error');
   let userListErrorMessage = $derived(
     userListRequestState.status === 'error'
@@ -98,7 +126,10 @@ export function createAppController() {
       : null
   );
   let canSubmit = $derived(
-    Boolean(trimmedQuery) && !isUserListLoading && isProviderSupported
+    Boolean(trimmedQuery) &&
+      !isUserListLoading &&
+      !shindenCloudflare.isOpen &&
+      isProviderSupported
   );
   async function initializeDatabase() {
     databaseState = { status: 'loading' };
@@ -123,6 +154,7 @@ export function createAppController() {
       return;
     }
 
+    shindenCloudflare.cancel();
     selectedProvider = provider;
     clearUserListError();
   }
@@ -132,6 +164,7 @@ export function createAppController() {
       return;
     }
 
+    shindenCloudflare.cancel();
     userQuery = value;
     clearUserListError();
 
@@ -183,6 +216,17 @@ export function createAppController() {
       return;
     }
 
+    await loadParsedSourceUser(provider, query, sourceUser);
+  }
+
+  async function loadParsedSourceUser(
+    provider: Provider,
+    query: string,
+    sourceUser: ParsedSourceUser,
+    options: { throwErrors?: boolean; handleCloudflare?: boolean } = {}
+  ) {
+    const throwErrors = options.throwErrors ?? false;
+    const handleCloudflare = options.handleCloudflare ?? true;
     const requestId = activeRequestId + 1;
     activeRequestId = requestId;
     activeUserListAbortController?.abort();
@@ -293,13 +337,39 @@ export function createAppController() {
         matchDurationMs: nextMatchDurationMs,
         manualOverrideScopeKey: sourceUser.manualOverrideScopeKey
       });
+      return true;
     } catch (error) {
       if (activeRequestId !== requestId) {
-        return;
+        return false;
       }
 
       console.error('Unable to load source user list', error);
       const message = errorMessage(error);
+      if (provider === 'shinden' && isShindenCloudflareChallengeError(error)) {
+        if (!handleCloudflare) {
+          throw new Error(
+            'Shinden nadal wymaga weryfikacji Cloudflare. Spróbuj ponownie przejść weryfikację.'
+          );
+        }
+
+        userListRequestState = { status: 'idle' };
+        shindenCloudflare.block({
+          provider,
+          query,
+          sourceUser,
+          message
+        });
+        notifications.error(
+          'Shinden wymaga weryfikacji',
+          'Otwórz okno Shindena, przejdź weryfikację Cloudflare i zamknij je, żeby kontynuować import.'
+        );
+        return false;
+      }
+
+      if (throwErrors) {
+        throw error;
+      }
+
       userListRequestState = {
         status: 'error',
         provider,
@@ -310,6 +380,7 @@ export function createAppController() {
         `Nie udało się wczytać listy z ${providerById(provider).label}`,
         message
       );
+      return false;
     } finally {
       if (activeRequestId === requestId) {
         activeUserListAbortController = null;
@@ -444,6 +515,7 @@ export function createAppController() {
     animeData,
     workspace,
     notifications,
+    shindenCloudflare,
     get selectedProvider() {
       return selectedProvider;
     },

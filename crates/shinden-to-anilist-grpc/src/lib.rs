@@ -20,6 +20,7 @@ pub mod pb {
     tonic::include_proto!("shinden_to_anilist.v1");
 }
 
+pub mod cloudflare;
 pub mod error;
 mod export;
 pub mod http;

@@ -7,6 +7,7 @@ import type {
   ExportResult,
   MatchSelection,
   SearchOptions,
+  ShindenCloudflareClearance,
   WireNumber
 } from '../domain/anime';
 import {
@@ -45,6 +46,10 @@ type TauriFetchShindenListResponse = {
 
 type TauriFetchSourceListResponse = {
   sourceVersion: WireNumberInput;
+};
+
+type TauriSetShindenCloudflareClearanceResponse = {
+  accepted: boolean;
 };
 
 type TauriGetShindenIdsResponse = {
@@ -151,6 +156,15 @@ export async function fetchShindenList(userId: number) {
   );
   observeShindenVersion(response.shindenVersion);
   return { shindenVersion: toWireNumber(response.shindenVersion) };
+}
+
+export async function setShindenCloudflareClearance(
+  clearance: ShindenCloudflareClearance
+) {
+  return await callTauri<TauriSetShindenCloudflareClearanceResponse>(
+    'set_shinden_cloudflare_clearance',
+    { clearance }
+  );
 }
 
 export async function getSourceIds(sortedBy = AnimeListSortedBy.URGENCY) {

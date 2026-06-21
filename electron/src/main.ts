@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { registerShindenCloudflareIpc } from './shindenCloudflare.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const productName = 'ShindenToAnilist';
@@ -319,6 +320,7 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
   }
 
+  registerShindenCloudflareIpc({ getIconPath: appIconPath });
   rendererPaths = createRendererPaths();
   grpcBaseUrlPromise =
     process.env.SHINDEN_TO_ANILIST_ELECTRON_DEV === '1'

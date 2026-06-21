@@ -145,6 +145,13 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .map(Response::new)
     }
 
+    async fn set_shinden_cloudflare_clearance(
+        &self,
+        request: Request<SetShindenCloudflareClearanceRequest>,
+    ) -> Result<Response<SetShindenCloudflareClearanceResponse>, Status> {
+        ShindenToAnilist::set_shinden_cloudflare_clearance(self, request.into_inner()).map(Response::new)
+    }
+
     async fn get_shinden_ids(
         &self,
         request: Request<GetShindenIdsRequest>,

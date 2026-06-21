@@ -7,6 +7,7 @@ use tonic::Status;
 use tracing::{
     info,
     instrument,
+    warn,
 };
 
 use super::{
@@ -14,6 +15,7 @@ use super::{
     providers,
 };
 use crate::{
+    cloudflare::ShindenCloudflareClearance,
     error::shinden_list_not_loaded,
     pb::*,
     source::SourceList,
@@ -97,6 +99,42 @@ impl ShindenToAnilist {
                 "",
             )),
             done: true,
+        })
+    }
+
+    #[instrument(skip_all, name = "app.set_shinden_cloudflare_clearance")]
+    pub fn set_shinden_cloudflare_clearance(
+        &self,
+        request: SetShindenCloudflareClearanceRequest,
+    ) -> Result<SetShindenCloudflareClearanceResponse, Status> {
+        let clearance = request
+            .clearance
+            .ok_or_else(|| Status::invalid_argument("Brak danych weryfikacji Cloudflare."))?;
+        info!(
+            user_agent_len = clearance.user_agent.len(),
+            cookie_len = clearance.cf_clearance.len(),
+            domain = %clearance.domain,
+            path = %clearance.path,
+            "applying Shinden Cloudflare clearance"
+        );
+
+        let applied = self
+            .http_clients
+            .apply_shinden_cloudflare_clearance(ShindenCloudflareClearance {
+                user_agent: clearance.user_agent,
+                cf_clearance: clearance.cf_clearance,
+                domain: clearance.domain,
+                path: clearance.path,
+                expires_unix_seconds: clearance.expires_unix_seconds,
+                captured_at_ms: clearance.captured_at_ms,
+            })
+            .map_err(|error| {
+                warn!(error = %error, "rejected Shinden Cloudflare clearance");
+                Status::invalid_argument(error.to_string())
+            })?;
+
+        Ok(SetShindenCloudflareClearanceResponse {
+            accepted: applied.accepted,
         })
     }
 

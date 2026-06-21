@@ -19,6 +19,37 @@ type AppPaths = {
   export: string;
 };
 
+export type ShindenCloudflareClearance = {
+  userAgent: string;
+  cfClearance: string;
+  domain: string;
+  path: string;
+  expiresUnixSeconds?: number;
+  capturedAtMs: number;
+};
+
+type RuntimeHttpError = {
+  message: string;
+  url: string;
+  status: number;
+};
+
+type RuntimeAppError = {
+  kind: ErrorKind;
+  message: string;
+  http: RuntimeHttpError | null;
+};
+
+export class BackendError extends Error {
+  constructor(
+    message: string,
+    readonly appError: RuntimeAppError | null = null
+  ) {
+    super(message);
+    this.name = 'BackendError';
+  }
+}
+
 const fallbackPaths = {
   base: '/tmp',
   database: '/tmp/shinden-to-anilist-database.jsonl',
@@ -93,6 +124,25 @@ export async function selectExportPath(defaultPath: string) {
   return defaultPath;
 }
 
+export async function openShindenCloudflareVerification() {
+  const openVerification =
+    globalThis.shindenToAnilist?.openShindenCloudflareVerification;
+
+  if (openVerification !== undefined) {
+    return await openVerification();
+  }
+
+  if (isTauriRuntime()) {
+    return await callTauri<ShindenCloudflareClearance>(
+      'open_shinden_cloudflare_verification'
+    );
+  }
+
+  throw new Error(
+    'Okno weryfikacji Cloudflare nie jest dostępne w tym trybie.'
+  );
+}
+
 export async function callRpc<T>(run: (client: AppClient) => Promise<T>) {
   if (clientPromise === null) {
     throw new Error('Klient gRPC nie jest dostępny w trybie Tauri');
@@ -119,37 +169,69 @@ export async function callTauri<T>(
 function normalizeRpcError(error: unknown) {
   const connectError = ConnectError.from(error);
   const detail = appErrorFromConnectError(connectError);
-  return new Error(
+  const appError = detail === null ? null : runtimeAppErrorFromProto(detail);
+  return new BackendError(
     detail !== null
       ? appErrorMessage(detail)
-      : transportErrorMessage(connectError.rawMessage)
+      : transportErrorMessage(connectError.rawMessage),
+    appError
   );
 }
 
 function normalizeTauriError(error: unknown) {
   if (error instanceof Error) {
-    return new Error(userFacingErrorMessage(error.message));
+    return new BackendError(userFacingErrorMessage(error.message));
   }
 
   if (typeof error === 'string') {
-    return new Error(userFacingErrorMessage(error));
+    return new BackendError(userFacingErrorMessage(error));
   }
 
-  return new Error('Nie udało się wykonać polecenia Tauri');
+  const appError = runtimeAppErrorFromTauri(error);
+  if (appError !== null) {
+    return new BackendError(appErrorMessageFromRuntime(appError), appError);
+  }
+
+  if (isTauriCommandError(error)) {
+    return new BackendError(userFacingErrorMessage(error.message));
+  }
+
+  return new BackendError('Nie udało się wykonać polecenia Tauri');
 }
 
 function appErrorMessage(detail: AppError) {
-  if (
-    detail.kind === ErrorKind.SHINDEN_HTTP &&
-    detail.details.case === 'http'
-  ) {
-    const status = detail.details.value.status;
+  return appErrorMessageFromRuntime(runtimeAppErrorFromProto(detail));
+}
+
+function appErrorMessageFromRuntime(detail: RuntimeAppError) {
+  if (detail.kind === ErrorKind.SHINDEN_HTTP && detail.http !== null) {
+    const status = detail.http.status;
     const statusMessage = status === 0 ? '' : ` Kod odpowiedzi: ${status}.`;
 
     return `Shinden zwrócił nieoczekiwaną odpowiedź.${statusMessage}`;
   }
 
   return userFacingErrorMessage(detail.message);
+}
+
+export function isShindenCloudflareChallengeError(error: unknown) {
+  if (error instanceof BackendError && error.appError !== null) {
+    return (
+      error.appError.kind === ErrorKind.SHINDEN_HTTP &&
+      error.appError.http?.message
+        .toLowerCase()
+        .includes('cf-mitigated: challenge') === true
+    );
+  }
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : '';
+
+  return message.toLowerCase().includes('cf-mitigated: challenge');
 }
 
 function userFacingErrorMessage(message: string) {
@@ -201,4 +283,68 @@ function appErrorFromConnectError(error: ConnectError) {
   } catch {
     return null;
   }
+}
+
+function runtimeAppErrorFromProto(error: AppError): RuntimeAppError {
+  return {
+    kind: error.kind,
+    message: error.message,
+    http:
+      error.details.case === 'http'
+        ? {
+            message: error.details.value.message,
+            url: error.details.value.url,
+            status: error.details.value.status
+          }
+        : null
+  };
+}
+
+function runtimeAppErrorFromTauri(error: unknown): RuntimeAppError | null {
+  if (!isTauriCommandError(error) || !isTauriAppError(error.appError)) {
+    return null;
+  }
+
+  return {
+    kind: error.appError.kind,
+    message: error.appError.message,
+    http: isTauriHttpError(error.appError.http) ? error.appError.http : null
+  };
+}
+
+function isTauriCommandError(
+  error: unknown
+): error is { message: string; appError?: unknown } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  );
+}
+
+function isTauriAppError(
+  error: unknown
+): error is { kind: ErrorKind; message: string; http?: unknown } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'kind' in error &&
+    typeof error.kind === 'number' &&
+    'message' in error &&
+    typeof error.message === 'string'
+  );
+}
+
+function isTauriHttpError(error: unknown): error is RuntimeHttpError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string' &&
+    'url' in error &&
+    typeof error.url === 'string' &&
+    'status' in error &&
+    typeof error.status === 'number'
+  );
 }

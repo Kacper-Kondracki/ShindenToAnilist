@@ -12,6 +12,14 @@ interface Window {
       export: string;
     };
     getGrpcBaseUrl?: () => Promise<string>;
+    openShindenCloudflareVerification?: () => Promise<{
+      userAgent: string;
+      cfClearance: string;
+      domain: string;
+      path: string;
+      expiresUnixSeconds?: number;
+      capturedAtMs: number;
+    }>;
     openExternalUrl?: (url: string) => Promise<void>;
     selectExportPath?: (options?: {
       defaultPath?: string;

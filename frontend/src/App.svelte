@@ -4,6 +4,7 @@
   import AppHeader from './lib/components/AppHeader.svelte';
   import EmptyWorkspace from './lib/components/EmptyWorkspace.svelte';
   import NotificationLayer from './lib/components/NotificationLayer.svelte';
+  import ShindenCloudflareChallengeModal from './lib/components/ShindenCloudflareChallengeModal.svelte';
   import WorkspaceView from './lib/components/WorkspaceView.svelte';
   import { createAppController } from './lib/features/app/appController.svelte';
 
@@ -76,6 +77,12 @@
   </div>
 
   <NotificationLayer controller={app.notifications} />
+  <ShindenCloudflareChallengeModal
+    state={app.shindenCloudflare.state}
+    busy={app.shindenCloudflare.isBusy}
+    onCancel={app.shindenCloudflare.cancel}
+    onOpenVerification={app.shindenCloudflare.resolve}
+  />
 </main>
 
 <style>

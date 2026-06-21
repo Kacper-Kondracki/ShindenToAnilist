@@ -30,7 +30,9 @@ import {
   GetShindenIdsRequestSchema,
   LoadDatabaseRequestSchema,
   MatchSourceListRequestSchema,
-  MatchShindenListRequestSchema
+  MatchShindenListRequestSchema,
+  SetShindenCloudflareClearanceRequestSchema,
+  ShindenCloudflareClearanceSchema
 } from '../gen/shinden_to_anilist/v1/service_pb';
 import type {
   DatabaseEntry,
@@ -40,6 +42,7 @@ import type {
   SearchOptions,
   SearchResult,
   SourceEntry,
+  ShindenCloudflareClearance,
   ShindenListIndex,
   WireNumber
 } from '../domain/anime';
@@ -100,6 +103,23 @@ export async function fetchShindenList(userId: number) {
     );
     observeShindenVersion(response.shindenVersion);
     return { shindenVersion: toWireNumber(response.shindenVersion) };
+  });
+}
+
+export async function setShindenCloudflareClearance(
+  clearance: ShindenCloudflareClearance
+) {
+  return callRpc(async (client) => {
+    const response = await client.setShindenCloudflareClearance(
+      create(SetShindenCloudflareClearanceRequestSchema, {
+        clearance: create(ShindenCloudflareClearanceSchema, {
+          ...clearance,
+          capturedAtMs: BigInt(clearance.capturedAtMs)
+        })
+      })
+    );
+
+    return { accepted: response.accepted };
   });
 }
 

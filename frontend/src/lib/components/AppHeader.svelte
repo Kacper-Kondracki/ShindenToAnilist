@@ -51,7 +51,7 @@
       <ProviderSelector
         {providers}
         {selectedProvider}
-        locked={isUserListLoading}
+        locked={isLoadButtonBusy}
         {onSelectProvider}
       />
     </div>
@@ -59,7 +59,7 @@
     <UserListForm
       value={userQuery}
       busy={isLoadButtonBusy}
-      readonly={isUserListLoading}
+      readonly={isLoadButtonBusy}
       {canSubmit}
       hasError={hasUserListError}
       errorMessage={userListErrorMessage}
