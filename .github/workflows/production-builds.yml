@@ -6,6 +6,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   linux:
     name: Linux artifacts
@@ -86,6 +89,24 @@ jobs:
             dist/tauri-linux/*-linux-x64-tauri
             dist/tauri-appimage/*.AppImage
 
+      - name: Attach Linux assets to GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "No GitHub Release exists for $RELEASE_TAG yet; keeping workflow artifacts only."
+            exit 0
+          fi
+
+          gh release upload "$RELEASE_TAG" \
+            dist/*.AppImage \
+            dist/electron-builder/*.AppImage \
+            dist/tauri-linux/*-linux-x64-tauri \
+            dist/tauri-appimage/*.AppImage \
+            --clobber
+
   windows-native:
     name: Windows Tauri executable
     runs-on: windows-latest
@@ -129,3 +150,17 @@ jobs:
           name: shindentoanilist-windows-tauri
           if-no-files-found: error
           path: dist/tauri-windows/*.exe
+
+      - name: Attach Windows asset to GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "No GitHub Release exists for $RELEASE_TAG yet; keeping workflow artifacts only."
+            exit 0
+          fi
+
+          gh release upload "$RELEASE_TAG" dist/tauri-windows/*.exe --clobber

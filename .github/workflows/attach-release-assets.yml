@@ -1,0 +1,62 @@
+name: Attach Release Assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Tag of the GitHub Release to attach assets to, e.g. v3
+        required: true
+      run_id:
+        description: Successful Production Builds run ID that already uploaded artifacts
+        required: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  attach:
+    name: Attach existing build artifacts
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Download Linux artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_RUN_ID: ${{ inputs.run_id }}
+        run: |
+          gh run download "$ARTIFACT_RUN_ID" \
+            --name shindentoanilist-linux \
+            --dir release-assets/linux
+
+      - name: Download Windows artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_RUN_ID: ${{ inputs.run_id }}
+        run: |
+          gh run download "$ARTIFACT_RUN_ID" \
+            --name shindentoanilist-windows-tauri \
+            --dir release-assets/windows
+
+      - name: Attach assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          shopt -s globstar nullglob
+
+          assets=()
+          for asset in release-assets/**/*; do
+            if [ -f "$asset" ]; then
+              assets+=("$asset")
+            fi
+          done
+
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No downloaded release assets found."
+            exit 1
+          fi
+
+          printf 'Attaching %s assets to %s:\n' "${#assets[@]}" "$RELEASE_TAG"
+          printf '  %s\n' "${assets[@]}"
+          gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
