@@ -22,6 +22,7 @@ jobs:
     steps:
       - name: Download Linux artifacts
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           ARTIFACT_RUN_ID: ${{ inputs.run_id }}
         run: |
@@ -31,6 +32,7 @@ jobs:
 
       - name: Download Windows artifacts
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           ARTIFACT_RUN_ID: ${{ inputs.run_id }}
         run: |
@@ -40,6 +42,7 @@ jobs:
 
       - name: Attach assets to GitHub Release
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
