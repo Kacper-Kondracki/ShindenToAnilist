@@ -5021,7 +5021,7 @@ dependencies = [
 
 [[package]]
 name = "shinden-to-anilist-core"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "ahash",
  "ambassador",
@@ -5057,7 +5057,7 @@ dependencies = [
 
 [[package]]
 name = "shinden-to-anilist-grpc"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "arc-swap",
  "prost",
@@ -5081,7 +5081,7 @@ dependencies = [
 
 [[package]]
 name = "shinden-to-anilist-tauri"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "prost",
  "reqwest",

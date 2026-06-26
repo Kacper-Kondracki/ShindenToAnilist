@@ -1,25 +1,12 @@
 import {
-  cancelSourceListFetch,
-  fetchSourceList,
-  getSourceFull,
-  getSourceIds,
   isShindenCloudflareChallengeError,
-  matchSourceList,
   openShindenCloudflareAutoCloseTest,
   openShindenCloudflareVerification,
   setShindenCloudflareClearance
 } from '../../api/appService';
 import { providerById, providers, type Provider } from '../../config/providers';
 import { createLoadedAnimeData } from '../../data/loadedAnimeData.svelte';
-import type {
-  DatabaseState,
-  MatchListResult,
-  ShindenListViews,
-  UserListRequestState,
-  WireNumber
-} from '../../domain/anime';
-import { wireNumberEquals } from '../../domain/anime';
-import { SourceFetchPhase } from '../../gen/shinden_to_anilist/v1/source_pb';
+import type { DatabaseState } from '../../domain/anime';
 import {
   errorMessage,
   initializeDatabaseState
@@ -31,19 +18,9 @@ import {
   writeShindenCloudflareClearance
 } from '../shinden/cloudflareClearanceStorage';
 import { createShindenCloudflareController } from '../shinden/cloudflareController.svelte';
-import {
-  isShindenCloudflareAutoCloseTestInput,
-  isSourceImportPreviewInput,
-  parseMockNotificationCount,
-  parseSourceUser,
-  providerFromInput,
-  type ParsedSourceUser
-} from '../source/userInput';
-import {
-  animeZoneSourceImportProgressDebounceMs,
-  isReadySourceImportProgress,
-  shouldDebounceAnimeZoneListProgress
-} from '../source/sourceImportProgressVisibility';
+import { parseSourceDevCommand } from '../source/devCommands';
+import { createSourceImportController } from '../source/sourceImportController.svelte';
+import { providerFromInput } from '../source/userInput';
 import { createWorkspaceController } from '../workspace/workspaceController.svelte';
 
 export type AppController = ReturnType<typeof createAppController>;
@@ -52,16 +29,18 @@ export function createAppController() {
   const animeData = createLoadedAnimeData();
   const workspace = createWorkspaceController(animeData);
   const notifications = createNotificationController();
+  let sourceImport: ReturnType<typeof createSourceImportController>;
+
   const shindenCloudflare = createShindenCloudflareController({
     openVerification: openShindenCloudflareVerification,
     applyClearance: setShindenCloudflareClearance,
     saveClearance: writeShindenCloudflareClearance,
     retry: async (request) => {
-      await loadParsedSourceUser(
+      await sourceImport.loadParsedSourceUser(
         request.provider,
         request.query,
         request.sourceUser,
-        { throwErrors: true, handleCloudflare: false }
+        { throwErrors: true, handleProviderErrors: false }
       );
     },
     onResolved: () => {
@@ -75,16 +54,30 @@ export function createAppController() {
   let selectedProvider = $state<Provider>('shinden');
   let userQuery = $state('');
   let databaseState = $state<DatabaseState>({ status: 'loading' });
-  let userListRequestState = $state<UserListRequestState>({ status: 'idle' });
-  let activeRequestId = 0;
-  let activeUserListAbortController: AbortController | null = null;
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
-  let sourceImportPreviewInterval: number | null = null;
-  let sourceImportProgressDebounceTimeout: number | null = null;
-  let isSourceImportProgressDebounced = $state(false);
   let lastDatabaseNotificationMessage = '';
 
+  sourceImport = createSourceImportController({
+    animeData,
+    workspace,
+    notifications,
+    waitForReadyDatabase,
+    providerHooks: {
+      shinden: {
+        beforeFetch: applySavedShindenCloudflareClearance,
+        canHandleError: isShindenCloudflareChallengeError,
+        handleBlockedImport: (request) => {
+          clearShindenCloudflareClearance();
+          shindenCloudflare.block(request);
+        },
+        retryBlockedMessage:
+          'Shinden nadal wymaga weryfikacji Cloudflare. Spróbuj ponownie przejść weryfikację.'
+      }
+    }
+  });
+
   let trimmedQuery = $derived(userQuery.trim());
+  let userListRequestState = $derived(sourceImport.state);
   let selectedProviderDetails = $derived(providerById(selectedProvider));
   let activeProviderDetails = $derived.by(() => {
     const workspaceState = workspace.state;
@@ -108,7 +101,7 @@ export function createAppController() {
 
     return 'Ładowanie bazy danych';
   });
-  let isUserListLoading = $derived(userListRequestState.status === 'loading');
+  let isUserListLoading = $derived(sourceImport.isLoading);
   let userListRequestProviderDetails = $derived(
     userListRequestState.status === 'loading' ||
       userListRequestState.status === 'error'
@@ -117,16 +110,7 @@ export function createAppController() {
   );
   let isProviderSupported = $derived(selectedProviderDetails.supportsUserList);
   let shouldShowSourceImportProgress = $derived(
-    userListRequestState.status === 'loading' &&
-      providerById(userListRequestState.provider)
-        .supportsSourceImportProgress &&
-      isReadySourceImportProgress(
-        userListRequestState.provider,
-        userListRequestState.progress,
-        {
-          animeZoneListProgressDebounced: isSourceImportProgressDebounced
-        }
-      )
+    sourceImport.shouldShowProgress
   );
   let isWaitingForDatabase = $derived(
     userListRequestState.status === 'loading' &&
@@ -147,6 +131,7 @@ export function createAppController() {
       !shindenCloudflare.isOpen &&
       isProviderSupported
   );
+
   async function initializeDatabase() {
     databaseState = { status: 'loading' };
     databaseInitializationPromise = initializeDatabaseState(animeData);
@@ -191,13 +176,11 @@ export function createAppController() {
   }
 
   function clearUserListError() {
-    if (userListRequestState.status === 'error') {
-      userListRequestState = { status: 'idle' };
-    }
+    sourceImport.clearError();
   }
 
   async function submitUserList() {
-    stopSourceImportPreview();
+    sourceImport.stopPreview();
     clearUserListError();
 
     if (!trimmedQuery || isUserListLoading || !isProviderSupported) {
@@ -206,221 +189,24 @@ export function createAppController() {
 
     const provider = selectedProvider;
     const query = trimmedQuery;
+    const devCommand = parseSourceDevCommand(query);
 
-    if (isSourceImportPreviewInput(userQuery)) {
-      startSourceImportPreview(query);
+    if (devCommand?.kind === 'sourceImportPreview') {
+      sourceImport.startPreview(query);
       return;
     }
 
-    if (isShindenCloudflareAutoCloseTestInput(query)) {
+    if (devCommand?.kind === 'shindenCloudflareAutoCloseTest') {
       await runShindenCloudflareAutoCloseTest();
       return;
     }
 
-    const mockNotificationCount = parseMockNotificationCount(query);
-    if (mockNotificationCount !== null) {
-      showMockNotifications(mockNotificationCount);
+    if (devCommand?.kind === 'showMockNotifications') {
+      showMockNotifications(devCommand.count);
       return;
     }
 
-    const sourceUser = parseSourceUser(provider, query);
-
-    if (sourceUser === null) {
-      const message = `Nie udało się rozpoznać użytkownika ${selectedProviderDetails.label}`;
-      userListRequestState = {
-        status: 'error',
-        provider,
-        query,
-        message
-      };
-      notifications.error('Nieprawidłowy użytkownik', message);
-      return;
-    }
-
-    await loadParsedSourceUser(provider, query, sourceUser);
-  }
-
-  async function loadParsedSourceUser(
-    provider: Provider,
-    query: string,
-    sourceUser: ParsedSourceUser,
-    options: { throwErrors?: boolean; handleCloudflare?: boolean } = {}
-  ) {
-    const throwErrors = options.throwErrors ?? false;
-    const handleCloudflare = options.handleCloudflare ?? true;
-    const requestId = activeRequestId + 1;
-    activeRequestId = requestId;
-    activeUserListAbortController?.abort();
-    resetSourceImportProgressDebounce();
-    const abortController = new AbortController();
-    activeUserListAbortController = abortController;
-    const startedAt = performance.now();
-    userListRequestState = {
-      status: 'loading',
-      provider,
-      query,
-      progress: null
-    };
-
-    try {
-      if (provider === 'shinden') {
-        await applySavedShindenCloudflareClearance();
-        if (activeRequestId !== requestId) {
-          return false;
-        }
-      }
-
-      const fetchStartedAt = performance.now();
-      const fetchedList = await fetchSourceList(
-        sourceUser.provider,
-        sourceUser.user,
-        (progress) => {
-          if (activeRequestId !== requestId) {
-            return;
-          }
-
-          const nextProgress = {
-            phase: progress.phase,
-            current: progress.current,
-            total: progress.total,
-            latestTitle: progress.latestTitle,
-            startedAt
-          };
-
-          userListRequestState = {
-            status: 'loading',
-            provider,
-            query,
-            progress: nextProgress
-          };
-
-          if (shouldDebounceAnimeZoneListProgress(provider, nextProgress)) {
-            scheduleSourceImportProgressDebounce(requestId);
-          }
-        },
-        {
-          requestId,
-          signal: abortController.signal
-        }
-      );
-
-      if (activeRequestId !== requestId) {
-        return;
-      }
-
-      const readyDatabaseState = await waitForReadyDatabase();
-
-      if (readyDatabaseState.status !== 'ready') {
-        throw new Error(
-          readyDatabaseState.status === 'error'
-            ? readyDatabaseState.message
-            : 'Baza danych nie jest gotowa'
-        );
-      }
-
-      if (activeRequestId !== requestId) {
-        return;
-      }
-
-      const sourceFull = await getSourceFull();
-      const nextFetchDurationMs = performance.now() - fetchStartedAt;
-
-      if (activeRequestId !== requestId) {
-        return;
-      }
-
-      const matchStartedAt = performance.now();
-      const nextMatchResult = await matchSourceList();
-      const allIds = await getSourceIds();
-      const nextMatchDurationMs = performance.now() - matchStartedAt;
-
-      if (activeRequestId !== requestId) {
-        return;
-      }
-
-      assertConsistentWorkspaceVersions(
-        fetchedList.sourceVersion,
-        sourceFull.sourceVersion,
-        readyDatabaseState.info.databaseVersion,
-        nextMatchResult,
-        allIds.sourceVersion ?? allIds.shindenVersion
-      );
-
-      const entryIdsByView = buildEntryIdsByView(
-        nextMatchResult,
-        allIds.entryIds
-      );
-
-      animeData.replaceSourceFull(sourceFull);
-
-      userListRequestState = {
-        status: 'loaded',
-        provider,
-        query,
-        entryIdsByView
-      };
-      resetSourceImportProgressDebounce();
-      notifications.success(
-        'Lista została wczytana',
-        `Zaimportowano ${allIds.entryIds.length} pozycji z ${providerById(provider).label}.`
-      );
-      workspace.activate({
-        provider,
-        query,
-        entryIdsByView,
-        matchResult: nextMatchResult,
-        fetchDurationMs: nextFetchDurationMs,
-        matchDurationMs: nextMatchDurationMs,
-        manualOverrideScopeKey: sourceUser.manualOverrideScopeKey
-      });
-      return true;
-    } catch (error) {
-      if (activeRequestId !== requestId) {
-        return false;
-      }
-
-      console.error('Unable to load source user list', error);
-      const message = errorMessage(error);
-      if (provider === 'shinden' && isShindenCloudflareChallengeError(error)) {
-        clearShindenCloudflareClearance();
-
-        if (!handleCloudflare) {
-          throw new Error(
-            'Shinden nadal wymaga weryfikacji Cloudflare. Spróbuj ponownie przejść weryfikację.'
-          );
-        }
-
-        userListRequestState = { status: 'idle' };
-        shindenCloudflare.block({
-          provider,
-          query,
-          sourceUser,
-          message
-        });
-        return false;
-      }
-
-      resetSourceImportProgressDebounce();
-      if (throwErrors) {
-        throw error;
-      }
-
-      userListRequestState = {
-        status: 'error',
-        provider,
-        query,
-        message
-      };
-      notifications.error(
-        `Nie udało się wczytać listy z ${providerById(provider).label}`,
-        message
-      );
-      return false;
-    } finally {
-      if (activeRequestId === requestId) {
-        activeUserListAbortController = null;
-      }
-    }
+    await sourceImport.submitQuery(provider, query);
   }
 
   async function applySavedShindenCloudflareClearance() {
@@ -444,127 +230,7 @@ export function createAppController() {
   }
 
   function cancelUserListLoad() {
-    if (userListRequestState.status !== 'loading') {
-      return;
-    }
-
-    if (sourceImportPreviewInterval !== null) {
-      stopSourceImportPreview();
-      userListRequestState = { status: 'idle' };
-      return;
-    }
-
-    const requestId = activeRequestId;
-    activeRequestId += 1;
-    activeUserListAbortController?.abort();
-    activeUserListAbortController = null;
-    resetSourceImportProgressDebounce();
-    void cancelSourceListFetch(requestId).catch((error) => {
-      console.warn('Unable to cancel source list fetch', error);
-    });
-    userListRequestState = { status: 'idle' };
-  }
-
-  function startSourceImportPreview(query = 'aurora-preview') {
-    stopSourceImportPreview();
-    activeRequestId += 1;
-    activeUserListAbortController?.abort();
-    activeUserListAbortController = null;
-    resetSourceImportProgressDebounce();
-
-    const provider: Provider = 'anime-zone';
-    const total = 180;
-    const startedAt = performance.now();
-    const previewTitles = [
-      'Frieren: Beyond Journey’s End',
-      'Dungeon Meshi',
-      'Cyberpunk: Edgerunners',
-      'Violet Evergarden',
-      'Mob Psycho 100',
-      'Bocchi the Rock!',
-      '86 Eighty-Six',
-      'Odd Taxi'
-    ];
-
-    function updatePreviewProgress() {
-      const elapsedMs = performance.now() - startedAt;
-      const loopMs = 28000;
-      const loopProgress = (elapsedMs % loopMs) / loopMs;
-      const current = Math.max(
-        1,
-        Math.min(total, Math.round(loopProgress * total))
-      );
-      const phase =
-        loopProgress < 0.14
-          ? SourceFetchPhase.FETCHING_LIST
-          : loopProgress < 0.82
-            ? SourceFetchPhase.FETCHING_DETAILS
-            : loopProgress < 0.94
-              ? SourceFetchPhase.STORING
-              : SourceFetchPhase.DONE;
-      const titleIndex =
-        Math.floor(loopProgress * previewTitles.length * 2) %
-        previewTitles.length;
-      const latestTitle = previewTitles[titleIndex] ?? previewTitles[0] ?? '';
-
-      userListRequestState = {
-        status: 'loading',
-        provider,
-        query,
-        progress: {
-          phase,
-          current,
-          total,
-          latestTitle,
-          startedAt
-        }
-      };
-    }
-
-    updatePreviewProgress();
-    sourceImportPreviewInterval = window.setInterval(
-      updatePreviewProgress,
-      900
-    );
-  }
-
-  function stopSourceImportPreview() {
-    if (sourceImportPreviewInterval === null) {
-      return;
-    }
-
-    window.clearInterval(sourceImportPreviewInterval);
-    sourceImportPreviewInterval = null;
-  }
-
-  function scheduleSourceImportProgressDebounce(requestId: number) {
-    if (
-      sourceImportProgressDebounceTimeout !== null ||
-      isSourceImportProgressDebounced
-    ) {
-      return;
-    }
-
-    sourceImportProgressDebounceTimeout = window.setTimeout(() => {
-      sourceImportProgressDebounceTimeout = null;
-
-      if (
-        activeRequestId === requestId &&
-        userListRequestState.status === 'loading' &&
-        userListRequestState.provider === 'anime-zone'
-      ) {
-        isSourceImportProgressDebounced = true;
-      }
-    }, animeZoneSourceImportProgressDebounceMs);
-  }
-
-  function resetSourceImportProgressDebounce() {
-    if (sourceImportProgressDebounceTimeout !== null) {
-      window.clearTimeout(sourceImportProgressDebounceTimeout);
-      sourceImportProgressDebounceTimeout = null;
-    }
-
-    isSourceImportProgressDebounced = false;
+    sourceImport.cancelLoad();
   }
 
   function showMockNotifications(count: number) {
@@ -598,12 +264,7 @@ export function createAppController() {
       );
     } catch (error) {
       const message = errorMessage(error);
-      userListRequestState = {
-        status: 'error',
-        provider: 'shinden',
-        query: trimmedQuery,
-        message
-      };
+      sourceImport.setError('shinden', trimmedQuery, message);
       notifications.error('Test okna Shindena nie powiódł się', message);
     }
   }
@@ -672,7 +333,7 @@ export function createAppController() {
       return shouldShowSourceImportProgress;
     },
     get isSourceImportProgressDebounced() {
-      return isSourceImportProgressDebounced;
+      return sourceImport.isProgressDebounced;
     },
     initializeDatabase,
     setSelectedProvider,
@@ -680,63 +341,7 @@ export function createAppController() {
     clearUserListError,
     submitUserList,
     cancelUserListLoad,
-    startSourceImportPreview,
-    stopSourceImportPreview
-  };
-}
-
-function assertConsistentWorkspaceVersions(
-  fetchedSourceVersion: WireNumber,
-  fullSourceVersion: WireNumber,
-  readyDatabaseVersion: WireNumber,
-  matchResult: MatchListResult,
-  sourceIdsVersion: WireNumber
-) {
-  const matchedSourceVersion =
-    matchResult.sourceVersion ?? matchResult.shindenVersion;
-  if (
-    !wireNumberEquals(fetchedSourceVersion, matchedSourceVersion) ||
-    !wireNumberEquals(fullSourceVersion, matchedSourceVersion) ||
-    !wireNumberEquals(sourceIdsVersion, matchedSourceVersion)
-  ) {
-    throw new Error(
-      'Lista źródłowa zmieniła się podczas dopasowywania. Spróbuj ponownie.'
-    );
-  }
-
-  if (!wireNumberEquals(readyDatabaseVersion, matchResult.databaseVersion)) {
-    throw new Error(
-      'Baza danych zmieniła się podczas dopasowywania. Spróbuj ponownie.'
-    );
-  }
-}
-
-function buildEntryIdsByView(
-  matchResult: MatchListResult,
-  allEntryIds: WireNumber[]
-): ShindenListViews {
-  const unmatched = new Set<WireNumber>();
-  const review = new Set<WireNumber>();
-  const automatic = new Set<WireNumber>();
-
-  for (const entry of matchResult.entries) {
-    if (entry.result.winner !== null) {
-      automatic.add(entry.shindenId);
-    } else if (entry.result.top.length > 0) {
-      review.add(entry.shindenId);
-    } else {
-      unmatched.add(entry.shindenId);
-    }
-  }
-
-  const unmatchedIds = allEntryIds.filter((entryId) => unmatched.has(entryId));
-  const reviewIds = allEntryIds.filter((entryId) => review.has(entryId));
-  const automaticIds = allEntryIds.filter((entryId) => automatic.has(entryId));
-
-  return {
-    manual: [...unmatchedIds, ...reviewIds],
-    automatic: automaticIds,
-    ignored: [],
-    all: [...unmatchedIds, ...reviewIds, ...automaticIds]
+    startSourceImportPreview: sourceImport.startPreview,
+    stopSourceImportPreview: sourceImport.stopPreview
   };
 }

@@ -15,18 +15,8 @@ use std::{
 };
 
 use shinden_to_anilist_core::{
-    common::{
-        AnimeId,
-        AnimeList,
-        ExportView,
-    },
-    exporter::{
-        ExportExt,
-        xml::{
-            XmlExportError,
-            XmlExporter,
-        },
-    },
+    common::AnimeId,
+    exporter::xml::XmlExportError,
 };
 
 use crate::{
@@ -70,24 +60,9 @@ fn write_source_xml(
     matches: impl Iterator<Item = (AnimeId, AnimeId)>,
     temp_file: &mut File,
 ) -> Result<(), ExportWriteError> {
-    match source {
-        SourceList::Shinden(list) => write_xml(list, matches, temp_file),
-        SourceList::AnimeZone(list) => write_xml(list, matches, temp_file),
-        SourceList::OgladajAnime(list) => write_xml(list, matches, temp_file),
-    }
-}
-
-fn write_xml<E>(
-    source: &impl AnimeList<Entry = E>,
-    matches: impl Iterator<Item = (AnimeId, AnimeId)>,
-    temp_file: &mut File,
-) -> Result<(), ExportWriteError>
-where
-    E: ExportView + Send + Sync,
-{
     let mut writer = BufWriter::new(temp_file);
     source
-        .export(&XmlExporter {}, matches, &mut writer)
+        .write_xml(matches, &mut writer)
         .map_err(ExportWriteError::Xml)?;
     writer.flush().map_err(ExportWriteError::Io)
 }

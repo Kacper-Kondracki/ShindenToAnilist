@@ -37,7 +37,7 @@
       provider.id,
       userListRequestState.progress,
       {
-        animeZoneListProgressDebounced: sourceImportProgressDebounced
+        listPhaseDebounced: sourceImportProgressDebounced
       }
     )
       ? userListRequestState.progress
@@ -67,16 +67,14 @@
           {#if canLoadProvider}
             Wczytaj listę, żeby rozpocząć dopasowywanie
           {:else}
-            {provider.label} jest jeszcze w budowie
+            Import z {provider.label} jest teraz niedostępny
           {/if}
         </p>
-        <p class="text-muted text-base font-medium md:text-xl">
-          {#if canLoadProvider}
-            Aktywny import z {provider.label}, pozostałe źródła w budowie
-          {:else}
-            Możesz wybrać to źródło, ale import listy nie jest jeszcze dostępny
-          {/if}
-        </p>
+        {#if !canLoadProvider}
+          <p class="text-muted text-base font-medium md:text-xl">
+            Możesz wybrać inne źródło i wrócić do tego później
+          </p>
+        {/if}
       </div>
     </AnimatedGridPanel>
   {/if}

@@ -1,6 +1,6 @@
 {
   "name": "shinden-to-anilist",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Desktop tool for exporting Shinden lists into AniList-compatible data.",
   "private": true,
   "type": "module",

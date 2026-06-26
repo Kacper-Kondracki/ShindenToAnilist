@@ -32,7 +32,6 @@ use crate::{
         search_options,
     },
     pb::*,
-    source::SourceList,
 };
 
 impl ShindenToAnilist {
@@ -191,20 +190,12 @@ impl ShindenToAnilist {
 
         let results = spawn_blocking_status("source list matching", move || {
             let matcher = DefaultMatcher::strict_preset();
-
-            let results = match source.as_ref() {
-                SourceList::Shinden(shinden) => {
-                    providers::shinden::match_source_list(shinden, &database, options, &matcher)
-                },
-                SourceList::AnimeZone(animezone) => {
-                    providers::animezone::match_source_list(animezone, &database, options, &matcher)
-                },
-                SourceList::OgladajAnime(ogladajanime) => {
-                    providers::ogladajanime::match_source_list(ogladajanime, &database, options, &matcher)
-                },
-            };
-
-            Ok(results)
+            Ok(providers::match_source_list(
+                source.as_ref(),
+                &database,
+                options,
+                &matcher,
+            ))
         })
         .await?;
         info!(

@@ -1,6 +1,10 @@
 # Changelog
 
-## V3
+## V3 1.0.1
+
+Małe wydanie porządkowe: wewnętrzny refactor importu źródeł, usunięcie roboczego tekstu z ekranu startowego i wyrównanie wersji w manifestach.
+
+## V3 1.0.0
 
 W końcu. Wersja V3 to całościowe przepisanie aplikacji od zera. Dzięki silnikowi w Ruście i interfejsowi w Svelte 5 aplikacja śmiga i konwertuje listy anime z polskich serwisów jak marzenie.
 

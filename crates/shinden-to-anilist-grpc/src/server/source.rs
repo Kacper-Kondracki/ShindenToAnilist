@@ -147,10 +147,11 @@ impl ShindenToAnilist {
             .ok_or_else(|| shinden_list_not_loaded().into_status())?;
 
         let source_version = guard.version();
-        let mut ids = source.ids();
-        if sorted_by == AnimeListSortedBy::Urgency {
-            ids = source_ids_by_urgency(source);
-        }
+        let ids = if sorted_by == AnimeListSortedBy::Urgency {
+            source.ids_by_urgency()
+        } else {
+            source.ids()
+        };
 
         info!(
             source_version,
@@ -172,7 +173,7 @@ impl ShindenToAnilist {
             .ok_or_else(|| shinden_list_not_loaded().into_status())?;
 
         let source_version = guard.version();
-        let entries = source_entries(source);
+        let entries = source.entries();
         info!(
             source_version,
             provider = ?source.provider(),
@@ -298,35 +299,5 @@ pub(super) fn source_progress(
         current,
         total,
         latest_title: latest_title.into(),
-    }
-}
-
-fn source_entries(source: &SourceList) -> Vec<SourceEntry> {
-    match source {
-        SourceList::Shinden(list) => list.values().map(SourceEntry::from).collect(),
-        SourceList::AnimeZone(list) => list.values().map(SourceEntry::from).collect(),
-        SourceList::OgladajAnime(list) => list.values().map(SourceEntry::from).collect(),
-    }
-}
-
-fn source_ids_by_urgency(source: &SourceList) -> Vec<u64> {
-    match source {
-        SourceList::Shinden(list) => list
-            .iter()
-            .map(|(id, entry)| (id, entry.premiere_date()))
-            .collect::<Vec<_>>()
-            .tap_mut(|v| {
-                v.sort_by(|(_, date_a), (_, date_b)| match (date_a, date_b) {
-                    (None, None) => Ordering::Equal,
-                    (None, Some(_)) => Ordering::Less,
-                    (Some(_), None) => Ordering::Greater,
-                    (Some(date_a), Some(date_b)) => date_b.cmp(date_a),
-                })
-            })
-            .into_iter()
-            .map(|(id, _)| id)
-            .collect(),
-        SourceList::AnimeZone(list) => list.keys().collect(),
-        SourceList::OgladajAnime(list) => list.keys().collect(),
     }
 }
