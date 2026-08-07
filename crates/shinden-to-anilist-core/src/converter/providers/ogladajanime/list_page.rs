@@ -167,7 +167,7 @@ pub(super) fn parse_watch_status(value: &str) -> Option<WatchStatus> {
         "Planuje" | "Planuję" => Some(WatchStatus::PlanToWatch),
         "Wstrzymane" => Some(WatchStatus::OnHold),
         "Porzucone" | "Nie oglądam" | "Nie ogladam" => Some(WatchStatus::Dropped),
-        _ => None,
+        _ => Some(WatchStatus::PlanToWatch), // Oglądaj Anime pozwala dawać śmieciowe dane, traktujmy to jako planowane
     }
 }
 

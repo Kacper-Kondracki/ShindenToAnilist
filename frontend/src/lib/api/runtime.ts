@@ -228,8 +228,11 @@ function appErrorMessageFromRuntime(detail: RuntimeAppError) {
   }
 
   return (
-    userMessageForErrorKind(detail.kind, detail.http?.status ?? 0) ??
-    userFacingErrorMessage(detail.message)
+    userMessageForErrorKind(
+      detail.kind,
+      detail.http?.status ?? 0,
+      detail.message
+    ) ?? userFacingErrorMessage(detail.message)
   );
 }
 
@@ -282,6 +285,10 @@ function normalizeFrontendError(error: unknown, fallback: string) {
   return new BackendError(toUserFacingErrorMessage(error, fallback));
 }
 
+function isPrivateInMessage(message: string) {
+  return message.includes('private') || message.includes('prywat');
+}
+
 function userFacingErrorMessage(message: string) {
   const trimmed = message.trim();
   const normalized = trimmed.toLowerCase();
@@ -296,7 +303,7 @@ function userFacingErrorMessage(message: string) {
     return 'Shinden wymaga weryfikacji Cloudflare.';
   }
 
-  if (normalized.includes('private') || normalized.includes('prywat')) {
+  if (isPrivateInMessage(normalized)) {
     return 'Lista użytkownika Shinden jest prywatna albo niedostępna.';
   }
 
@@ -452,9 +459,13 @@ function looksLikeTechnicalEnglishMessage(message: string) {
   );
 }
 
-function userMessageForErrorKind(kind: ErrorKind, status: number) {
+function userMessageForErrorKind(
+  kind: ErrorKind,
+  status: number,
+  message: string
+) {
   const statusMessage = status === 0 ? '' : ` Kod odpowiedzi: ${status}.`;
-
+  const normalized = message.toLowerCase();
   switch (kind) {
     case ErrorKind.SHINDEN_LIST_NOT_LOADED:
       return 'Lista Shinden nie została jeszcze wczytana.';
@@ -499,6 +510,9 @@ function userMessageForErrorKind(kind: ErrorKind, status: number) {
     case ErrorKind.OGLADAJ_ANIME_HTTP:
       return `Nie udało się połączyć z Oglądaj Anime.${statusMessage}`;
     case ErrorKind.OGLADAJ_ANIME_PARSE:
+      if (isPrivateInMessage(normalized)) {
+        return 'Lista Oglądaj Anime jest prywatna albo niedostępna.';
+      }
       return 'Nie udało się odczytać listy Oglądaj Anime. Strona mogła zmienić format danych.';
     case ErrorKind.OGLADAJ_ANIME_RETRY_EXHAUSTED:
       return 'Nie udało się pobrać listy Oglądaj Anime po kilku próbach.';
