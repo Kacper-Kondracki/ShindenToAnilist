@@ -1,5 +1,9 @@
 # Changelog
 
+## V3 1.0.2
+
+Oglądaj Anime czasem daje śmieciowe dane statusu oglądania. Zamiast wyrzucać błąd, takie przypadki są traktowane bez wywalania błędu jako planowane.
+
 ## V3 1.0.1
 
 Małe wydanie porządkowe: wewnętrzny refactor importu źródeł, usunięcie roboczego tekstu z ekranu startowego i wyrównanie wersji w manifestach.
