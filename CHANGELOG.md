@@ -2,6 +2,18 @@
 
 ## V3 1.1.0
 
+```py
+from shinden import AntiAdblock
+```
+
+*Shinden: Najbardziej zaawansowana usługa dostarczająca najbardziej chamskie i agresywne rozwiązania wykrywania Adblocka. Bo blokowanie reklam to niedobra jest, bo masz to u nas wyłączyć, a jak przy playeru wyświetlają się złośliwe i sprośne reklamy, no to przecież masz przycisk by player odtworzyć na zewnętrznej stronie poza shindenem, czego nie rozumiesz??*
+
+Dostarczam update 1.1.0, dla tych których irytuje Shinden:
+
+- Animowana instrukcja pokazuje, jak poprawiać dopasowania.
+- Ekran startowy informuje o nowej wersji.
+- Po aktualizacji bazy aplikacja odświeża dopasowania przed eksportem.
+- Linki do pobrania wersji na Windowsa i Linuksa są w README.
 - Electron ładuje silnik aplikacji bezpośrednio jako natywny moduł Rust.
 - Aplikacja pobiera aktualizacje z utrzymywanej bazy anime i korzysta z lokalnej kopii, gdy sprawdzenie aktualizacji się nie powiedzie.
 - Komunikaty błędów są dokładniejsze, a aplikacja zapisuje lokalne logi diagnostyczne.
