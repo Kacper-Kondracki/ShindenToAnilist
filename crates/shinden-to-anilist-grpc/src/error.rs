@@ -121,7 +121,8 @@ impl ServiceError {
             DeadlineExceeded => Code::DeadlineExceeded,
             SourceListNotFound => Code::NotFound,
             CloudflareChallenge | ClearanceExpired | ShindenListNotLoaded | DatabaseNotLoaded
-            | ExportOutOfIndex => Code::FailedPrecondition,
+            | ExportOutOfIndex | DatabaseChanged | SourceListChanged => Code::FailedPrecondition,
+            DatabaseNotFound => Code::NotFound,
             SourceListPrivate | DatabasePermissionDenied | ExportPermissionDenied => Code::PermissionDenied,
             DatabaseDigestMismatch => Code::DataLoss,
             ServiceUnavailable => Code::Unavailable,
@@ -206,6 +207,9 @@ impl From<DatabaseError> for ServiceError {
         let (kind, status) = match &error {
             DatabaseError::Io(source) if source.kind() == io::ErrorKind::PermissionDenied => {
                 (ErrorKind::DatabasePermissionDenied, None)
+            },
+            DatabaseError::Io(source) if source.kind() == io::ErrorKind::NotFound => {
+                (ErrorKind::DatabaseNotFound, None)
             },
             DatabaseError::Io(_) => (ErrorKind::DatabaseIo, None),
             DatabaseError::Json(_) => (ErrorKind::DatabaseJson, None),

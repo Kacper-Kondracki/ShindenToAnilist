@@ -299,4 +299,20 @@ impl ShindenToAnilistService for ShindenToAnilist {
             .map(Response::new)
             .map_err(Into::into)
     }
+
+    async fn export_workspace_xml(
+        &self,
+        request: Request<ExportXmlRequest>,
+    ) -> Result<Response<ExportXmlResponse>, Status> {
+        let request = request.into_inner();
+        if request.expected_source_version.is_none() || request.expected_database_version.is_none() {
+            return Err(Status::invalid_argument(
+                "workspace export requires source and database versions",
+            ));
+        }
+        ShindenToAnilist::export_xml(self, request)
+            .await
+            .map(Response::new)
+            .map_err(Into::into)
+    }
 }

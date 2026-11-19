@@ -37,8 +37,8 @@ pub enum DatabaseError {
     /// A request to the upstream database release failed.
     #[error(transparent)]
     Request(#[from] reqwest::Error),
-    /// The file was empty and contained no header line.
-    #[error("can not parse empty file")]
+    /// The file was empty or a downloaded database contained no usable entries.
+    #[error("anime database is empty")]
     Empty,
     /// The latest GitHub release does not contain the expected database asset.
     #[error("latest anime-offline-database release does not contain {asset}")]
@@ -130,31 +130,11 @@ fn database_lock_path(path: &Path) -> Result<PathBuf, io::Error> {
 impl AnimeDatabaseLoad for AnimeDatabase {
     fn get_from_mmap(path: impl AsRef<Path>) -> Result<AnimeDatabase, DatabaseError> {
         let path = path.as_ref();
-        let file = File::open(path)?;
         let _path_lock = lock_database_path(path)?;
+        let file = File::open(path)?;
         file.lock()?;
-        let mmap = unsafe { Mmap::map(&file)? }; // Safe while the exclusive file lock is held.
-
-        let (header, after_header) = match mmap.iter().position(|&b| b == b'\n') {
-            Some(pos) => mmap.split_at(pos + 1),
-            None => return Err(DatabaseError::Empty),
-        };
-
-        let mut db_root = serde_json::from_slice::<json::DatabaseRoot>(header)?.into_model();
-
-        let entries: IndexMap<AnimeId, AnimeEntry> = after_header
-            .par_split(|&b| b == b'\n')
-            .filter_map(|line| match serde_json::from_slice::<json::AnimeEntry>(line) {
-                Ok(v) => v.into_model().map(|a| (a.id, a)).map(Ok),
-                Err(e) => Some(Err(DatabaseError::from(e))),
-            })
-            .collect::<Result<_, DatabaseError>>()?;
-
-        db_root.entries = entries;
-
-        db_root.entries.sort_unstable_keys();
-
-        Ok(db_root)
+        // The file lock protects the map for the duration of the parse.
+        unsafe { parse_mapped_database(&file) }
     }
     fn get_from_reader(reader: impl Read) -> Result<AnimeDatabase, DatabaseError> {
         let buf_reader = BufReader::new(reader);
@@ -195,6 +175,32 @@ impl AnimeDatabaseLoad for AnimeDatabase {
         let file = File::open(path)?;
         Self::get_from_reader(file)
     }
+}
+
+/// The caller must ensure the file stays unchanged for the duration of the parse.
+unsafe fn parse_mapped_database(file: &File) -> Result<AnimeDatabase, DatabaseError> {
+    if file.metadata()?.len() == 0 {
+        return Err(DatabaseError::Empty);
+    }
+    let mmap = unsafe { Mmap::map(file)? };
+    let (header, entries) = mmap
+        .iter()
+        .position(|&byte| byte == b'\n')
+        .map_or((&mmap[..], &[][..]), |end| (&mmap[..end], &mmap[end + 1..]));
+    let mut database = serde_json::from_slice::<json::DatabaseRoot>(header)?.into_model();
+    let entries = entries.strip_suffix(b"\n").unwrap_or(entries);
+
+    if !entries.is_empty() {
+        database.entries = entries
+            .par_split(|&byte| byte == b'\n')
+            .filter_map(|line| match serde_json::from_slice::<json::AnimeEntry>(line) {
+                Ok(entry) => entry.into_model().map(|entry| Ok((entry.id, entry))),
+                Err(error) => Some(Err(DatabaseError::from(error))),
+            })
+            .collect::<Result<_, DatabaseError>>()?;
+    }
+    database.entries.sort_unstable_keys();
+    Ok(database)
 }
 
 #[cfg(test)]

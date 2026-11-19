@@ -37,6 +37,7 @@ import {
 import type {
   DatabaseEntry,
   ExportResult,
+  ExportSnapshot,
   MatchListResult,
   MatchSelection,
   SearchOptions,
@@ -364,7 +365,8 @@ export async function matchSourceList(options: SearchOptions = {}) {
 
 export async function exportXml(
   matches: MatchSelection[],
-  resolvedPath: string
+  resolvedPath: string,
+  snapshot: ExportSnapshot
 ) {
   return callRpc(async (client): Promise<ExportResult> => {
     const selectedPath = await selectExportPath(resolvedPath);
@@ -378,9 +380,11 @@ export async function exportXml(
       };
     }
 
-    const response = await client.exportXml(
+    const response = await client.exportWorkspaceXml(
       create(ExportXmlRequestSchema, {
         path: selectedPath,
+        expectedSourceVersion: snapshot.sourceVersion,
+        expectedDatabaseVersion: snapshot.databaseVersion,
         matches: matches.map((match) =>
           create(SourceIdPairSchema, {
             sourceId: BigInt(match.sourceId),

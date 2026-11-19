@@ -125,7 +125,7 @@ impl From<DatabaseArchiveAsset> for DatabaseReleaseInfo {
 
 /// Downloads the latest `anime-offline-database.jsonl.zst` GitHub release asset,
 /// verifies its SHA-256 digest when GitHub provides one, decompresses it, and
-/// atomically writes the decompressed JSONL database into `path`.
+/// validates the JSONL before atomically replacing the database at `path`.
 ///
 /// This function is intentionally stateless: it does not create or read sidecar
 /// files. Callers that want caching or update decisions can build that policy
@@ -149,16 +149,7 @@ where
 {
     let path = path.as_ref().to_path_buf();
     let archive = download_latest_database_archive_with_progress(client, progress).await?;
-    let compressed_size = archive.bytes.len() as u64;
-
-    decompress_zstd_to_path(&archive.bytes, &path)?;
-
-    Ok(DatabaseUpdate {
-        release: archive.release,
-        sha256: archive.sha256,
-        path,
-        compressed_size,
-    })
+    install_database_archive(archive, path)
 }
 
 /// Blocking variant of [`update_latest_jsonl_from_github`].
@@ -180,15 +171,39 @@ where
 {
     let path = path.as_ref().to_path_buf();
     let archive = download_latest_database_archive_blocking_with_progress(client, progress)?;
-    let compressed_size = archive.bytes.len() as u64;
+    install_database_archive(archive, path)
+}
 
-    decompress_zstd_to_path(&archive.bytes, &path)?;
+/// Validates a downloaded database before replacing the file at `path`.
+pub fn install_database_archive(
+    archive: DownloadedDatabaseArchive,
+    path: impl AsRef<Path>,
+) -> Result<DatabaseUpdate, DatabaseError> {
+    install_database_archive_with(archive, path, Ok)
+}
 
-    Ok(DatabaseUpdate {
+/// Installs the database and records its release metadata under the same path lock.
+pub fn install_database_archive_with<T, E: From<DatabaseError>>(
+    archive: DownloadedDatabaseArchive,
+    path: impl AsRef<Path>,
+    record_release: impl FnOnce(DatabaseUpdate) -> Result<T, E>,
+) -> Result<T, E> {
+    let path = path.as_ref();
+    create_parent_dir(path).map_err(DatabaseError::from)?;
+    let _path_lock = super::lock_database_path(path).map_err(DatabaseError::from)?;
+    write_zstd_to_path(&archive.bytes, path, |file| {
+        // The staged file is private to this operation and has finished writing.
+        let database = unsafe { super::parse_mapped_database(file) }?;
+        if database.entries.is_empty() {
+            return Err(DatabaseError::Empty);
+        }
+        Ok(())
+    })?;
+    record_release(DatabaseUpdate {
         release: archive.release,
         sha256: archive.sha256,
-        path,
-        compressed_size,
+        path: path.to_path_buf(),
+        compressed_size: archive.bytes.len() as u64,
     })
 }
 
@@ -362,16 +377,28 @@ where
 /// JSONL into `path`.
 pub fn decompress_zstd_to_path(compressed: &[u8], path: &Path) -> Result<(), io::Error> {
     create_parent_dir(path)?;
-
     let _path_lock = super::lock_database_path(path)?;
+    write_zstd_to_path(compressed, path, |_| Ok(()))
+}
+
+fn write_zstd_to_path<E: From<io::Error>>(
+    compressed: &[u8],
+    path: &Path,
+    validate: impl FnOnce(&File) -> Result<(), E>,
+) -> Result<(), E> {
     let (mut output, tmp_path) = create_unique_temp_file(path)?;
-    let mut decoder = Cursor::new(compressed);
-    let result = zstd::stream::copy_decode(&mut decoder, &mut output)
-        .and_then(|_| output.sync_all())
-        .and_then(|_| {
-            drop(output);
-            fs::rename(&tmp_path, path).and_then(|_| sync_parent_dir(path))
-        });
+    let result = (|| {
+        zstd::stream::copy_decode(Cursor::new(compressed), &mut output)?;
+        validate(&output)?;
+        output.sync_all()?;
+        Ok(())
+    })();
+    drop(output);
+    let result = result.and_then(|()| {
+        fs::rename(&tmp_path, path)?;
+        sync_parent_dir(path)?;
+        Ok(())
+    });
 
     if result.is_err() {
         let _ = fs::remove_file(&tmp_path);
@@ -440,7 +467,12 @@ fn create_unique_temp_file(path: &Path) -> io::Result<(File, PathBuf)> {
             .map(|parent| parent.join(&temp_file_name))
             .unwrap_or_else(|| PathBuf::from(&temp_file_name));
 
-        match File::options().write(true).create_new(true).open(&temp_path) {
+        match File::options()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+        {
             Ok(file) => return Ok((file, temp_path)),
             Err(err) if err.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(err) => return Err(err),
@@ -495,5 +527,41 @@ impl GitHubAsset {
             .as_deref()
             .and_then(|digest| digest.strip_prefix("sha256:"))
             .map(str::to_string)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_downloads_leave_the_existing_database_in_place() {
+        let dir = std::env::temp_dir().join(format!("shinden-database-install-{}", std::process::id()));
+        fs::create_dir(&dir).unwrap();
+        let path = dir.join("database.jsonl");
+        fs::write(&path, b"existing database").unwrap();
+
+        let archive = |jsonl: &[u8]| DownloadedDatabaseArchive {
+            release: "fixture".to_owned(),
+            sha256: String::new(),
+            bytes: zstd::stream::encode_all(jsonl, 0).unwrap(),
+        };
+        let header = r#"{"lastUpdate":"2026-11-01"}"#;
+        let malformed = format!("{header}\n{{invalid json}}\n");
+        assert!(matches!(
+            install_database_archive(archive(malformed.as_bytes()), &path),
+            Err(DatabaseError::Json(_))
+        ));
+        assert!(matches!(
+            install_database_archive(archive(header.as_bytes()), &path),
+            Err(DatabaseError::Empty)
+        ));
+        assert_eq!(fs::read(&path).unwrap(), b"existing database");
+
+        let entry = r#"{"sources":["https://myanimelist.net/anime/1"],"title":"Anime","type":"TV","episodes":12,"status":"FINISHED","animeSeason":{"season":"UNDEFINED"},"picture":"","thumbnail":"","synonyms":[],"studios":[],"producers":[],"relatedAnime":[],"tags":[]}"#;
+        let valid = format!("{header}\n{entry}\n");
+        install_database_archive(archive(valid.as_bytes()), &path).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), valid.as_bytes());
+        fs::remove_dir_all(dir).unwrap();
     }
 }

@@ -1,6 +1,6 @@
 import { reportFailure } from '../../api/diagnostics';
-import { exportXml } from '../../api/appService';
-import { userErrorMessage } from '../../api/errors';
+import { exportXml, getSourceIds, matchSourceList } from '../../api/appService';
+import { AppFailure, ErrorKind, userErrorMessage } from '../../api/errors';
 import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
 import type {
   DatabaseEntry,
@@ -22,6 +22,7 @@ import {
   loadInitialMatchSelectorSearch,
   type MatchSelectorInitialSearch
 } from './matchSelectorController.svelte';
+import { buildMatchViews } from './matchViews';
 
 export type ExportState =
   | { status: 'idle' }
@@ -56,7 +57,13 @@ export type WorkspaceController = ReturnType<typeof createWorkspaceController>;
 
 export function createWorkspaceController(animeData: LoadedAnimeData) {
   let state = $state<WorkspaceState>({ status: 'empty' });
-  let matchResult = $state<MatchListResult | null>(null);
+  let matchedList = $state<MatchListResult | null>(null);
+  let matchResult = $derived(
+    matchedList?.databaseVersion === animeData.databaseVersion
+      ? matchedList
+      : null
+  );
+  let isMatching = $state(false);
   let matchErrorMessage = $state<string | null>(null);
   let fetchDurationMs = $state<number | null>(null);
   let matchDurationMs = $state<number | null>(null);
@@ -70,6 +77,7 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   let matchSelectorQueries = $state<WireNumberRecord<string>>({});
   let exportState = $state<ExportState>({ status: 'idle' });
   let selectionRequestId = 0;
+  let matchRefreshId = 0;
   let pendingSelectionEntryId: WireNumber | null = null;
 
   let matchResultByEntryId = $derived.by(() => {
@@ -140,7 +148,16 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   );
   let entryIdsByView = $derived.by(() =>
     buildEntryIdsByView(
-      state,
+      state.status === 'active' && matchResult === null
+        ? {
+            ...state,
+            entryIdsByView: {
+              ...state.entryIdsByView,
+              manual: state.entryIdsByView.all,
+              automatic: []
+            }
+          }
+        : state,
       manualOverrides,
       ignoredEntryIds,
       displacedAutomaticEntryIds
@@ -211,7 +228,9 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
       query: next.query,
       entryIdsByView: next.entryIdsByView
     };
-    matchResult = next.matchResult;
+    matchedList = next.matchResult;
+    matchRefreshId += 1;
+    isMatching = false;
     matchErrorMessage = null;
     fetchDurationMs = next.fetchDurationMs;
     matchDurationMs = next.matchDurationMs;
@@ -228,6 +247,63 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     );
     matchSelectorQueries = {};
     exportState = { status: 'idle' };
+  }
+
+  async function refreshMatches() {
+    if (
+      state.status !== 'active' ||
+      matchResult !== null ||
+      matchedList === null
+    )
+      return;
+
+    const requestId = ++matchRefreshId;
+    const activeState = state;
+    const sourceVersion =
+      matchedList.sourceVersion ?? matchedList.shindenVersion;
+    const databaseVersion = animeData.databaseVersion;
+    const startedAt = performance.now();
+    isMatching = true;
+    matchErrorMessage = null;
+    exportState = { status: 'idle' };
+    try {
+      const ids = await getSourceIds();
+      if (ids.sourceVersion !== sourceVersion) {
+        throw new AppFailure(ErrorKind.SOURCE_LIST_CHANGED);
+      }
+      const result = await matchSourceList();
+      if ((result.sourceVersion ?? result.shindenVersion) !== sourceVersion) {
+        throw new AppFailure(ErrorKind.SOURCE_LIST_CHANGED);
+      }
+      if (result.databaseVersion !== databaseVersion) {
+        throw new AppFailure(ErrorKind.DATABASE_CHANGED);
+      }
+      if (
+        requestId !== matchRefreshId ||
+        databaseVersion !== animeData.databaseVersion
+      )
+        return;
+
+      state = {
+        ...activeState,
+        entryIdsByView: buildMatchViews(result, ids.entryIds)
+      };
+      matchedList = result;
+      matchDurationMs = performance.now() - startedAt;
+      initialMatchSearch = null;
+      selectionRequestId += 1;
+      pendingSelectionEntryId = null;
+      replaceManualState(manualOverrides, ignoredEntryIds);
+    } catch (error) {
+      if (requestId !== matchRefreshId) return;
+      reportFailure('refresh_matches', error);
+      matchErrorMessage = userErrorMessage(
+        error,
+        'Wczytaj listę ponownie, aby odświeżyć dopasowania.'
+      );
+    } finally {
+      if (requestId === matchRefreshId) isMatching = false;
+    }
   }
 
   async function selectEntry(entryId: WireNumber) {
@@ -435,7 +511,8 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
   }
 
   async function exportCurrentSelections() {
-    if (!canExport) {
+    const matches = matchResult;
+    if (!canExport || matches === null) {
       return;
     }
 
@@ -443,7 +520,11 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     exportState = { status: 'exporting' };
 
     try {
-      const result = await exportXml(selections);
+      const result = await exportXml(selections, {
+        sourceVersion: matches.sourceVersion ?? matches.shindenVersion,
+        databaseVersion: matches.databaseVersion
+      });
+      if (matches !== matchResult) return;
       exportState = result.cancelled
         ? { status: 'cancelled' }
         : {
@@ -453,7 +534,9 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
           };
     } catch (error) {
       reportFailure('export_xml', error);
-      exportState = { status: 'error', message: errorMessage(error) };
+      if (matches === matchResult) {
+        exportState = { status: 'error', message: errorMessage(error) };
+      }
     }
   }
 
@@ -466,6 +549,9 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
     },
     get matchErrorMessage() {
       return matchErrorMessage;
+    },
+    get isMatching() {
+      return isMatching;
     },
     get fetchDurationMs() {
       return fetchDurationMs;
@@ -513,6 +599,7 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
       return canExport;
     },
     activate,
+    refreshMatches,
     selectEntry,
     clearSelectionIfMissing,
     setManualOverride,

@@ -2,12 +2,13 @@ import { reportFailure } from '../../api/diagnostics';
 import { ensureDatabase, getDatabaseFull } from '../../api/appService';
 import { AppFailure, ErrorKind, userErrorMessage } from '../../api/errors';
 import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
-import type { DatabaseState } from '../../domain/anime';
+import type { DatabaseInfo, DatabaseState } from '../../domain/anime';
 
 const databaseRetryDelays = [0, 500, 1500] as const;
 
 export async function initializeDatabaseState(
-  animeData: LoadedAnimeData
+  animeData: LoadedAnimeData,
+  previous?: DatabaseInfo
 ): Promise<DatabaseState> {
   let lastError: unknown = null;
 
@@ -17,13 +18,15 @@ export async function initializeDatabaseState(
     }
 
     try {
-      const { info, updateFailure } = await ensureDatabase();
-      const databaseFull = await getDatabaseFull();
-      if (databaseFull.databaseVersion !== info.databaseVersion) {
-        throw new AppFailure(ErrorKind.DATABASE_CHANGED);
+      const { info, updateFailure } = await ensureDatabase(previous);
+      if (animeData.databaseVersion !== info.databaseVersion) {
+        const databaseFull = await getDatabaseFull();
+        if (databaseFull.databaseVersion !== info.databaseVersion) {
+          throw new AppFailure(ErrorKind.DATABASE_CHANGED);
+        }
+        animeData.replaceDatabaseFull(databaseFull);
       }
 
-      animeData.replaceDatabaseFull(databaseFull);
       if (updateFailure !== null) {
         reportFailure('update_database', updateFailure.error);
         return {

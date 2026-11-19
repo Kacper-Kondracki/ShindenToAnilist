@@ -18,8 +18,9 @@ use shinden_to_anilist_core::{
         self,
         root_metadata_from_path,
         updater::{
+            download_latest_database_archive,
+            install_database_archive_with,
             latest_database_archive_asset,
-            update_latest_jsonl_from_github,
         },
     },
 };
@@ -75,26 +76,38 @@ impl ShindenToAnilist {
         &self,
         request: DownloadDatabaseRequest,
     ) -> Result<DownloadDatabaseResponse, ServiceError> {
-        let _download_guard = timeout(DATABASE_DOWNLOAD_LOCK_TIMEOUT, self.database_download_lock.lock())
-            .await
-            .map_err(|_| {
-                ServiceError::new(
-                    ErrorKind::DeadlineExceeded,
-                    format!(
-                        "database download lock could not be acquired within {} seconds",
-                        DATABASE_DOWNLOAD_LOCK_TIMEOUT.as_secs()
-                    ),
-                )
-            })?;
+        let download_guard = timeout(
+            DATABASE_DOWNLOAD_LOCK_TIMEOUT,
+            self.database_download_lock.clone().lock_owned(),
+        )
+        .await
+        .map_err(|_| {
+            ServiceError::new(
+                ErrorKind::DeadlineExceeded,
+                format!(
+                    "database download lock could not be acquired within {} seconds",
+                    DATABASE_DOWNLOAD_LOCK_TIMEOUT.as_secs()
+                ),
+            )
+        })?;
 
-        let status = update_latest_jsonl_from_github(self.http_clients.database.clone(), &request.path)
+        let archive = download_latest_database_archive(self.http_clients.database.clone())
             .await
             .map_err(|error| {
                 ServiceError::from(error).with_context(format!("download database to {}", request.path))
-            })?
-            .conv::<CoreDatabaseReleaseInfo>();
+            })?;
 
-        let status = write_database_sidecar_blocking(&request.path, status).await?;
+        let path = request.path;
+        let status = run_blocking("database installation", move || {
+            let _download_guard = download_guard;
+            install_database_archive_with(archive, &path, |update| {
+                let status = update.conv::<CoreDatabaseReleaseInfo>();
+                write_database_sidecar(&path, &status)?;
+                Ok(status)
+            })
+            .map_err(|error: ServiceError| error.with_context(format!("install database at {path}")))
+        })
+        .await?;
         info!(release = %status.release, sha256 = %status.sha256, "database installed");
 
         Ok(DownloadDatabaseResponse {
@@ -239,11 +252,14 @@ fn read_database_sidecar(
         },
     };
 
-    let status = serde_json::from_reader(BufReader::new(sidecar))
-        .map(Some)
-        .map_err(|err| database_sidecar_json_error(err, &sidecar_path))?;
-
-    Ok(status)
+    match serde_json::from_reader(BufReader::new(sidecar)) {
+        Ok(status) => Ok(Some(status)),
+        Err(error) if !error.is_io() => {
+            database_sidecar_json_error(error, &sidecar_path).report();
+            Ok(None)
+        },
+        Err(error) => Err(database_sidecar_json_error(error, &sidecar_path)),
+    }
 }
 
 fn write_database_sidecar(
@@ -278,8 +294,6 @@ fn write_database_sidecar(
         let _ = std::fs::remove_file(&temp_path);
     }
 
-    if result.is_ok() {}
-
     result
 }
 
@@ -289,18 +303,6 @@ async fn read_database_sidecar_blocking(
     let database_path = PathBuf::from(database_path.as_ref());
     run_blocking("database sidecar read", move || {
         read_database_sidecar(database_path)
-    })
-    .await
-}
-
-async fn write_database_sidecar_blocking(
-    database_path: impl AsRef<Path>,
-    status: CoreDatabaseReleaseInfo,
-) -> Result<CoreDatabaseReleaseInfo, ServiceError> {
-    let database_path = PathBuf::from(database_path.as_ref());
-    run_blocking("database sidecar write", move || {
-        write_database_sidecar(database_path, &status)?;
-        Ok(status)
     })
     .await
 }
@@ -315,5 +317,31 @@ fn database_update_check(
         local: local.map(Into::into),
         remote: Some(remote.into()),
         needs_update,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn corrupt_sidecar_allows_database_repair() {
+        let dir = std::env::temp_dir().join(format!("shinden-database-sidecar-{}", std::process::id()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("database.jsonl");
+        std::fs::write(&path, b"database").unwrap();
+        std::fs::write(database_sidecar_path(&path), b"invalid sidecar").unwrap();
+
+        let remote = CoreDatabaseReleaseInfo {
+            release: "current".into(),
+            sha256: "digest".into(),
+            compressed_size: 1,
+        };
+        let local = read_database_sidecar(&path).unwrap();
+        assert!(database_update_check(local, remote.clone()).needs_update);
+        write_database_sidecar(&path, &remote).unwrap();
+        let local = read_database_sidecar(&path).unwrap();
+        assert!(!database_update_check(local, remote).needs_update);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

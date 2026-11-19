@@ -2,6 +2,7 @@ const PROTO_PATH: &str = "../../proto";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     emit_build_revision();
+    println!("cargo:rerun-if-changed={PROTO_PATH}");
     let grpc = std::env::var_os("CARGO_FEATURE_GRPC").is_some();
     tonic_prost_build::configure()
         .build_client(grpc)

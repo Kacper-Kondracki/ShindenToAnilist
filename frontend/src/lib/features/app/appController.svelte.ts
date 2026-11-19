@@ -133,8 +133,13 @@ export function createAppController() {
       return databaseInitializationPromise;
     }
 
+    const previous =
+      databaseState.status === 'ready' ? databaseState.info : undefined;
     databaseState = { status: 'loading' };
-    databaseInitializationPromise = initializeDatabaseState(animeData);
+    databaseInitializationPromise = initializeDatabaseState(
+      animeData,
+      previous
+    );
     databaseState = await databaseInitializationPromise;
     databaseInitializationPromise = null;
     if (databaseState.status === 'error') {
@@ -144,6 +149,7 @@ export function createAppController() {
         databaseState.message
       );
     } else if (databaseState.status === 'ready') {
+      void workspace.refreshMatches();
       if (databaseState.updateWarning !== undefined) {
         notifyDatabaseIssue(
           'warning',

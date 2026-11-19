@@ -176,7 +176,7 @@
   entryIds={workspace.entryIdsByView.all}
   matchResult={workspace.matchResult}
   matchErrorMessage={workspace.matchErrorMessage}
-  isMatching={false}
+  isMatching={workspace.isMatching}
   fetchDurationMs={workspace.fetchDurationMs}
   matchDurationMs={workspace.matchDurationMs}
   manualSelections={workspace.manualOverrides}

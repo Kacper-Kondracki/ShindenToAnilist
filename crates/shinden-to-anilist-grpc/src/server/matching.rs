@@ -183,6 +183,24 @@ impl ShindenToAnilist {
         let guard = self.source_list.load();
 
         let source_version = guard.version();
+        if request
+            .expected_source_version
+            .is_some_and(|expected| expected != source_version)
+        {
+            return Err(ServiceError::new(
+                ErrorKind::SourceListChanged,
+                "source version changed before export",
+            ));
+        }
+        if request
+            .expected_database_version
+            .is_some_and(|expected| expected != self.database.load().version())
+        {
+            return Err(ServiceError::new(
+                ErrorKind::DatabaseChanged,
+                "database version changed before export",
+            ));
+        }
         let source = guard.get_arc().ok_or_else(shinden_list_not_loaded)?;
         let path = request.path;
         let matches = request

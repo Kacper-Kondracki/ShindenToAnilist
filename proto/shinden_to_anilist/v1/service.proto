@@ -34,6 +34,8 @@ service ShindenToAnilistService {
   rpc MatchSourceList(MatchSourceListRequest) returns (stream MatchSourceListResponse);
   rpc MatchShindenList(MatchShindenListRequest) returns (stream MatchShindenListResponse);
   rpc ExportXml(ExportXmlRequest) returns (ExportXmlResponse);
+  // Workspace exports must supply both snapshot versions.
+  rpc ExportWorkspaceXml(ExportXmlRequest) returns (ExportXmlResponse);
 }
 
 // Source lists
@@ -204,6 +206,8 @@ message MatchShindenListResponse {
 message ExportXmlRequest {
   repeated SourceIdPair matches = 1;
   string path = 2;
+  optional uint64 expected_source_version = 3;
+  optional uint64 expected_database_version = 4;
 }
 message ExportXmlResponse {
   uint64 source_version = 1;

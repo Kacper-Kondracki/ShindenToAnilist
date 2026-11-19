@@ -13,6 +13,10 @@ use reqwest::{
         CookieStore,
         Jar,
     },
+    header::{
+        HeaderValue,
+        InvalidHeaderValue,
+    },
 };
 use tracing::debug;
 
@@ -51,6 +55,7 @@ pub struct ClearanceClient {
 pub enum ClearanceError {
     EmptyUserAgent,
     UserAgentTooLong,
+    InvalidUserAgent(InvalidHeaderValue),
     EmptyClearance,
     ClearanceTooLong,
     InvalidCookieValue,
@@ -66,6 +71,7 @@ impl fmt::Display for ClearanceError {
         match self {
             Self::EmptyUserAgent => formatter.write_str("missing Cloudflare browser user agent"),
             Self::UserAgentTooLong => formatter.write_str("Cloudflare browser user agent is too long"),
+            Self::InvalidUserAgent(_) => formatter.write_str("Cloudflare browser user agent is invalid"),
             Self::EmptyClearance => formatter.write_str("missing cf_clearance cookie"),
             Self::ClearanceTooLong => formatter.write_str("cf_clearance cookie is too long"),
             Self::InvalidCookieValue => {
@@ -84,6 +90,7 @@ impl std::error::Error for ClearanceError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Client(error) => Some(error),
+            Self::InvalidUserAgent(error) => Some(error),
             _ => None,
         }
     }
@@ -150,6 +157,7 @@ fn validate_clearance(
     if clearance.user_agent.len() > MAX_USER_AGENT_BYTES {
         return Err(ClearanceError::UserAgentTooLong);
     }
+    HeaderValue::from_str(&clearance.user_agent).map_err(ClearanceError::InvalidUserAgent)?;
     if clearance.cf_clearance.is_empty() {
         return Err(ClearanceError::EmptyClearance);
     }

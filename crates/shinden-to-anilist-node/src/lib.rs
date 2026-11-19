@@ -112,6 +112,16 @@ impl NativeService {
             "FuzzySearch" => NativeReply::from_result(service.fuzzy_search(decode(&input)?).await),
             "FuzzyMatch" => NativeReply::from_result(service.fuzzy_match(decode(&input)?).await),
             "ExportXml" => NativeReply::from_result(service.export_xml(decode(&input)?).await),
+            "ExportWorkspaceXml" => {
+                let request: ExportXmlRequest = decode(&input)?;
+                if request.expected_source_version.is_none() || request.expected_database_version.is_none() {
+                    return Err(Error::new(
+                        Status::InvalidArg,
+                        "workspace export requires source and database versions",
+                    ));
+                }
+                NativeReply::from_result(service.export_xml(request).await)
+            },
             _ => return Err(unknown_method(&method)),
         };
         Ok(response)

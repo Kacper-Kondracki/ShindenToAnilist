@@ -64,7 +64,8 @@ pnpm dev:optimized
 ```
 
 Do pracy z rendererem w przeglądarce lub kolekcją Bruno uruchom osobno serwer gRPC poleceniem
-`pnpm dev:grpc`. Domyślny adres to `127.0.0.1:45187`.
+`pnpm dev:grpc`. Domyślny adres to `127.0.0.1:45187`. Do eksportu z renderera
+w przeglądarce używaj serwera z tego samego checkoutu.
 
 Przydatne komendy do pracy nad konkretnymi częściami:
 

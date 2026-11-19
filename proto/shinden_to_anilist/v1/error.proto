@@ -5,7 +5,18 @@ package shinden_to_anilist.v1;
 // Stable, renderer-safe information shared by the desktop transports.
 message AppError {
   ErrorKind kind = 1;
-  optional uint32 http_status = 2;
+  reserved 2 to 11;
+  optional uint32 http_status = 12;
+}
+
+// Fields used when reading a raw AppError trailer from the 1.0.2 gRPC server.
+message LegacyAppError {
+  ErrorKind kind = 1;
+  LegacyHttpError http = 6;
+}
+
+message LegacyHttpError {
+  uint32 status = 3;
 }
 
 enum ErrorKind {
@@ -64,4 +75,6 @@ enum ErrorKind {
   ERROR_KIND_EXPORT_DIALOG_FAILED = 43;
   ERROR_KIND_DATABASE_CHANGED = 44;
   ERROR_KIND_SOURCE_LIST_CHANGED = 45;
+  ERROR_KIND_DATABASE_NOT_FOUND = 46;
+  ERROR_KIND_SERVICE_UPGRADE_REQUIRED = 47;
 }

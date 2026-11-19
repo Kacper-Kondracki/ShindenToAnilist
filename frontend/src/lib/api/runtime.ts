@@ -1,10 +1,16 @@
-import { Code, ConnectError, createClient } from '@connectrpc/connect';
+import {
+  Code,
+  ConnectError,
+  createClient,
+  decodeBinaryHeader
+} from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { invoke, isTauri as isTauriApi } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import {
   AppErrorSchema,
-  ErrorKind
+  ErrorKind,
+  LegacyAppErrorSchema
 } from '../gen/shinden_to_anilist/v1/error_pb';
 import { ShindenToAnilistService } from '../gen/shinden_to_anilist/v1/service_pb';
 import { AppFailure } from './errors';
@@ -167,17 +173,41 @@ export async function callRpc<T>(run: (client: AppClient) => Promise<T>) {
     }
 
     const [detail] = error.findDetails(AppErrorSchema);
+    const failure = detail ?? readLegacyAppError(error);
     const transportKind = {
       [Code.Canceled]: ErrorKind.CANCELLED,
       [Code.DeadlineExceeded]: ErrorKind.DEADLINE_EXCEEDED,
+      [Code.Unimplemented]: ErrorKind.SERVICE_UPGRADE_REQUIRED,
       [Code.Unavailable]: ErrorKind.SERVICE_UNAVAILABLE
     } as Partial<Record<Code, ErrorKind>>;
     throw new AppFailure(
-      detail?.kind || transportKind[error.code] || ErrorKind.UNKNOWN,
+      failure?.kind || transportKind[error.code] || ErrorKind.UNKNOWN,
       { cause: error },
-      detail?.httpStatus,
-      detail !== undefined
+      failure?.httpStatus,
+      failure !== undefined
     );
+  }
+}
+
+function readLegacyAppError(error: ConnectError) {
+  const trailer = error.metadata.get('grpc-status-details-bin');
+  // The old server put a raw AppError in the trailer and sent status INTERNAL.
+  if (trailer === null || error.metadata.get('grpc-status') !== '13') return;
+
+  try {
+    const legacy = decodeBinaryHeader(trailer, LegacyAppErrorSchema);
+    if (
+      legacy.kind < ErrorKind.SHINDEN_LIST_NOT_LOADED ||
+      legacy.kind > ErrorKind.UNKNOWN ||
+      // Legacy DATABASE_SIDECAR_IO shares the numeric value of gRPC INTERNAL.
+      (legacy.kind === ErrorKind.DATABASE_SIDECAR_IO &&
+        !legacy.$unknown?.some((field) => field.no === 4))
+    ) {
+      return;
+    }
+    return { kind: legacy.kind, httpStatus: legacy.http?.status || undefined };
+  } catch {
+    return;
   }
 }
 

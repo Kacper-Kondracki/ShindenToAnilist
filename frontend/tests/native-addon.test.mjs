@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -49,6 +49,11 @@ test('native addon loads database snapshots and streams protobuf over Node-API',
   };
   const open = (method, fields) =>
     service.openStream(method.name, encode(method, fields));
+  const verifyFailure = async (method, fields, kind) => {
+    const reply = await service.call(method.name, encode(method, fields));
+    assert.equal(reply.isError, true);
+    assert.equal(fromBinary(AppErrorSchema, reply.data).kind, kind);
+  };
   const read = async (stream, method) => {
     const reply = await stream.next();
     if (reply == null) return null;
@@ -91,7 +96,8 @@ test('native addon loads database snapshots and streams protobuf over Node-API',
     [
       header,
       ...Array.from({ length: 500 }, (_, i) => entry(i + 1)),
-      entry(maxId)
+      entry(maxId),
+      ''
     ].join('\n')
   );
   const { databaseVersion } = await call(methods.loadDatabase, { path });
@@ -105,6 +111,41 @@ test('native addon loads database snapshots and streams protobuf over Node-API',
   assert.equal(first.databaseVersion, databaseVersion);
   assert.equal(last.databaseVersion, databaseVersion);
   assert.equal(await read(full, methods.getDatabaseFull), null);
+
+  const exportPath = join(dir, 'export.xml');
+  await writeFile(exportPath, 'existing export');
+  await verifyFailure(
+    methods.exportWorkspaceXml,
+    {
+      path: exportPath,
+      expectedSourceVersion: 1n,
+      expectedDatabaseVersion: databaseVersion
+    },
+    ErrorKind.SOURCE_LIST_CHANGED
+  );
+  await verifyFailure(
+    methods.exportWorkspaceXml,
+    {
+      path: exportPath,
+      expectedSourceVersion: 0n,
+      expectedDatabaseVersion: databaseVersion + 1n
+    },
+    ErrorKind.DATABASE_CHANGED
+  );
+  assert.equal(await readFile(exportPath, 'utf8'), 'existing export');
+
+  await verifyFailure(
+    methods.setShindenCloudflareClearance,
+    {
+      clearance: {
+        userAgent: 'malformed\nagent',
+        cfClearance: 'synthetic',
+        domain: 'lista.shinden.pl',
+        path: '/'
+      }
+    },
+    ErrorKind.CLEARANCE_INVALID
+  );
 
   const cancelled = open(methods.getDatabaseFull);
   assert.equal(

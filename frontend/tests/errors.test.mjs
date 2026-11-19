@@ -1,13 +1,19 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { create, toBinary } from '@bufbuild/protobuf';
-import { Code, ConnectError, createClient } from '@connectrpc/connect';
+import {
+  Code,
+  ConnectError,
+  createClient,
+  encodeBinaryHeader
+} from '@connectrpc/connect';
 import { setTrailerStatus } from '@connectrpc/connect/protocol-grpc';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { createServer } from 'vite';
 
 function grpcWebTrailers(error) {
-  const headers = setTrailerStatus(new Headers(), error);
+  const headers =
+    error instanceof Headers ? error : setTrailerStatus(new Headers(), error);
   const trailer = Buffer.from(
     Array.from(headers, ([key, value]) => `${key}: ${value}\r\n`).join('')
   );
@@ -33,7 +39,7 @@ test('desktop transports preserve failure kinds and developer diagnostics', asyn
   const { AppFailure, ErrorKind, userErrorMessage } = await vite.ssrLoadModule(
     '/src/lib/api/errors.ts'
   );
-  const { AppErrorSchema } = await vite.ssrLoadModule(
+  const { AppErrorSchema, LegacyAppErrorSchema } = await vite.ssrLoadModule(
     '/src/lib/gen/shinden_to_anilist/v1/error_pb.ts'
   );
   const grpc = await vite.ssrLoadModule('/src/lib/api/protobufService.ts');
@@ -120,6 +126,51 @@ test('desktop transports preserve failure kinds and developer diagnostics', asyn
       }
     );
   });
+
+  await t.test(
+    'older gRPC errors keep their kind and HTTP status',
+    async (t) => {
+      t.mock.method(globalThis, 'fetch', async () =>
+        grpcWebTrailers(
+          new Headers({
+            'grpc-status': '13',
+            'grpc-message': 'Arbitrary%20server%20wording',
+            'grpc-status-details-bin': encodeBinaryHeader(
+              create(LegacyAppErrorSchema, {
+                kind: ErrorKind.SHINDEN_HTTP,
+                http: { status: 403 }
+              }),
+              LegacyAppErrorSchema
+            )
+          })
+        )
+      );
+      await assert.rejects(grpc.fetchSourceList(1, '123'), (error) => {
+        assert.equal(error.kind, ErrorKind.SHINDEN_HTTP);
+        assert.equal(error.httpStatus, 403);
+        return true;
+      });
+    }
+  );
+
+  await t.test(
+    'guarded export requires support from the standalone server',
+    async (t) => {
+      t.mock.method(globalThis, 'fetch', async (url) => {
+        assert.match(String(url), /\/ExportWorkspaceXml$/);
+        return grpcWebTrailers(
+          new ConnectError('Unsupported', Code.Unimplemented)
+        );
+      });
+      await assert.rejects(
+        grpc.exportXml([], '/tmp/export.xml', {
+          sourceVersion: 1n,
+          databaseVersion: 2n
+        }),
+        { kind: ErrorKind.SERVICE_UPGRADE_REQUIRED }
+      );
+    }
+  );
 
   await t.test(
     'aborting Electron import closes a pending native read',
@@ -293,6 +344,8 @@ test('desktop transports preserve failure kinds and developer diagnostics', asyn
       let failedUpdateCommand = 'check_database_update';
       let hasLocalDatabase = true;
       let localDatabaseCorrupt = false;
+      let remoteUpToDate = false;
+      let downloads = 0;
       const databasePath = '/tmp/test-database.jsonl';
       const tauri = {
         invoke: async (command, args) => {
@@ -303,10 +356,20 @@ test('desktop transports preserve failure kinds and developer diagnostics', asyn
             case 'app_paths':
               return { database: databasePath };
             case 'check_database_update':
-              return { status: { needsUpdate: true } };
+              return {
+                status: {
+                  needsUpdate: !remoteUpToDate,
+                  local: remoteUpToDate ? { release: 'current' } : undefined
+                }
+              };
+            case 'download_database':
+              downloads += 1;
+              localDatabaseCorrupt = false;
+              return { status: { release: 'current' } };
             case 'get_database_metadata':
               assert.equal(args.path, databasePath);
-              if (!hasLocalDatabase) throw { kind: ErrorKind.DATABASE_IO };
+              if (!hasLocalDatabase)
+                throw { kind: ErrorKind.DATABASE_NOT_FOUND };
               return {
                 metadata: { lastUpdate: { year: 2026, month: 7, day: 4 } }
               };
@@ -350,11 +413,23 @@ test('desktop transports preserve failure kinds and developer diagnostics', asyn
       }
 
       localDatabaseCorrupt = true;
-      assert.equal((await initializeDatabaseState(animeData)).status, 'error');
+      assert.equal(
+        (await initializeDatabaseState(animeData)).message,
+        userErrorMessage(new AppFailure(ErrorKind.DATABASE_JSON), '')
+      );
 
       hasLocalDatabase = false;
-      assert.equal((await initializeDatabaseState(animeData)).status, 'error');
-      assert.deepEqual(hydratedVersions, [1n, 1n]);
+      assert.equal(
+        (await initializeDatabaseState(animeData)).message,
+        userErrorMessage(new AppFailure(ErrorKind.DATABASE_HTTP), '')
+      );
+
+      hasLocalDatabase = true;
+      failedUpdateCommand = null;
+      remoteUpToDate = true;
+      assert.equal((await initializeDatabaseState(animeData)).status, 'ready');
+      assert.equal(downloads, 1);
+      assert.deepEqual(hydratedVersions, [1n, 1n, 1n]);
     }
   );
 
@@ -417,6 +492,70 @@ test('desktop transports preserve failure kinds and developer diagnostics', asyn
       );
       assert.equal(appliedSavedClearance, 1);
       assert.equal(challengeCount, 1);
+    }
+  );
+
+  await t.test(
+    'database refresh replaces automatic matches before export resumes',
+    async (t) => {
+      let finishMatch;
+      const pendingMatch = new Promise((resolve) => {
+        finishMatch = resolve;
+      });
+      const tauri = {
+        invoke: async (command) => {
+          if (command === 'get_source_ids')
+            return { sourceVersion: '1', ids: ['7'] };
+          assert.equal(command, 'match_source_list');
+          return pendingMatch;
+        }
+      };
+      globalThis.window = { __TAURI_INTERNALS__: tauri };
+      globalThis.__TAURI_INTERNALS__ = tauri;
+      t.after(() => {
+        delete globalThis.window;
+        delete globalThis.__TAURI_INTERNALS__;
+      });
+
+      const { createWorkspaceController } = await vite.ssrLoadModule(
+        '/src/lib/features/workspace/workspaceController.svelte.ts'
+      );
+      const animeData = {
+        databaseVersion: 1n,
+        getDatabaseEntry: (id) => ({ id })
+      };
+      const workspace = createWorkspaceController(animeData);
+      workspace.activate({
+        provider: 'shinden',
+        query: '123',
+        manualOverrideScopeKey: 'test',
+        entryIdsByView: { all: [7n], automatic: [7n], manual: [], ignored: [] },
+        matchResult: {
+          sourceVersion: 1n,
+          databaseVersion: 1n,
+          entries: [{ shindenId: 7n, result: { winner: { id: 10n }, top: [] } }]
+        }
+      });
+      assert.equal(workspace.canExport, true);
+      animeData.databaseVersion = 2n;
+      const refresh = workspace.refreshMatches();
+      assert.equal(workspace.canExport, false);
+      assert.deepEqual(workspace.entryIdsByView.automatic, []);
+      finishMatch({
+        sourceVersion: '1',
+        databaseVersion: '2',
+        results: [
+          {
+            sourceId: '7',
+            candidates: [],
+            topCandidates: [],
+            winner: { id: '20', finalScore: 1 }
+          }
+        ]
+      });
+      await refresh;
+      assert.equal(workspace.canExport, true);
+      assert.equal(workspace.effectiveSelections[0].databaseId, 20n);
     }
   );
 });

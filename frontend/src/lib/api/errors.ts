@@ -34,6 +34,8 @@ const messages: Partial<Record<ErrorKind, string>> = {
     'Operacja trwała zbyt długo. Spróbuj ponownie za chwilę.',
   [ErrorKind.SERVICE_UNAVAILABLE]:
     'Nie można połączyć się z usługą aplikacji. Uruchom aplikację ponownie.',
+  [ErrorKind.SERVICE_UPGRADE_REQUIRED]:
+    'Zaktualizuj usługę aplikacji i spróbuj ponownie.',
   [ErrorKind.CLOUDFLARE_CHALLENGE]:
     'Shinden wymaga weryfikacji. Otwórz okno weryfikacji i wykonaj instrukcje na stronie.',
   [ErrorKind.CLEARANCE_EXPIRED]:
@@ -91,6 +93,7 @@ const messages: Partial<Record<ErrorKind, string>> = {
   [ErrorKind.DATABASE_HTTP]:
     'Nie udało się pobrać bazy anime. Sprawdź połączenie i spróbuj ponownie.',
   [ErrorKind.DATABASE_EMPTY]: 'Plik bazy anime jest pusty.',
+  [ErrorKind.DATABASE_NOT_FOUND]: 'Brakuje pliku lokalnej bazy anime.',
   [ErrorKind.DATABASE_MISSING_RELEASE_ASSET]:
     'W najnowszym wydaniu brakuje pliku bazy anime. Spróbuj ponownie później.',
   [ErrorKind.DATABASE_DIGEST_MISMATCH]:

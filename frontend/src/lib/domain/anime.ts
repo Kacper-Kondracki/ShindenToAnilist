@@ -159,6 +159,11 @@ export type MatchSelection = {
   databaseId: WireNumber;
 };
 
+export type ExportSnapshot = {
+  sourceVersion: WireNumber;
+  databaseVersion: WireNumber;
+};
+
 export type ExportResult = {
   path: string;
   exportedCount: number;

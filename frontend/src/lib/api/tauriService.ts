@@ -5,6 +5,7 @@ import {
 } from '../gen/shinden_to_anilist/v1/common_pb';
 import type {
   ExportResult,
+  ExportSnapshot,
   MatchSelection,
   SearchOptions,
   ShindenCloudflareClearance,
@@ -337,7 +338,8 @@ export async function matchSourceList(options: SearchOptions = {}) {
 
 export async function exportXml(
   matches: MatchSelection[],
-  resolvedPath: string
+  resolvedPath: string,
+  snapshot: ExportSnapshot
 ): Promise<ExportResult> {
   const selectedPath = await selectExportPath(resolvedPath);
 
@@ -352,6 +354,8 @@ export async function exportXml(
 
   const response = await callTauri<TauriExportXmlResponse>('export_xml', {
     path: selectedPath,
+    expectedSourceVersion: toTauriWireNumber(snapshot.sourceVersion),
+    expectedDatabaseVersion: toTauriWireNumber(snapshot.databaseVersion),
     matches: matches.map((match) => ({
       sourceId: toTauriWireNumber(match.sourceId),
       databaseId: toTauriWireNumber(match.databaseId)

@@ -3,11 +3,15 @@ import {
   SourceProvider
 } from '../gen/shinden_to_anilist/v1/common_pb';
 import type {
+  DatabaseInfo,
+  ExportSnapshot,
   MatchSelection,
   SearchOptions,
   ShindenCloudflareClearance,
   WireNumber
 } from '../domain/anime';
+import { reportFailure } from './diagnostics';
+import { ErrorKind, isFailure } from './errors';
 import * as protobufService from './protobufService';
 import {
   toDatabaseInfo,
@@ -27,29 +31,60 @@ export type { SourceFetchProgress };
 
 const backend = isTauriRuntime() ? tauriService : protobufService;
 
-export async function ensureDatabase() {
+export async function ensureDatabase(previous?: DatabaseInfo) {
   const { database: path } = await resolveAppPaths();
-  let release: AppDatabaseReleaseInfo | null;
-  let needsUpdate: boolean;
 
+  let update: Awaited<ReturnType<typeof checkDatabaseUpdate>> | undefined;
   try {
-    const update = await checkDatabaseUpdate(path);
-    needsUpdate = update.needsUpdate;
-    release = update.local ?? update.remote ?? null;
-    if (needsUpdate || release === null) {
-      release = await downloadDatabase(path);
-    }
+    update = await checkDatabaseUpdate(path);
   } catch (error) {
+    return loadCachedDatabase(error);
+  }
+
+  const release = update.local ?? update.remote ?? null;
+  if (!update.needsUpdate && release !== null) {
     try {
-      const info = await loadDatabaseInfo(path, null, false);
-      return { info, updateFailure: { error } };
-    } catch {
-      throw error;
+      const info = await loadDatabaseInfo(path, release, false);
+      return { info, updateFailure: null };
+    } catch (error) {
+      if (
+        !isFailure(error, ErrorKind.DATABASE_JSON) &&
+        !isFailure(error, ErrorKind.DATABASE_EMPTY) &&
+        !isFailure(error, ErrorKind.DATABASE_NOT_FOUND)
+      ) {
+        throw error;
+      }
+      reportFailure('load_cached_database', error);
     }
   }
 
-  const info = await loadDatabaseInfo(path, release, needsUpdate);
+  let downloadedRelease;
+  try {
+    downloadedRelease = await downloadDatabase(path);
+  } catch (error) {
+    return loadCachedDatabase(error);
+  }
+  const info = await loadDatabaseInfo(path, downloadedRelease, true);
   return { info, updateFailure: null };
+
+  async function loadCachedDatabase(updateError: unknown) {
+    if (
+      previous?.path === path &&
+      previous.databaseVersion === currentVersions().database
+    ) {
+      return { info: previous, updateFailure: { error: updateError } };
+    }
+
+    try {
+      const info = await loadDatabaseInfo(path, update?.local ?? null, false);
+      return { info, updateFailure: { error: updateError } };
+    } catch (cacheError) {
+      if (isFailure(cacheError, ErrorKind.DATABASE_NOT_FOUND))
+        throw updateError;
+      reportFailure('update_database', updateError);
+      throw cacheError;
+    }
+  }
 }
 
 async function loadDatabaseInfo(
@@ -158,6 +193,14 @@ export function matchSourceList(options: SearchOptions = {}) {
   return backend.matchSourceList(options);
 }
 
-export async function exportXml(matches: MatchSelection[], path?: string) {
-  return backend.exportXml(matches, path ?? (await resolveAppPaths()).export);
+export async function exportXml(
+  matches: MatchSelection[],
+  snapshot: ExportSnapshot,
+  path?: string
+) {
+  return backend.exportXml(
+    matches,
+    path ?? (await resolveAppPaths()).export,
+    snapshot
+  );
 }
