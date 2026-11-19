@@ -56,6 +56,7 @@ pub fn run() {
     init_tracing();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_wayland_nvidia_quirk::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::new().expect("failed to build app HTTP clients"))
