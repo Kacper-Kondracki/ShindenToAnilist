@@ -23,30 +23,30 @@
     }
   },
   "devDependencies": {
-    "@bufbuild/buf": "^1.71.0",
-    "@bufbuild/protoc-gen-es": "^2.12.0",
+    "@bufbuild/buf": "^1.75.0",
+    "@bufbuild/protoc-gen-es": "^2.17.0",
     "@catppuccin/daisyui": "^2.1.1",
-    "@iconify-json/lucide": "^1.2.114",
+    "@iconify-json/lucide": "^1.2.156",
     "@iconify/tailwind4": "^1.2.3",
-    "@sveltejs/vite-plugin-svelte": "^7.1.2",
-    "@tailwindcss/vite": "^4.3.1",
-    "daisyui": "^5.5.23",
-    "prettier": "^3.8.4",
-    "prettier-plugin-svelte": "^4.1.1",
-    "prettier-plugin-tailwindcss": "0.0.0-insiders.fc3a063",
-    "svelte": "^5.56.3",
-    "svelte-check": "^4.6.0",
-    "tailwindcss": "^4.3.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tailwindcss/vite": "^4.3.5",
+    "daisyui": "^5.8.1",
+    "prettier": "^3.10.1",
+    "prettier-plugin-svelte": "^4.2.0",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "svelte": "^5.58.0",
+    "svelte-check": "^4.7.8",
+    "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3",
-    "virtua": "^0.49.1",
-    "vite": "^8.0.16"
+    "virtua": "^0.49.3",
+    "vite": "^8.3.8"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^2.12.0",
-    "@connectrpc/connect": "^2.1.2",
-    "@connectrpc/connect-web": "^2.1.2",
-    "@tauri-apps/api": "^2.11.1",
-    "@tauri-apps/plugin-dialog": "^2.7.1",
-    "@tauri-apps/plugin-opener": "^2.5.4"
+    "@bufbuild/protobuf": "^2.17.0",
+    "@connectrpc/connect": "^2.3.0",
+    "@connectrpc/connect-web": "^2.3.0",
+    "@tauri-apps/api": "^2.12.5",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "@tauri-apps/plugin-opener": "^2.7.3"
   }
 }

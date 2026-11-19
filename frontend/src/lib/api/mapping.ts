@@ -110,8 +110,7 @@ export type TauriShindenMatchResult = {
 };
 
 export type WireShindenMatchResult =
-  | ProtoShindenMatchResult
-  | TauriShindenMatchResult;
+  ProtoShindenMatchResult | TauriShindenMatchResult;
 
 export type TauriSourceMatchResult = {
   sourceId: WireNumberInput;
@@ -121,8 +120,7 @@ export type TauriSourceMatchResult = {
 };
 
 export type WireSourceMatchResult =
-  | ProtoSourceMatchResult
-  | TauriSourceMatchResult;
+  ProtoSourceMatchResult | TauriSourceMatchResult;
 
 export type TauriSearchOptions = {
   limit: number;

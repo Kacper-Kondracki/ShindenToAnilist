@@ -188,7 +188,7 @@ export function createMatchSelectorController(
   }
 
   if (initialSearchState.status === 'idle') {
-    search(resolveSearchQuery(query));
+    search(resolveSearchQuery(initialQuery));
   }
 
   function resolveSearchQuery(inputQuery: string) {

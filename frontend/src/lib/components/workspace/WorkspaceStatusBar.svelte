@@ -123,9 +123,9 @@
         bind:this={badges.apiBadgeElement}
       >
         <span class="status-badge__label">API</span>
-        <span class="status-badge__value status-badge__value--duration"
-          >{formatDuration(fetchDurationMs)}</span
-        >
+        <span class="status-badge__value status-badge__value--duration">
+          {formatDuration(fetchDurationMs)}
+        </span>
       </span>
       <span
         class:hidden-status-badge={!badges.showMatchBadge}
@@ -134,9 +134,9 @@
         bind:this={badges.matchBadgeElement}
       >
         <span class="status-badge__label">Program</span>
-        <span class="status-badge__value status-badge__value--duration"
-          >{matchTimeText}</span
-        >
+        <span class="status-badge__value status-badge__value--duration">
+          {matchTimeText}
+        </span>
       </span>
     </div>
     <button

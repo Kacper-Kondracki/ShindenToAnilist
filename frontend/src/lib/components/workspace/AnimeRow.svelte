@@ -20,12 +20,7 @@
   import type { RowMetadataBadge } from './RowMetadataBadges.svelte';
 
   export type AnimeMatchStatus =
-    | 'matched'
-    | 'review'
-    | 'unmatched'
-    | 'manual'
-    | 'suppressed'
-    | 'ignored';
+    'matched' | 'review' | 'unmatched' | 'manual' | 'suppressed' | 'ignored';
 
   let {
     entry,

@@ -197,5 +197,4 @@ export type UserListRequestState =
   | { status: 'error'; provider: Provider; query: string; message: string };
 
 export type WorkspaceState =
-  | { status: 'empty' }
-  | ({ status: 'active' } & LoadedUserList);
+  { status: 'empty' } | ({ status: 'active' } & LoadedUserList);
