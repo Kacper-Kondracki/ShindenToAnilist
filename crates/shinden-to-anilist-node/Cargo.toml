@@ -1,0 +1,21 @@
+[package]
+name = "shinden-to-anilist-node"
+version = "1.0.2"
+edition = "2024"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+async-stream = "0.3"
+futures-util = "0.3"
+napi = { version = "3", default-features = false, features = ["napi8", "tokio_rt"] }
+napi-derive = "3"
+prost = "0.14"
+shinden-to-anilist-grpc = { path = "../shinden-to-anilist-grpc", default-features = false }
+tokio = { version = "1.54", features = ["macros", "sync"] }
+tokio-util = "0.7"
+
+[build-dependencies]
+napi-build = "2"

@@ -8,6 +8,7 @@ import {
 } from '../gen/shinden_to_anilist/v1/error_pb';
 import { ShindenToAnilistService } from '../gen/shinden_to_anilist/v1/service_pb';
 import { AppFailure } from './errors';
+import { createElectronTransport } from './electronTransport';
 
 type AppPaths = {
   base: string;
@@ -38,11 +39,21 @@ const fallbackPaths = {
 
 let rpcClient: AppClient | undefined;
 
-type AppClient = Awaited<ReturnType<typeof createAppClient>>;
+type AppClient = ReturnType<typeof createAppClient>;
 
-async function createAppClient() {
+function createAppClient() {
+  const native = globalThis.shindenToAnilist?.native;
+  if (native !== undefined) {
+    return createClient(
+      ShindenToAnilistService,
+      createElectronTransport(native)
+    );
+  }
+
   const transport = createGrpcWebTransport({
-    baseUrl: await resolveGrpcBaseUrl(),
+    baseUrl:
+      import.meta.env.VITE_SHINDEN_TO_ANILIST_GRPC_BASE_URL ??
+      'http://127.0.0.1:45187',
     fetch: async (input, init) => {
       try {
         return await globalThis.fetch(input, init);
@@ -60,19 +71,6 @@ async function createAppClient() {
   });
 
   return createClient(ShindenToAnilistService, transport);
-}
-
-async function resolveGrpcBaseUrl() {
-  const getGrpcBaseUrl = globalThis.shindenToAnilist?.getGrpcBaseUrl;
-
-  if (getGrpcBaseUrl !== undefined) {
-    return await callDesktop(getGrpcBaseUrl, ErrorKind.SERVICE_UNAVAILABLE);
-  }
-
-  return (
-    import.meta.env.VITE_SHINDEN_TO_ANILIST_GRPC_BASE_URL ??
-    'http://127.0.0.1:45187'
-  );
 }
 
 export async function resolveAppPaths(): Promise<AppPaths> {
@@ -157,11 +155,11 @@ export async function openShindenCloudflareVerification(
 
 export async function callRpc<T>(run: (client: AppClient) => Promise<T>) {
   if (isTauriRuntime()) {
-    throw new Error('gRPC client called in Tauri');
+    throw new Error('Protobuf client called in Tauri');
   }
 
   try {
-    rpcClient ??= await createAppClient();
+    rpcClient ??= createAppClient();
     return await run(rpcClient);
   } catch (error) {
     if (!(error instanceof ConnectError)) {
@@ -212,7 +210,6 @@ const nativeErrorKinds = {
   cancelled: ErrorKind.CANCELLED,
   verificationAlreadyOpen: ErrorKind.VERIFICATION_WINDOW_ALREADY_OPEN,
   verificationFailed: ErrorKind.VERIFICATION_WINDOW_FAILED,
-  sidecarUnavailable: ErrorKind.SERVICE_UNAVAILABLE,
   exportDialogFailed: ErrorKind.EXPORT_DIALOG_FAILED,
   appPathsFailed: ErrorKind.APP_PATHS_FAILED,
   externalLinkFailed: ErrorKind.UNKNOWN

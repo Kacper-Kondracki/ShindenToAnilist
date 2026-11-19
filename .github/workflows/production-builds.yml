@@ -67,6 +67,14 @@ jobs:
       - name: Build Linux Electron AppImages
         run: pnpm export:linux
 
+      - name: Verify packaged Electron addons
+        run: |
+          node frontend/tests/native-addon.test.mjs \
+            dist/system-electron/*.AppDir/usr/lib/shindentoanilist/resources/native/shinden_to_anilist.node
+          ELECTRON_RUN_AS_NODE=1 dist/electron-builder/linux-unpacked/shindentoanilist \
+            frontend/tests/native-addon.test.mjs \
+            dist/electron-builder/linux-unpacked/resources/native/shinden_to_anilist.node
+
       - name: Build Linux Tauri executable
         run: pnpm bundle:tauri:linux
 

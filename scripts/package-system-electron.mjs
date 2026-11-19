@@ -21,12 +21,8 @@ const format = parseFormat();
 const outputRoot = resolve(root, 'dist', 'system-electron');
 const bundleName = `${productName}-${version}-linux-x64-system-electron`;
 const bundleRoot = resolve(outputRoot, bundleName);
-const sidecarSource = resolve(
-  root,
-  'target',
-  'release',
-  'shinden-to-anilist-grpc'
-);
+const addonName = 'shinden_to_anilist.node';
+const addonSource = resolve(root, 'electron', 'build', 'native', addonName);
 
 function parseFormat() {
   const formatArg = process.argv.find((arg) => arg.startsWith('--format='));
@@ -45,7 +41,7 @@ function ensureBuiltInputs() {
     resolve(root, 'electron', 'dist', 'main.js'),
     resolve(root, 'electron', 'dist', 'preload.cjs'),
     resolve(root, 'frontend', 'dist', 'index.html'),
-    sidecarSource,
+    addonSource,
     resolve(root, 'LICENSE'),
     resolve(root, 'electron', 'build', 'icon.png'),
     resolve(root, 'electron', 'build', 'icon.svg')
@@ -60,7 +56,7 @@ function ensureBuiltInputs() {
 
 function copyApp(appRoot, resourceRoot) {
   mkdirSync(appRoot, { recursive: true });
-  mkdirSync(resolve(resourceRoot, 'sidecar'), { recursive: true });
+  mkdirSync(resolve(resourceRoot, 'native'), { recursive: true });
 
   cpSync(resolve(root, 'electron', 'dist'), resolve(appRoot, 'dist'), {
     recursive: true
@@ -85,15 +81,11 @@ function copyApp(appRoot, resourceRoot) {
       2
     )}\n`
   );
-  copyFileSync(
-    sidecarSource,
-    resolve(resourceRoot, 'sidecar', 'shinden-to-anilist-grpc')
-  );
+  copyFileSync(addonSource, resolve(resourceRoot, 'native', addonName));
   copyFileSync(
     resolve(root, 'electron', 'build', 'icon.png'),
     resolve(resourceRoot, 'icon.png')
   );
-  chmodSync(resolve(resourceRoot, 'sidecar', 'shinden-to-anilist-grpc'), 0o755);
 }
 
 function desktopFile(exec) {

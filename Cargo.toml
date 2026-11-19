@@ -1,6 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/shinden-to-anilist-core", "crates/shinden-to-anilist-grpc", "tauri"]
+members = [
+    "crates/shinden-to-anilist-core",
+    "crates/shinden-to-anilist-grpc",
+    "crates/shinden-to-anilist-node",
+    "tauri",
+]
 
 [profile.release]
 lto = "thin"

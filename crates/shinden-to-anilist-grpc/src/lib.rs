@@ -18,7 +18,7 @@ use shinden_to_anilist_core::{
 };
 
 pub mod pb {
-    tonic::include_proto!("shinden_to_anilist.v1");
+    include!(concat!(env!("OUT_DIR"), "/shinden_to_anilist.v1.rs"));
 }
 
 pub mod cloudflare;

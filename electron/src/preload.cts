@@ -1,4 +1,8 @@
-import type { DesktopIpcResult, RendererPaths } from './ipcTypes.js' with {
+import type {
+  DesktopIpcResult,
+  NativeBridge,
+  RendererPaths
+} from './ipcTypes.js' with {
   'resolution-mode': 'import'
 };
 
@@ -14,7 +18,6 @@ type ShindenCloudflareVerificationOptions = {
 
 const getAppPathsChannel = 'shinden-to-anilist:get-app-paths';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
-const getGrpcBaseUrlChannel = 'shinden-to-anilist:get-grpc-base-url';
 const openExternalUrlChannel = 'shinden-to-anilist:open-external-url';
 const openShindenCloudflareVerificationChannel =
   'shinden-to-anilist:open-shinden-cloudflare-verification';
@@ -27,10 +30,20 @@ contextBridge.exposeInMainWorld('shindenToAnilist', {
     ipcRenderer.invoke(getAppPathsChannel) as Promise<
       DesktopIpcResult<RendererPaths>
     >,
-  getGrpcBaseUrl: () =>
-    ipcRenderer.invoke(getGrpcBaseUrlChannel) as Promise<
-      DesktopIpcResult<string>
-    >,
+  native: {
+    call: (method, input) =>
+      ipcRenderer.invoke('shinden-to-anilist:native-call', method, input),
+    openStream: (method, input) =>
+      ipcRenderer.invoke(
+        'shinden-to-anilist:native-open-stream',
+        method,
+        input
+      ),
+    readStream: (id) =>
+      ipcRenderer.invoke('shinden-to-anilist:native-read-stream', id),
+    closeStream: (id) =>
+      ipcRenderer.invoke('shinden-to-anilist:native-close-stream', id)
+  } satisfies NativeBridge,
   openShindenCloudflareVerification: (
     options?: ShindenCloudflareVerificationOptions
   ) =>

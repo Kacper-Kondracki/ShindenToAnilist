@@ -69,7 +69,7 @@ Aplikacja zapisuje logi lokalnie w folderze użytkownika.
 - Windows — `%LOCALAPPDATA%\ShindenToAnilist\logs`
 - macOS — `~/Library/Logs/ShindenToAnilist`
 
-`tauri.log` zawiera zdarzenia aplikacji Tauri. W wersji Electron `electron.log` zawiera zdarzenia okna i interfejsu, a `sidecar.log` zdarzenia usługi Rust. Na początku sesji zapisywana jest wersja aplikacji i identyfikator commita, jeśli był dostępny podczas budowania. Każdy plik jest obracany po osiągnięciu 1 MiB. Poprzedni plik ma rozszerzenie `.log.1`.
+`tauri.log` zawiera zdarzenia aplikacji Tauri. W wersji Electron `electron.log` zawiera zdarzenia okna i interfejsu, a `native.log` zdarzenia usługi Rust. Na początku sesji zapisywana jest wersja aplikacji i identyfikator commita, jeśli był dostępny podczas budowania. Każdy plik jest obracany po osiągnięciu 1 MiB. Poprzedni plik ma rozszerzenie `.log.1`.
 
 ## Dla developerów
 

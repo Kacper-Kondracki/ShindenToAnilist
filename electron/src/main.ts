@@ -10,22 +10,20 @@ import {
   session,
   shell
 } from 'electron';
-import type { ChildProcess } from 'node:child_process';
-import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  loadNativeService,
+  registerNativeServiceIpc
+} from './nativeService.js';
 import { registerShindenCloudflareIpc } from './shindenCloudflare.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const productName = 'ShindenToAnilist';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
-const getGrpcBaseUrlChannel = 'shinden-to-anilist:get-grpc-base-url';
 const openExternalUrlChannel = 'shinden-to-anilist:open-external-url';
 const getAppPathsChannel = 'shinden-to-anilist:get-app-paths';
-const sidecarReadyTimeoutMs = 15_000;
-const sidecarShutdownTimeoutMs = 3_000;
-const defaultDevGrpcBaseUrl = 'http://127.0.0.1:45187';
 const rendererContentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -34,22 +32,14 @@ const rendererContentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self' data:",
-  "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*"
+  rendererDevUrl() === undefined
+    ? "connect-src 'self'"
+    : "connect-src 'self' ws://127.0.0.1:4173"
 ].join('; ');
 
 type SelectExportPathOptions = {
   defaultPath?: string;
 };
-
-type SidecarReadyEvent = {
-  event: string;
-  addr?: string;
-};
-
-let sidecarProcess: ChildProcess | undefined;
-let stoppingSidecar = false;
-let sidecarShutdownTimer: NodeJS.Timeout | undefined;
-let grpcBaseUrlPromise: Promise<string> | undefined;
 
 ipcMain.handle(
   selectExportPathChannel,
@@ -73,16 +63,6 @@ ipcMain.handle(
 
       return result.canceled ? null : (result.filePath ?? null);
     })
-);
-
-ipcMain.handle(getGrpcBaseUrlChannel, () =>
-  ipcResult('sidecarUnavailable', async () => {
-    if (grpcBaseUrlPromise === undefined) {
-      throw new Error('ShindenToAnilist gRPC sidecar is not initializing');
-    }
-
-    return await grpcBaseUrlPromise;
-  })
 );
 
 ipcMain.on(
@@ -142,14 +122,12 @@ function appDataHome(): string {
   );
 }
 
-function sidecarExecutableName(): string {
-  return process.platform === 'win32'
-    ? 'shinden-to-anilist-grpc.exe'
-    : 'shinden-to-anilist-grpc';
-}
-
 function resourceDir(): string {
-  return process.env.SHINDEN_TO_ANILIST_RESOURCE_DIR ?? process.resourcesPath;
+  const resources = process.env.SHINDEN_TO_ANILIST_RESOURCE_DIR;
+  if (resources !== undefined) return resolve(resources);
+  return process.env.SHINDEN_TO_ANILIST_ELECTRON_DEV === '1'
+    ? resolve(__dirname, '..', 'build', 'dev')
+    : process.resourcesPath;
 }
 
 function appIconPath(): string | undefined {
@@ -163,131 +141,6 @@ function appIconPath(): string | undefined {
     (candidate): candidate is string =>
       candidate !== undefined && existsSync(candidate)
   );
-}
-
-function sidecarPath(): string {
-  return (
-    process.env.SHINDEN_TO_ANILIST_GRPC_BINARY ??
-    join(resourceDir(), 'sidecar', sidecarExecutableName())
-  );
-}
-
-function parseSidecarReadyLine(line: string): string | undefined {
-  try {
-    const event = JSON.parse(line) as SidecarReadyEvent;
-
-    if (event.event === 'ready' && event.addr !== undefined) {
-      return event.addr;
-    }
-  } catch {
-    return undefined;
-  }
-
-  return undefined;
-}
-
-function startSidecar(): Promise<string> {
-  if (process.env.SHINDEN_TO_ANILIST_GRPC_BASE_URL !== undefined) {
-    return Promise.resolve(process.env.SHINDEN_TO_ANILIST_GRPC_BASE_URL);
-  }
-
-  return new Promise((resolve, reject) => {
-    const child = spawn(
-      sidecarPath(),
-      ['--listen-addr', '127.0.0.1:0', '--exit-on-stdin-close'],
-      {
-        stdio: ['pipe', 'pipe', 'pipe']
-      }
-    );
-
-    sidecarProcess = child;
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-
-    let settled = false;
-    let ready = false;
-    let stdoutBuffer = '';
-    let stderrBuffer = '';
-
-    const timer = setTimeout(() => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      reject(
-        new Error(
-          `Timed out waiting for ShindenToAnilist gRPC sidecar readiness from ${sidecarPath()}`
-        )
-      );
-      child.kill();
-    }, sidecarReadyTimeoutMs);
-
-    child.stdout.on('data', (chunk: string) => {
-      stdoutBuffer += chunk;
-
-      for (;;) {
-        const newline = stdoutBuffer.indexOf('\n');
-        if (newline < 0) {
-          break;
-        }
-
-        const line = stdoutBuffer.slice(0, newline).trim();
-        stdoutBuffer = stdoutBuffer.slice(newline + 1);
-        const addr = parseSidecarReadyLine(line);
-
-        if (addr !== undefined && !settled) {
-          ready = true;
-          settled = true;
-          clearTimeout(timer);
-          resolve(`http://${addr}`);
-        }
-      }
-    });
-
-    child.stderr.on('data', (chunk: string) => {
-      if (!settled) stderrBuffer = (stderrBuffer + chunk).slice(-4000);
-      process.stderr.write(chunk);
-    });
-
-    child.on('error', (error) => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        reject(error);
-      }
-    });
-
-    child.on('exit', (code, signal) => {
-      if (sidecarProcess === child) {
-        sidecarProcess = undefined;
-      }
-
-      if (sidecarShutdownTimer !== undefined) {
-        clearTimeout(sidecarShutdownTimer);
-        sidecarShutdownTimer = undefined;
-      }
-
-      if (ready && !stoppingSidecar) {
-        logEvent('ERROR', 'sidecar exited', {
-          exitCode: code ?? undefined,
-          signal: signal ?? undefined
-        });
-      }
-
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        reject(
-          new Error(
-            `ShindenToAnilist gRPC sidecar exited before readiness: code=${code ?? 'null'} signal=${
-              signal ?? 'null'
-            } stderr=${stderrBuffer.trim()}`
-          )
-        );
-      }
-    });
-  });
 }
 
 function rendererDevUrl(): string | undefined {
@@ -323,26 +176,10 @@ function isRendererUrl(url: string): boolean {
   const devUrl = rendererDevUrl();
 
   if (devUrl !== undefined) {
-    return url.startsWith(devUrl);
+    return new URL(url).origin === new URL(devUrl).origin;
   }
 
   return url.startsWith('file://');
-}
-
-async function loadRenderer(win: BrowserWindow): Promise<void> {
-  const devUrl = rendererDevUrl();
-
-  if (devUrl !== undefined) {
-    await win.loadURL(devUrl);
-    return;
-  }
-
-  const indexPath =
-    process.env.SHINDEN_TO_ANILIST_RENDERER_DIST !== undefined
-      ? join(process.env.SHINDEN_TO_ANILIST_RENDERER_DIST, 'index.html')
-      : join(app.getAppPath(), 'renderer', 'index.html');
-
-  await win.loadFile(indexPath);
 }
 
 async function createWindow(): Promise<void> {
@@ -366,26 +203,21 @@ async function createWindow(): Promise<void> {
       });
     }
   });
-  await loadRenderer(win);
+  const rendererUrl =
+    rendererDevUrl() ??
+    pathToFileURL(
+      process.env.SHINDEN_TO_ANILIST_RENDERER_DIST !== undefined
+        ? resolve(process.env.SHINDEN_TO_ANILIST_RENDERER_DIST, 'index.html')
+        : join(app.getAppPath(), 'renderer', 'index.html')
+    ).href;
+  registerNativeServiceIpc(
+    win.webContents,
+    rendererUrl,
+    loadNativeService(resourceDir())
+  );
+  await win.loadURL(rendererUrl);
 }
 
-function stopSidecar(): void {
-  if (sidecarProcess === undefined || sidecarProcess.killed) {
-    return;
-  }
-
-  stoppingSidecar = true;
-  sidecarProcess.stdin?.end();
-  sidecarShutdownTimer ??= setTimeout(() => {
-    sidecarProcess?.kill();
-  }, sidecarShutdownTimeoutMs);
-  sidecarShutdownTimer.unref();
-}
-
-app.on('before-quit', stopSidecar);
-process.once('exit', () => {
-  sidecarProcess?.stdin?.destroy();
-});
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -407,17 +239,6 @@ app
 
     registerRendererContentSecurityPolicy();
     registerShindenCloudflareIpc({ getIconPath: appIconPath });
-    grpcBaseUrlPromise =
-      process.env.SHINDEN_TO_ANILIST_ELECTRON_DEV === '1'
-        ? Promise.resolve(
-            process.env.SHINDEN_TO_ANILIST_GRPC_BASE_URL ??
-              defaultDevGrpcBaseUrl
-          )
-        : startSidecar();
-    void grpcBaseUrlPromise.catch((error: unknown) => {
-      logFailure('sidecar startup failed', error);
-    });
-
     await createWindow();
   })
   .catch((error) => {

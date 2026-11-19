@@ -2,7 +2,10 @@ const PROTO_PATH: &str = "../../proto";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     emit_build_revision();
+    let grpc = std::env::var_os("CARGO_FEATURE_GRPC").is_some();
     tonic_prost_build::configure()
+        .build_client(grpc)
+        .build_server(grpc)
         .protoc_arg("--experimental_allow_proto3_optional")
         .compile_protos(
             &[

@@ -5,7 +5,9 @@ use std::{
     path::Path,
 };
 
+#[cfg(feature = "grpc")]
 use prost::Message;
+#[cfg(feature = "grpc")]
 use prost_types::Any;
 use shinden_to_anilist_core::{
     database::DatabaseError,
@@ -16,6 +18,7 @@ use shinden_to_anilist_core::{
         shinden::ShindenError,
     },
 };
+#[cfg(feature = "grpc")]
 use tonic::{
     Code,
     Status,
@@ -93,6 +96,7 @@ impl ServiceError {
         }
     }
 
+    #[cfg(feature = "grpc")]
     pub(crate) fn into_status(self) -> Status {
         let code = self.grpc_code();
         let error = self.report();
@@ -108,6 +112,7 @@ impl ServiceError {
         Status::with_details(code, message, status.encode_to_vec().into())
     }
 
+    #[cfg(feature = "grpc")]
     fn grpc_code(&self) -> Code {
         use ErrorKind::*;
         match self.kind {
@@ -141,6 +146,7 @@ impl ServiceError {
     }
 }
 
+#[cfg(feature = "grpc")]
 // Wire representation of google.rpc.Status, including the standard Any detail.
 #[derive(Message)]
 struct RpcStatus {
@@ -152,6 +158,7 @@ struct RpcStatus {
     details: Vec<Any>,
 }
 
+#[cfg(feature = "grpc")]
 impl From<ServiceError> for Status {
     fn from(error: ServiceError) -> Self { error.into_status() }
 }
@@ -304,6 +311,7 @@ fn request_kind(default: ErrorKind, source: &reqwest::Error) -> ErrorKind {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "grpc")]
     #[test]
     fn grpc_encodes_status_and_app_error_separately() {
         let failure = database_not_loaded().into_status();

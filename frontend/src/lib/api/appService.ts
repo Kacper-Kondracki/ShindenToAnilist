@@ -8,7 +8,7 @@ import type {
   ShindenCloudflareClearance,
   WireNumber
 } from '../domain/anime';
-import * as grpcService from './grpcService';
+import * as protobufService from './protobufService';
 import {
   toDatabaseInfo,
   type AppDatabaseReleaseInfo,
@@ -25,7 +25,7 @@ import { currentVersions } from './versions';
 export { currentVersions };
 export type { SourceFetchProgress };
 
-const backend = isTauriRuntime() ? tauriService : grpcService;
+const backend = isTauriRuntime() ? tauriService : protobufService;
 
 export async function ensureDatabase() {
   const { database: path } = await resolveAppPaths();

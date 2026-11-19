@@ -13,7 +13,7 @@ interface Window {
     getAppPaths?: () => Promise<
       DesktopIpcResult<import('../../electron/src/ipcTypes.js').RendererPaths>
     >;
-    getGrpcBaseUrl?: () => Promise<DesktopIpcResult<string>>;
+    native?: import('../../electron/src/ipcTypes.js').NativeBridge;
     openShindenCloudflareVerification?: (options?: {
       mode?: 'clearance' | 'autocloseTest';
     }) => Promise<

@@ -10,7 +10,7 @@ dopasowywanie, bazę anime i eksport XML. Provider powinien wystawiać wspólne 
 opcjonalne możliwości, na przykład bezpośrednie linki MAL. Szczegóły pobierania stron, limitów i
 parsowania zostają w module konkretnego providera.
 
-## gRPC
+## Usługa Rust i gRPC
 
 `crates/shinden-to-anilist-grpc/src/server/` dzieli usługę na warstwy:
 
@@ -19,8 +19,9 @@ parsowania zostają w module konkretnego providera.
 - `matching.rs` obsługuje wyszukiwanie, dopasowanie list i eksport wyników.
 - `providers/` zawiera logikę zależną od providera: `shinden`, `animezone`, `ogladajanime`, wspólny
   collector scrapowanych list oraz bezpośrednie dopasowania MAL.
-- `streaming.rs` zawiera wspólne batchowanie odpowiedzi streamowanych.
-- `mod.rs` utrzymuje publiczny typ `ShindenToAnilist`, stan usługi i implementację traitu gRPC.
+- `streaming.rs` dzieli odpowiedzi gRPC na partie.
+- `mod.rs` definiuje publiczny typ `ShindenToAnilist` i stan usługi.
+- `grpc.rs` zawiera adapter dla samodzielnego serwera gRPC, dostępny z funkcją Cargo `grpc`.
 
 `source.rs` i `matching.rs` mogą zawierać małe matche po enumach tylko jako routery. Kod pobierania,
 walidacji i provider-specific matchingu powinien mieszkać w `providers/`, żeby nowy provider nie
@@ -29,6 +30,14 @@ rozpychał centralnych handlerów.
 Nazwy RPC i wiadomości protobuf pozostają stabilne. Jeżeli pole protobuf ma historyczną nazwę
 `shinden_id`, a dane są już provider-agnostic, kod serwera powinien preferować semantykę `source_id`
 i traktować `shinden_id` jako zgodnościowy fallback.
+
+## Electron
+
+`crates/shinden-to-anilist-node` wystawia asynchroniczne wywołania usługi przez Node-API. Proces
+główny Electrona ładuje `shinden_to_anilist.node` z zasobów aplikacji i udostępnia wywołania głównej
+ramce renderera przez preload i IPC. Wiadomości oraz błędy przechodzą jako binarne protobuf.
+Renderer pobiera pojedyncze partie strumienia i może zamknąć go przez IPC. Zamknięcie strumienia
+przerywa oczekiwanie na kolejną partię i anuluje pobieranie listy.
 
 ## Tauri
 
@@ -46,7 +55,7 @@ Nazwy komend, argumenty i serializowane pola DTO są kontraktem frontendu.
 Warstwa `frontend/src/lib/api/` powinna rozdzielać:
 
 - wykrywanie runtime'u i klientów transportowych,
-- osobne implementacje backendów: `grpcService.ts` dla protobuf/Connect i `tauriService.ts` dla komend Tauri,
+- `protobufService.ts` obsługuje komunikaty protobuf przez IPC w Electronie i gRPC-Web w przeglądarce, a `tauriService.ts` obsługuje komendy Tauri,
 - wspólne mapowanie DTO/protobuf do domeny UI w `mapping.ts`,
 - śledzenie wersji danych,
 - cienką fasadę `appService.ts`, która wybiera backend raz i deleguje funkcje usługowe,

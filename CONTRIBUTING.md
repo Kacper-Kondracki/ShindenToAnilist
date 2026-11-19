@@ -10,11 +10,11 @@
 
 | Obszar | Technologia | Rola |
 | --- | --- | --- |
-| Desktop shell | Electron i Tauri | Natywne okno, dialogi plików, cykl życia procesu sidecara/bridge'a |
+| Desktop shell | Electron i Tauri | Natywne okno, dialogi plików i API desktopowe |
 | Renderer | Svelte 5, Vite, TypeScript | Interaktywny interfejs workspace'u |
 | Style | Tailwind CSS 4, daisyUI, Catppuccin | Layout aplikacji i motyw graficzny |
 | Silnik | Rust 2024 | Szybkie wczytywanie list, dopasowywanie, dostęp do bazy, eksport XML |
-| Granica IPC/API | gRPC, tonic, tonic-web, Connect-Web, Protocol Buffers | Typowana komunikacja między rendererem i rustowym sidecarem |
+| Granica IPC/API | Electron IPC, Node-API, komendy Tauri, Protocol Buffers | Typowana komunikacja między rendererem a usługą Rust |
 | Paczkowanie | electron-builder, Tauri, własne skrypty Node | Desktopowe paczki dla Linuksa i Windowsa |
 | Narzędzia workspace'u | pnpm workspaces, Cargo workspace, Prettier, rustfmt | Development i formatowanie |
 
@@ -24,11 +24,12 @@
 .
 +-- crates/
 |   +-- shinden-to-anilist-core/   # logika konwersji, dopasowywania, bazy i eksportu w Ruście
-|   +-- shinden-to-anilist-grpc/   # sidecar gRPC wystawiający silnik aplikacji
+|   +-- shinden-to-anilist-grpc/   # współdzielona usługa Rust i opcjonalny serwer gRPC
+|   +-- shinden-to-anilist-node/   # moduł Node-API ładowany przez Electron
 +-- electron/                      # kod main/preload Electrona i konfiguracja buildera
 +-- frontend/                      # aplikacja renderera w Svelte
 +-- proto/                         # współdzielone definicje usług protobuf
-+-- scripts/                       # skrypty buildowania, paczkowania, ikon i sidecara
++-- scripts/                       # skrypty buildowania, paczkowania i ikon
 +-- tauri/                         # bridge Tauri i natywne komendy desktopowe
 +-- bruno/                         # kolekcja zapytań API dla usługi gRPC
 ```
@@ -55,19 +56,15 @@ Uruchom pełną aplikację desktopową w trybie developerskim:
 pnpm dev
 ```
 
-To uruchamia razem trzy procesy:
-
-| Proces | Komenda | Rola |
-| --- | --- | --- |
-| Rust sidecar | `pnpm dev:grpc` | Uruchamia usługę gRPC na `127.0.0.1:45187` |
-| Renderer | `pnpm dev:frontend` | Uruchamia dev server Vite/Svelte |
-| Desktop shell | `pnpm dev:electron` | Buduje i otwiera aplikację Electron podpiętą do usług developerskich |
-
-Po pierwszym buildzie możesz użyć szybszego sidecara:
+Vite uruchamia renderer, a Electron ładuje skompilowany moduł Rust. Tryb zoptymalizowany buduje
+moduł w profilu release:
 
 ```bash
 pnpm dev:optimized
 ```
+
+Do pracy z rendererem w przeglądarce lub kolekcją Bruno uruchom osobno serwer gRPC poleceniem
+`pnpm dev:grpc`. Domyślny adres to `127.0.0.1:45187`.
 
 Przydatne komendy do pracy nad konkretnymi częściami:
 
@@ -87,14 +84,18 @@ Build pojedynczych części:
 ```bash
 pnpm build:frontend
 pnpm build:electron
-pnpm build:grpc:linux
+pnpm build:native
+```
+
+Test modułu Node-API po `pnpm build:native`:
+
+```bash
+node frontend/tests/native-addon.test.mjs
 ```
 
 Tworzenie paczek Electron AppImage dla Linuksa:
 
 ```bash
-pnpm bundle:linux:system
-pnpm bundle:linux:bundled
 pnpm bundle:linux:appimage:system
 pnpm bundle:linux:appimage:bundled
 ```

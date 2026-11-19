@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Code, ConnectError } from '@connectrpc/connect';
+import { create, toBinary } from '@bufbuild/protobuf';
+import { Code, ConnectError, createClient } from '@connectrpc/connect';
 import { setTrailerStatus } from '@connectrpc/connect/protocol-grpc';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { createServer } from 'vite';
@@ -35,7 +36,7 @@ test('desktop transports preserve failure kinds and developer diagnostics', asyn
   const { AppErrorSchema } = await vite.ssrLoadModule(
     '/src/lib/gen/shinden_to_anilist/v1/error_pb.ts'
   );
-  const grpc = await vite.ssrLoadModule('/src/lib/api/grpcService.ts');
+  const grpc = await vite.ssrLoadModule('/src/lib/api/protobufService.ts');
 
   const failure = { kind: ErrorKind.DATABASE_MISSING_RELEASE_ASSET };
   const grpcError = new ConnectError(
@@ -79,6 +80,83 @@ test('desktop transports preserve failure kinds and developer diagnostics', asyn
         userErrorMessage(tauriFailure, '')
       );
       assert.match(userErrorMessage(rpcFailure, ''), /pliku bazy anime/);
+    }
+  );
+
+  await t.test('Electron preserves native service failures', async () => {
+    const { createElectronTransport } = await vite.ssrLoadModule(
+      '/src/lib/api/electronTransport.ts'
+    );
+    const { ShindenToAnilistService } = await vite.ssrLoadModule(
+      '/src/lib/gen/shinden_to_anilist/v1/service_pb.ts'
+    );
+    const transport = createElectronTransport({
+      call: async (method) => {
+        assert.equal(method, 'DownloadDatabase');
+        return {
+          ok: true,
+          value: {
+            isError: true,
+            data: toBinary(
+              AppErrorSchema,
+              create(AppErrorSchema, {
+                kind: ErrorKind.DATABASE_HTTP,
+                httpStatus: 429
+              })
+            )
+          }
+        };
+      }
+    });
+    const client = createClient(ShindenToAnilistService, transport);
+    await assert.rejects(
+      client.downloadDatabase({ path: '/tmp/example' }),
+      (error) => {
+        assert.ok(error instanceof AppFailure);
+        assert.equal(error.kind, ErrorKind.DATABASE_HTTP);
+        assert.equal(error.httpStatus, 429);
+        assert.equal(error.reported, true);
+        return true;
+      }
+    );
+  });
+
+  await t.test(
+    'aborting Electron import closes a pending native read',
+    async () => {
+      const { createElectronTransport } = await vite.ssrLoadModule(
+        '/src/lib/api/electronTransport.ts'
+      );
+      const { ShindenToAnilistService } = await vite.ssrLoadModule(
+        '/src/lib/gen/shinden_to_anilist/v1/service_pb.ts'
+      );
+      const reading = Promise.withResolvers();
+      const pending = Promise.withResolvers();
+      const closed = [];
+      const transport = createElectronTransport({
+        openStream: async () => ({ ok: true, value: 42 }),
+        readStream: (id) => {
+          assert.equal(id, 42);
+          reading.resolve();
+          return pending.promise;
+        },
+        closeStream: async (id) => {
+          closed.push(id);
+          pending.resolve({ ok: true, value: null });
+        }
+      });
+      const abort = new AbortController();
+      const client = createClient(ShindenToAnilistService, transport);
+      const stream = client.fetchSourceList({}, { signal: abort.signal });
+      const next = stream[Symbol.asyncIterator]().next();
+      await reading.promise;
+      abort.abort();
+      await assert.rejects(next, (error) => {
+        assert.ok(error instanceof AppFailure);
+        assert.equal(error.kind, ErrorKind.CANCELLED);
+        return true;
+      });
+      assert.deepEqual(closed, [42]);
     }
   );
 
