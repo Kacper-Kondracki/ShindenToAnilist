@@ -116,6 +116,19 @@ pnpm bundle:tauri:windows:xwin
 Obecny kierunek wydań to Electron AppImage dla Linuksa oraz natywne paczki Tauri dla Windowsa.
 Wyniki buildów trafiają do `dist/`, `dist/electron-builder/` i katalogów stage'owanych przez skrypty Tauri.
 
+## Zmiana wersji
+
+```bash
+pnpm version:bump 1.0.3
+pnpm version:check
+```
+
+Pierwsze polecenie ustawia wersję wydania w głównym `package.json` i aktualizuje
+manifest Electrona, wersję współdzieloną przez pakiety Rust oraz `Cargo.lock`.
+Tauri pobiera wersję bezpośrednio z głównego `package.json`. Drugie polecenie
+sprawdza zgodność wersji przed wydaniem i jest uruchamiane również w CI.
+Opis wydania dopisz w `CHANGELOG.md`.
+
 ## Formatowanie
 
 Formatowanie całości:

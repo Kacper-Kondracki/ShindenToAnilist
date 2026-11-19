@@ -1,6 +1,5 @@
 {
   "name": "tauri",
-  "version": "1.0.2",
   "description": "Tauri shell for ShindenToAnilist.",
   "private": true,
   "productName": "ShindenToAnilist",

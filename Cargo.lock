@@ -5421,7 +5421,7 @@ dependencies = [
 
 [[package]]
 name = "shinden-to-anilist-core"
-version = "1.0.2"
+version = "1.1.0"
 dependencies = [
  "ahash",
  "ambassador",
@@ -5457,7 +5457,7 @@ dependencies = [
 
 [[package]]
 name = "shinden-to-anilist-grpc"
-version = "1.0.2"
+version = "1.1.0"
 dependencies = [
  "arc-swap",
  "prost",
@@ -5482,7 +5482,7 @@ dependencies = [
 
 [[package]]
 name = "shinden-to-anilist-node"
-version = "1.0.2"
+version = "1.1.0"
 dependencies = [
  "async-stream",
  "futures-util",
@@ -5497,7 +5497,7 @@ dependencies = [
 
 [[package]]
 name = "shinden-to-anilist-tauri"
-version = "1.0.2"
+version = "1.1.0"
 dependencies = [
  "reqwest",
  "serde",

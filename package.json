@@ -1,12 +1,14 @@
 {
   "name": "shinden-to-anilist",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Desktop tool for exporting Shinden lists into AniList-compatible data.",
   "private": true,
   "type": "module",
   "author": "Kacper Kondracki",
   "license": "MPL-2.0",
   "scripts": {
+    "version:bump": "node scripts/version.mjs",
+    "version:check": "node scripts/version.mjs --check",
     "dev:grpc": "cargo run -p shinden-to-anilist-grpc -- --listen-addr 127.0.0.1:45187",
     "dev:grpc-optimized": "cargo run --release -p shinden-to-anilist-grpc -- --listen-addr 127.0.0.1:45187",
     "dev:frontend": "pnpm --filter frontend dev",

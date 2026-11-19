@@ -1,5 +1,12 @@
 # Changelog
 
+## V3 1.1.0
+
+- Electron ładuje silnik aplikacji bezpośrednio jako natywny moduł Rust.
+- Aplikacja pobiera aktualizacje z utrzymywanej bazy anime i korzysta z lokalnej kopii, gdy sprawdzenie aktualizacji się nie powiedzie.
+- Komunikaty błędów są dokładniejsze, a aplikacja zapisuje lokalne logi diagnostyczne.
+- Poprawiono uruchamianie wersji Tauri na Linuksie z Waylandem i kartami NVIDIA.
+
 ## V3 1.0.2
 
 Oglądaj Anime czasem daje śmieciowe dane statusu oglądania. Zamiast wyrzucać błąd, takie przypadki są traktowane bez wywalania błędu jako planowane.
