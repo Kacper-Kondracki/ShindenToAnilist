@@ -13,7 +13,6 @@ use shinden_to_anilist_core::{
     searcher::SearcherAnimeExt,
 };
 use tokio::time::timeout;
-use tonic::Status;
 use tracing::info;
 
 use super::super::{
@@ -22,8 +21,9 @@ use super::super::{
 };
 use crate::{
     DatabaseState,
-    error::IntoStatus,
+    error::ServiceError,
     pb::{
+        ErrorKind,
         FetchShindenListRequest,
         FetchShindenListResponse,
         FetchSourceListRequest,
@@ -40,12 +40,11 @@ use crate::{
 pub(in crate::server) async fn fetch_source_list(
     service: &ShindenToAnilist,
     request: FetchSourceListRequest,
-    mut emit_progress: impl FnMut(SourceFetchProgress) -> Result<(), Status>,
-) -> Result<FetchSourceListResponse, Status> {
-    let user_id = request
-        .user
-        .parse::<u64>()
-        .map_err(|_| Status::invalid_argument("Id użytkownika Shinden musi być liczbą."))?;
+    mut emit_progress: impl FnMut(SourceFetchProgress) -> Result<(), ServiceError>,
+) -> Result<FetchSourceListResponse, ServiceError> {
+    let user_id = request.user.parse::<u64>().map_err(|error| {
+        ServiceError::caused_by(ErrorKind::InvalidSourceUser, "parse Shinden user ID", error)
+    })?;
 
     emit_progress(super::super::source::source_progress(
         SourceProvider::Shinden,
@@ -69,7 +68,10 @@ pub(in crate::server) async fn fetch_source_list(
         "",
     ))?;
 
-    info!(source_version, total_entries, "source list fetched");
+    info!(
+        provider = "Shinden",
+        source_version, total_entries, "source list fetched"
+    );
     Ok(FetchSourceListResponse {
         source_version,
         progress: Some(super::super::source::source_progress(
@@ -86,7 +88,7 @@ pub(in crate::server) async fn fetch_source_list(
 pub(in crate::server) async fn fetch_legacy_list(
     service: &ShindenToAnilist,
     request: FetchShindenListRequest,
-) -> Result<FetchShindenListResponse, Status> {
+) -> Result<FetchShindenListResponse, ServiceError> {
     let shinden = fetch_list(service, request.id).await?;
     let entries = shinden.len();
 
@@ -136,15 +138,18 @@ pub(in crate::server) fn match_source_list(
         .collect::<Vec<_>>()
 }
 
-async fn fetch_list(service: &ShindenToAnilist, user_id: u64) -> Result<ShindenList, Status> {
+async fn fetch_list(service: &ShindenToAnilist, user_id: u64) -> Result<ShindenList, ServiceError> {
     let shinden = ShindenList::get_from_shinden(service.http_clients.shinden(), user_id);
     timeout(SHINDEN_FETCH_TIMEOUT, shinden)
         .await
         .map_err(|_| {
-            Status::deadline_exceeded(format!(
-                "shinden list could not be fetched within {} seconds",
-                SHINDEN_FETCH_TIMEOUT.as_secs()
-            ))
+            ServiceError::new(
+                ErrorKind::DeadlineExceeded,
+                format!(
+                    "shinden list could not be fetched within {} seconds",
+                    SHINDEN_FETCH_TIMEOUT.as_secs()
+                ),
+            )
         })?
-        .map_err(IntoStatus::into_status)
+        .map_err(ServiceError::from)
 }

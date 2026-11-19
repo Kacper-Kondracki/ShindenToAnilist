@@ -4,7 +4,7 @@
     busy,
     readonly,
     canSubmit,
-    hasError,
+    invalidInput,
     errorMessage,
     onValueInput,
     onClearError,
@@ -14,7 +14,7 @@
     busy: boolean;
     readonly: boolean;
     canSubmit: boolean;
-    hasError: boolean;
+    invalidInput: boolean;
     errorMessage: string | null;
     onValueInput: (value: string) => void;
     onClearError: () => void;
@@ -27,31 +27,36 @@
   }
 </script>
 
-<form class="join flex-1" onsubmit={onSubmit}>
-  <label
-    class="user-list-input input join-item flex-1"
-    class:input-error={hasError}
-    title={errorMessage}
-  >
-    <span class="sr-only">ID lub nazwa użytkownika</span>
-    <input
-      {value}
-      type="text"
-      placeholder="ID, profil Shinden lub nazwa użytkownika"
-      autocomplete="off"
-      {readonly}
-      oninput={handleInput}
-      aria-invalid={hasError}
-    />
-  </label>
-  <button
-    class:load-button--active={busy}
-    class="load-button btn join-item btn-info"
-    type="submit"
-    disabled={!canSubmit}
-  >
-    <span class="load-button__text">Wczytaj</span>
-  </button>
+<form class="flex-1" onsubmit={onSubmit}>
+  <div class="join w-full">
+    <label
+      class="user-list-input input join-item flex-1"
+      class:input-error={invalidInput}
+    >
+      <span class="sr-only">ID lub nazwa użytkownika</span>
+      <input
+        {value}
+        type="text"
+        placeholder="ID, profil Shinden lub nazwa użytkownika"
+        autocomplete="off"
+        {readonly}
+        oninput={handleInput}
+        aria-invalid={invalidInput}
+        aria-describedby={errorMessage ? 'user-list-error' : undefined}
+      />
+    </label>
+    <button
+      class:load-button--active={busy}
+      class="load-button btn join-item btn-info"
+      type="submit"
+      disabled={!canSubmit}
+    >
+      <span class="load-button__text">Wczytaj</span>
+    </button>
+  </div>
+  {#if errorMessage}
+    <p id="user-list-error" class="text-error mt-1 text-sm">{errorMessage}</p>
+  {/if}
 </form>
 
 <style>

@@ -100,9 +100,8 @@ fn reject_private_list(path: &str, document: &Html) -> Result<(), OgladajAnimeEr
         .is_some_and(|text| text.contains("Ta lista anime jest prywatna"));
 
     if is_private {
-        return Err(OgladajAnimeError::Parse {
+        return Err(OgladajAnimeError::PrivateList {
             path: path.to_string(),
-            message: "anime list is private".to_string(),
         });
     }
 
@@ -266,12 +265,6 @@ mod tests {
 
         let error = parse_list_page("/anime_list/547515", html).expect_err("private list should fail");
 
-        assert!(matches!(
-            error,
-            OgladajAnimeError::Parse {
-                ref message,
-                ..
-            } if message == "anime list is private"
-        ));
+        assert!(matches!(error, OgladajAnimeError::PrivateList { .. }));
     }
 }

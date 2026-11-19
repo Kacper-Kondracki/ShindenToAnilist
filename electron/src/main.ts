@@ -1,3 +1,6 @@
+import { logEvent, logFailure, startDiagnostics } from './diagnostics.js';
+import { ipcResult } from './ipcResult.js';
+import type { RendererPaths } from './ipcTypes.js';
 import {
   app,
   BrowserWindow,
@@ -19,7 +22,7 @@ const productName = 'ShindenToAnilist';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
 const getGrpcBaseUrlChannel = 'shinden-to-anilist:get-grpc-base-url';
 const openExternalUrlChannel = 'shinden-to-anilist:open-external-url';
-const appConfigArgumentPrefix = '--shinden-to-anilist-config=';
+const getAppPathsChannel = 'shinden-to-anilist:get-app-paths';
 const sidecarReadyTimeoutMs = 15_000;
 const sidecarShutdownTimeoutMs = 3_000;
 const defaultDevGrpcBaseUrl = 'http://127.0.0.1:45187';
@@ -38,65 +41,80 @@ type SelectExportPathOptions = {
   defaultPath?: string;
 };
 
-type RendererPaths = {
-  base: string;
-  database: string;
-  export: string;
-};
-
-type AppConfig = {
-  paths: RendererPaths;
-};
-
 type SidecarReadyEvent = {
   event: string;
   addr?: string;
 };
 
-let rendererPaths: RendererPaths;
 let sidecarProcess: ChildProcess | undefined;
+let stoppingSidecar = false;
 let sidecarShutdownTimer: NodeJS.Timeout | undefined;
 let grpcBaseUrlPromise: Promise<string> | undefined;
 
 ipcMain.handle(
   selectExportPathChannel,
-  async (event, options?: SelectExportPathOptions) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    const dialogOptions = {
-      title: 'Wybierz plik eksportu',
-      defaultPath: options?.defaultPath ?? rendererPaths.export,
-      buttonLabel: 'Eksportuj',
-      filters: [
-        { name: 'XML', extensions: ['xml'] },
-        { name: 'Wszystkie pliki', extensions: ['*'] }
-      ]
-    };
-    const result =
-      window === null
-        ? await dialog.showSaveDialog(dialogOptions)
-        : await dialog.showSaveDialog(window, dialogOptions);
+  (event, options?: SelectExportPathOptions) =>
+    ipcResult('exportDialogFailed', async () => {
+      const window = BrowserWindow.fromWebContents(event.sender);
+      const dialogOptions = {
+        title: 'Wybierz plik eksportu',
+        defaultPath:
+          options?.defaultPath ?? join(app.getPath('documents'), 'export.xml'),
+        buttonLabel: 'Eksportuj',
+        filters: [
+          { name: 'XML', extensions: ['xml'] },
+          { name: 'Wszystkie pliki', extensions: ['*'] }
+        ]
+      };
+      const result =
+        window === null
+          ? await dialog.showSaveDialog(dialogOptions)
+          : await dialog.showSaveDialog(window, dialogOptions);
 
-    return result.canceled ? null : (result.filePath ?? null);
+      return result.canceled ? null : (result.filePath ?? null);
+    })
+);
+
+ipcMain.handle(getGrpcBaseUrlChannel, () =>
+  ipcResult('sidecarUnavailable', async () => {
+    if (grpcBaseUrlPromise === undefined) {
+      throw new Error('ShindenToAnilist gRPC sidecar is not initializing');
+    }
+
+    return await grpcBaseUrlPromise;
+  })
+);
+
+ipcMain.on(
+  'shinden-to-anilist:renderer-failure',
+  (_event, operation: unknown, detail: unknown) => {
+    if (
+      typeof operation === 'string' &&
+      /^[a-z][a-z0-9_]{0,63}$/.test(operation) &&
+      typeof detail === 'string'
+    ) {
+      logEvent('ERROR', 'renderer operation failed', { operation, detail });
+    }
   }
 );
 
-ipcMain.handle(getGrpcBaseUrlChannel, async () => {
-  if (grpcBaseUrlPromise === undefined) {
-    throw new Error('ShindenToAnilist gRPC sidecar is not initializing');
-  }
+ipcMain.handle(getAppPathsChannel, () =>
+  ipcResult('appPathsFailed', async () => createRendererPaths())
+);
 
-  return await grpcBaseUrlPromise;
-});
+ipcMain.handle(openExternalUrlChannel, (_event, url: string) =>
+  ipcResult('externalLinkFailed', async () => {
+    const parsedUrl = new URL(url);
 
-ipcMain.handle(openExternalUrlChannel, async (_event, url: string) => {
-  const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      throw new Error(
+        `Unsupported external URL protocol: ${parsedUrl.protocol}`
+      );
+    }
 
-  if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
-    throw new Error(`Unsupported external URL protocol: ${parsedUrl.protocol}`);
-  }
-
-  await shell.openExternal(parsedUrl.toString());
-});
+    await shell.openExternal(parsedUrl.toString());
+  })
+);
 
 function createRendererPaths(): RendererPaths {
   const base = appDataBasePath();
@@ -187,6 +205,7 @@ function startSidecar(): Promise<string> {
     child.stderr.setEncoding('utf8');
 
     let settled = false;
+    let ready = false;
     let stdoutBuffer = '';
     let stderrBuffer = '';
 
@@ -218,6 +237,7 @@ function startSidecar(): Promise<string> {
         const addr = parseSidecarReadyLine(line);
 
         if (addr !== undefined && !settled) {
+          ready = true;
           settled = true;
           clearTimeout(timer);
           resolve(`http://${addr}`);
@@ -226,7 +246,7 @@ function startSidecar(): Promise<string> {
     });
 
     child.stderr.on('data', (chunk: string) => {
-      stderrBuffer += chunk;
+      if (!settled) stderrBuffer = (stderrBuffer + chunk).slice(-4000);
       process.stderr.write(chunk);
     });
 
@@ -246,6 +266,13 @@ function startSidecar(): Promise<string> {
       if (sidecarShutdownTimer !== undefined) {
         clearTimeout(sidecarShutdownTimer);
         sidecarShutdownTimer = undefined;
+      }
+
+      if (ready && !stoppingSidecar) {
+        logEvent('ERROR', 'sidecar exited', {
+          exitCode: code ?? undefined,
+          signal: signal ?? undefined
+        });
       }
 
       if (!settled) {
@@ -318,7 +345,7 @@ async function loadRenderer(win: BrowserWindow): Promise<void> {
   await win.loadFile(indexPath);
 }
 
-async function createWindow(config: AppConfig): Promise<void> {
+async function createWindow(): Promise<void> {
   const icon = appIconPath();
   const win = new BrowserWindow({
     width: 1200,
@@ -327,13 +354,18 @@ async function createWindow(config: AppConfig): Promise<void> {
     minHeight: 800,
     ...(icon === undefined ? {} : { icon }),
     webPreferences: {
-      additionalArguments: [
-        `${appConfigArgumentPrefix}${JSON.stringify(config)}`
-      ],
       preload: join(__dirname, 'preload.cjs')
     }
   });
 
+  win.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason !== 'clean-exit') {
+      logEvent('ERROR', 'renderer process exited', {
+        reason: details.reason,
+        exitCode: details.exitCode
+      });
+    }
+  });
   await loadRenderer(win);
 }
 
@@ -342,6 +374,7 @@ function stopSidecar(): void {
     return;
   }
 
+  stoppingSidecar = true;
   sidecarProcess.stdin?.end();
   sidecarShutdownTimer ??= setTimeout(() => {
     sidecarProcess?.kill();
@@ -360,26 +393,34 @@ app.on('window-all-closed', () => {
 });
 
 app.setName(productName);
+startDiagnostics(app.getVersion());
+process.on('uncaughtExceptionMonitor', (error) =>
+  logFailure('uncaught main process exception', error)
+);
 
-app.whenReady().then(async () => {
-  if (shouldHideApplicationMenu()) {
-    Menu.setApplicationMenu(null);
-  }
+app
+  .whenReady()
+  .then(async () => {
+    if (shouldHideApplicationMenu()) {
+      Menu.setApplicationMenu(null);
+    }
 
-  registerRendererContentSecurityPolicy();
-  registerShindenCloudflareIpc({ getIconPath: appIconPath });
-  rendererPaths = createRendererPaths();
-  grpcBaseUrlPromise =
-    process.env.SHINDEN_TO_ANILIST_ELECTRON_DEV === '1'
-      ? Promise.resolve(
-          process.env.SHINDEN_TO_ANILIST_GRPC_BASE_URL ?? defaultDevGrpcBaseUrl
-        )
-      : startSidecar();
-  void grpcBaseUrlPromise.catch((error: unknown) => {
-    console.error('Unable to start ShindenToAnilist gRPC sidecar', error);
+    registerRendererContentSecurityPolicy();
+    registerShindenCloudflareIpc({ getIconPath: appIconPath });
+    grpcBaseUrlPromise =
+      process.env.SHINDEN_TO_ANILIST_ELECTRON_DEV === '1'
+        ? Promise.resolve(
+            process.env.SHINDEN_TO_ANILIST_GRPC_BASE_URL ??
+              defaultDevGrpcBaseUrl
+          )
+        : startSidecar();
+    void grpcBaseUrlPromise.catch((error: unknown) => {
+      logFailure('sidecar startup failed', error);
+    });
+
+    await createWindow();
+  })
+  .catch((error) => {
+    logFailure('desktop startup failed', error);
+    app.quit();
   });
-
-  await createWindow({
-    paths: rendererPaths
-  });
-});

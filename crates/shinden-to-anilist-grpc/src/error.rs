@@ -1,9 +1,12 @@
 use std::{
+    error::Error,
+    fmt,
     io,
     path::Path,
 };
 
 use prost::Message;
+use prost_types::Any;
 use shinden_to_anilist_core::{
     database::DatabaseError,
     exporter::xml::XmlExportError,
@@ -19,579 +22,331 @@ use tonic::{
 };
 use tracing::warn;
 
-use crate::pb::{
-    AppError,
-    DigestMismatchError,
-    ErrorKind,
-    HttpError,
-    IoError,
-    JsonError,
-    MissingReleaseAssetError,
-    OutOfIndexError,
-    ShindenApiError,
-    UnloadedResourceError,
-    XmlExportError as PbXmlExportError,
-    app_error::Details,
+use crate::{
+    cloudflare::ClearanceError,
+    pb::{
+        AppError,
+        ErrorKind,
+    },
 };
 
-impl AppError {
-    pub fn into_status(self) -> Status {
-        warn!(
-            kind = ?self.kind(),
-            message = %self.message,
-            "returning application error"
-        );
-        Status::with_details(Code::Internal, self.message.clone(), self.encode_to_vec().into())
-    }
-}
-
-pub trait IntoStatus {
-    fn into_status(self) -> Status;
-}
-
-impl IntoStatus for DatabaseError {
-    fn into_status(self) -> Status { database_error(self).into_status() }
-}
-
-impl IntoStatus for ShindenError {
-    fn into_status(self) -> Status { shinden_error(self).into_status() }
-}
-
-impl IntoStatus for AnimeZoneError {
-    fn into_status(self) -> Status { animezone_error(self).into_status() }
-}
-
-impl IntoStatus for OgladajAnimeError {
-    fn into_status(self) -> Status { ogladajanime_error(self).into_status() }
-}
-
-impl IntoStatus for XmlExportError {
-    fn into_status(self) -> Status { xml_export_error(self).into_status() }
-}
-
-pub fn shinden_list_not_loaded() -> AppError {
-    unloaded_resource_error(
-        ErrorKind::ShindenListNotLoaded,
-        "Lista użytkownika nie została jeszcze wczytana.",
-        "shinden_list",
-    )
-}
-
-pub fn database_not_loaded() -> AppError {
-    unloaded_resource_error(
-        ErrorKind::DatabaseNotLoaded,
-        "Baza danych nie została jeszcze wczytana.",
-        "database",
-    )
-}
-
-pub fn database_sidecar_io_error(
-    error: io::Error,
-    path: impl AsRef<Path>,
-    operation: &'static str,
-) -> AppError {
-    io_error(
-        ErrorKind::DatabaseSidecarIo,
-        error.to_string(),
-        Some(path.as_ref()),
-        operation,
-        Some(error.kind()),
-    )
-}
-
-pub fn database_sidecar_json_error(error: serde_json::Error, path: impl AsRef<Path>) -> AppError {
-    json_error(ErrorKind::DatabaseSidecarJson, error, Some(path.as_ref()))
-}
-
-pub fn export_xml_io_error(error: io::Error, path: impl AsRef<Path>, operation: &'static str) -> AppError {
-    io_error(
-        ErrorKind::ExportIo,
-        error.to_string(),
-        Some(path.as_ref()),
-        operation,
-        Some(error.kind()),
-    )
-}
-
-pub fn database_error(error: DatabaseError) -> AppError {
-    match error {
-        DatabaseError::Io(error) => io_error(
-            ErrorKind::DatabaseIo,
-            error.to_string(),
-            None,
-            "database",
-            Some(error.kind()),
-        ),
-        DatabaseError::Json(error) => json_error(ErrorKind::DatabaseJson, error, None),
-        DatabaseError::Request(error) => http_error(ErrorKind::DatabaseHttp, error),
-        DatabaseError::Empty => simple_error(
-            ErrorKind::DatabaseEmpty,
-            "Plik bazy danych jest pusty i nie można go wczytać.",
-        ),
-        DatabaseError::MissingReleaseAsset { asset } => AppError {
-            kind: ErrorKind::DatabaseMissingReleaseAsset.into(),
-            message: format!("Najnowsze wydanie anime-offline-database nie zawiera pliku {asset}."),
-            details: Some(Details::MissingReleaseAsset(MissingReleaseAssetError {
-                asset: asset.to_string(),
-            })),
-        },
-        DatabaseError::DigestMismatch { expected, actual } => AppError {
-            kind: ErrorKind::DatabaseDigestMismatch.into(),
-            message: "Pobrana baza danych ma nieprawidłową sumę kontrolną. Spróbuj pobrać ją ponownie."
-                .to_string(),
-            details: Some(Details::DigestMismatch(DigestMismatchError { expected, actual })),
-        },
-    }
-}
-
-pub fn shinden_error(error: ShindenError) -> AppError {
-    match error {
-        ShindenError::Io(error) => io_error(
-            ErrorKind::ShindenIo,
-            error.to_string(),
-            None,
-            "shinden",
-            Some(error.kind()),
-        ),
-        ShindenError::Json(error) => json_error(ErrorKind::ShindenJson, error, None),
-        ShindenError::Request(error) => http_error(ErrorKind::ShindenHttp, error),
-        ShindenError::Http {
-            status,
-            url,
-            content_type,
-            cf_mitigated,
-            body_preview,
-        } => AppError {
-            kind: ErrorKind::ShindenHttp.into(),
-            message: format!(
-                "shinden api returned HTTP {status} for {url}; content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
-            ),
-            details: Some(Details::Http(HttpError {
-                message: format!(
-                    "content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
-                ),
-                url,
-                status: status.as_u16().into(),
-            })),
-        },
-        ShindenError::Shinden(message) => AppError {
-            kind: ErrorKind::ShindenApi.into(),
-            message: shinden_api_user_message(&message),
-            details: Some(Details::ShindenApi(ShindenApiError { message })),
-        },
-    }
-}
-
-pub fn animezone_error(error: AnimeZoneError) -> AppError {
-    match error {
-        AnimeZoneError::Io(error) => io_error(
-            ErrorKind::AnimeZoneIo,
-            error.to_string(),
-            None,
-            "animezone",
-            Some(error.kind()),
-        ),
-        AnimeZoneError::Request(error) => http_error(ErrorKind::AnimeZoneHttp, error),
-        AnimeZoneError::RetryExhausted {
-            path,
-            attempts,
-            source,
-        } => AppError {
-            kind: ErrorKind::AnimeZoneRetryExhausted.into(),
-            message: format!("Nie udało się pobrać danych z AnimeZone po {attempts} próbach."),
-            details: Some(Details::Http(HttpError {
-                message: source.to_string(),
-                url: path,
-                status: source
-                    .status()
-                    .map(|status| status.as_u16().into())
-                    .unwrap_or_default(),
-            })),
-        },
-        AnimeZoneError::Parse { path, message } => AppError {
-            kind: ErrorKind::AnimeZoneParse.into(),
-            message: animezone_parse_user_message(&path, &message),
-            details: None,
-        },
-    }
-}
-
-pub fn ogladajanime_error(error: OgladajAnimeError) -> AppError {
-    match error {
-        OgladajAnimeError::Io(error) => io_error(
-            ErrorKind::OgladajAnimeIo,
-            error.to_string(),
-            None,
-            "ogladajanime",
-            Some(error.kind()),
-        ),
-        OgladajAnimeError::Request(error) => http_error(ErrorKind::OgladajAnimeHttp, error),
-        OgladajAnimeError::RetryExhausted {
-            path,
-            attempts,
-            source,
-        } => AppError {
-            kind: ErrorKind::OgladajAnimeRetryExhausted.into(),
-            message: format!("Nie udało się pobrać danych z Oglądaj Anime po {attempts} próbach."),
-            details: Some(Details::Http(HttpError {
-                message: source.to_string(),
-                url: path,
-                status: source
-                    .status()
-                    .map(|status| status.as_u16().into())
-                    .unwrap_or_default(),
-            })),
-        },
-        OgladajAnimeError::Parse { path, message } => AppError {
-            kind: ErrorKind::OgladajAnimeParse.into(),
-            message: ogladajanime_parse_user_message(&path, &message),
-            details: None,
-        },
-    }
-}
-
-pub fn xml_export_error(error: XmlExportError) -> AppError {
-    match error {
-        XmlExportError::Xml(error) => AppError {
-            kind: ErrorKind::ExportXml.into(),
-            message: "Nie udało się utworzyć pliku XML eksportu.".to_string(),
-            details: Some(Details::XmlExport(PbXmlExportError {
-                message: error.to_string(),
-            })),
-        },
-        XmlExportError::OutOfIndex(id, collection) => AppError {
-            kind: ErrorKind::ExportOutOfIndex.into(),
-            message: "Eksport odwołuje się do wpisu, którego nie ma na wczytanej liście.".to_string(),
-            details: Some(Details::OutOfIndex(OutOfIndexError {
-                id,
-                collection: collection.to_string(),
-            })),
-        },
-    }
-}
-
-fn unloaded_resource_error(
+#[derive(Debug)]
+pub struct ServiceError {
     kind: ErrorKind,
-    message: impl Into<String>,
-    resource: impl Into<String>,
-) -> AppError {
-    AppError {
-        kind: kind.into(),
-        message: message.into(),
-        details: Some(Details::UnloadedResource(UnloadedResourceError {
-            resource: resource.into(),
-        })),
+    context: String,
+    source: Option<Box<dyn Error + Send + Sync>>,
+    http_status: Option<u32>,
+}
+
+impl fmt::Display for ServiceError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{} ({})", self.context, self.kind.as_str_name())
     }
 }
 
-fn simple_error(kind: ErrorKind, message: impl Into<String>) -> AppError {
-    AppError {
-        kind: kind.into(),
-        message: message.into(),
-        details: None,
+impl Error for ServiceError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.source.as_deref().map(|error| error as &dyn Error)
     }
 }
 
-fn io_error(
-    kind: ErrorKind,
+impl ServiceError {
+    pub fn new(kind: ErrorKind, context: impl Into<String>) -> Self {
+        Self {
+            kind,
+            context: context.into(),
+            source: None,
+            http_status: None,
+        }
+    }
+
+    pub fn caused_by(
+        kind: ErrorKind,
+        context: impl Into<String>,
+        source: impl Error + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            source: Some(Box::new(source)),
+            ..Self::new(kind, context)
+        }
+    }
+
+    pub(crate) fn with_context(mut self, context: impl Into<String>) -> Self {
+        self.context = context.into();
+        self
+    }
+
+    pub fn report(&self) -> AppError {
+        if self.kind != ErrorKind::Cancelled {
+            let mut causes = Vec::new();
+            let mut current = self.source();
+            while let Some(error) = current {
+                causes.push(error.to_string());
+                current = error.source();
+            }
+            warn!(kind = ?self.kind, context = %self.context, http_status = self.http_status, ?causes, "application operation failed");
+        }
+
+        AppError {
+            kind: self.kind.into(),
+            http_status: self.http_status,
+        }
+    }
+
+    pub(crate) fn into_status(self) -> Status {
+        let code = self.grpc_code();
+        let error = self.report();
+        let message = self.kind.as_str_name();
+        let status = RpcStatus {
+            code: code as i32,
+            message: message.to_owned(),
+            details: vec![Any {
+                type_url: "type.googleapis.com/shinden_to_anilist.v1.AppError".to_owned(),
+                value: error.encode_to_vec(),
+            }],
+        };
+        Status::with_details(code, message, status.encode_to_vec().into())
+    }
+
+    fn grpc_code(&self) -> Code {
+        use ErrorKind::*;
+        match self.kind {
+            InvalidSource | InvalidSourceUser | ClearanceInvalid => Code::InvalidArgument,
+            Cancelled => Code::Cancelled,
+            DeadlineExceeded => Code::DeadlineExceeded,
+            SourceListNotFound => Code::NotFound,
+            CloudflareChallenge | ClearanceExpired | ShindenListNotLoaded | DatabaseNotLoaded
+            | ExportOutOfIndex => Code::FailedPrecondition,
+            SourceListPrivate | DatabasePermissionDenied | ExportPermissionDenied => Code::PermissionDenied,
+            DatabaseDigestMismatch => Code::DataLoss,
+            ServiceUnavailable => Code::Unavailable,
+            DatabaseMissingReleaseAsset => Code::FailedPrecondition,
+            DatabaseHttp
+            | ShindenHttp
+            | AnimeZoneHttp
+            | OgladajAnimeHttp
+            | AnimeZoneRetryExhausted
+            | OgladajAnimeRetryExhausted => match self.http_status {
+                Some(429) => Code::ResourceExhausted,
+                None | Some(500..=599) => Code::Unavailable,
+                _ => Code::Internal,
+            },
+            _ => Code::Internal,
+        }
+    }
+
+    fn with_http_status(mut self, status: Option<reqwest::StatusCode>) -> Self {
+        self.http_status = status.map(|status| u32::from(status.as_u16()));
+        self
+    }
+}
+
+// Wire representation of google.rpc.Status, including the standard Any detail.
+#[derive(Message)]
+struct RpcStatus {
+    #[prost(int32, tag = "1")]
+    code: i32,
+    #[prost(string, tag = "2")]
     message: String,
-    path: Option<&Path>,
-    operation: impl Into<String>,
-    os_error_kind: Option<io::ErrorKind>,
-) -> AppError {
-    let operation = operation.into();
-    AppError {
-        kind: kind.into(),
-        message: io_user_message(kind, path, &operation),
-        details: Some(Details::Io(IoError {
-            message,
-            path: path
-                .map(|path| path.to_string_lossy().into_owned())
-                .unwrap_or_default(),
-            operation,
-            os_error_kind: os_error_kind.map(|kind| format!("{kind:?}")).unwrap_or_default(),
-        })),
-    }
+    #[prost(message, repeated, tag = "3")]
+    details: Vec<Any>,
 }
 
-fn json_error(kind: ErrorKind, error: serde_json::Error, path: Option<&Path>) -> AppError {
-    let message = error.to_string();
-    AppError {
-        kind: kind.into(),
-        message: json_user_message(kind, path, error.line(), error.column()),
-        details: Some(Details::Json(JsonError {
-            message,
-            path: path
-                .map(|path| path.to_string_lossy().into_owned())
-                .unwrap_or_default(),
-            line: error.line() as u64,
-            column: error.column() as u64,
-            category: format!("{:?}", error.classify()),
-        })),
-    }
+impl From<ServiceError> for Status {
+    fn from(error: ServiceError) -> Self { error.into_status() }
 }
 
-fn http_error(kind: ErrorKind, error: reqwest::Error) -> AppError {
-    let message = error.to_string();
-    let user_message = http_user_message(kind, &error);
-    AppError {
-        kind: kind.into(),
-        message: user_message,
-        details: Some(Details::Http(HttpError {
-            message,
-            url: error.url().map(ToString::to_string).unwrap_or_default(),
-            status: error
-                .status()
-                .map(|status| status.as_u16().into())
-                .unwrap_or_default(),
-        })),
-    }
+pub(crate) fn shinden_list_not_loaded() -> ServiceError {
+    ServiceError::new(ErrorKind::ShindenListNotLoaded, "source list is not loaded")
 }
 
-fn io_user_message(kind: ErrorKind, path: Option<&Path>, operation: &str) -> String {
-    let target = path
-        .map(|path| format!(" ({})", path.to_string_lossy()))
-        .unwrap_or_default();
-
-    match kind {
-        ErrorKind::DatabaseIo | ErrorKind::DatabaseSidecarIo => {
-            format!("Nie udało się odczytać lub zapisać bazy danych{target}.")
-        },
-        ErrorKind::ExportIo => format!("Nie udało się zapisać pliku eksportu{target}."),
-        ErrorKind::ShindenIo => "Nie udało się odczytać danych Shindena.".to_string(),
-        ErrorKind::AnimeZoneIo => "Nie udało się odczytać danych AnimeZone.".to_string(),
-        ErrorKind::OgladajAnimeIo => "Nie udało się odczytać danych Oglądaj Anime.".to_string(),
-        _ => format!("Nie udało się wykonać operacji „{operation}”{target}."),
-    }
+pub(crate) fn database_not_loaded() -> ServiceError {
+    ServiceError::new(ErrorKind::DatabaseNotLoaded, "database is not loaded")
 }
 
-fn json_user_message(kind: ErrorKind, path: Option<&Path>, line: usize, column: usize) -> String {
-    let location = if line > 0 || column > 0 {
-        format!(" Linia {line}, kolumna {column}.")
+pub(crate) fn database_sidecar_io_error(error: io::Error, path: &Path, operation: &str) -> ServiceError {
+    let kind = if error.kind() == io::ErrorKind::PermissionDenied {
+        ErrorKind::DatabasePermissionDenied
     } else {
-        String::new()
+        ErrorKind::DatabaseSidecarIo
     };
-    let target = path
-        .map(|path| format!(" ({})", path.to_string_lossy()))
-        .unwrap_or_default();
+    ServiceError::caused_by(
+        kind,
+        format!("{operation} database metadata at {}", path.display()),
+        error,
+    )
+}
 
-    match kind {
-        ErrorKind::DatabaseJson | ErrorKind::DatabaseSidecarJson => {
-            format!("Plik bazy danych ma nieprawidłowy format JSON{target}.{location}")
-        },
-        ErrorKind::ShindenJson => format!("Shinden zwrócił nieprawidłowe dane JSON.{location}"),
-        _ => format!("Nie udało się odczytać danych JSON{target}.{location}"),
+pub(crate) fn database_sidecar_json_error(error: serde_json::Error, path: &Path) -> ServiceError {
+    ServiceError::caused_by(
+        ErrorKind::DatabaseSidecarJson,
+        format!("process database metadata at {}", path.display()),
+        error,
+    )
+}
+
+pub(crate) fn export_xml_io_error(error: io::Error, path: &Path, operation: &str) -> ServiceError {
+    let kind = if error.kind() == io::ErrorKind::PermissionDenied {
+        ErrorKind::ExportPermissionDenied
+    } else {
+        ErrorKind::ExportIo
+    };
+    ServiceError::caused_by(kind, format!("{operation} export at {}", path.display()), error)
+}
+
+impl From<DatabaseError> for ServiceError {
+    fn from(error: DatabaseError) -> Self {
+        let (kind, status) = match &error {
+            DatabaseError::Io(source) if source.kind() == io::ErrorKind::PermissionDenied => {
+                (ErrorKind::DatabasePermissionDenied, None)
+            },
+            DatabaseError::Io(_) => (ErrorKind::DatabaseIo, None),
+            DatabaseError::Json(_) => (ErrorKind::DatabaseJson, None),
+            DatabaseError::Request(source) => {
+                (request_kind(ErrorKind::DatabaseHttp, source), source.status())
+            },
+            DatabaseError::Empty => (ErrorKind::DatabaseEmpty, None),
+            DatabaseError::MissingReleaseAsset { .. } => (ErrorKind::DatabaseMissingReleaseAsset, None),
+            DatabaseError::DigestMismatch { .. } => (ErrorKind::DatabaseDigestMismatch, None),
+        };
+        Self::caused_by(kind, "access database", error).with_http_status(status)
     }
 }
 
-fn http_user_message(kind: ErrorKind, error: &reqwest::Error) -> String {
-    let status = error
-        .status()
-        .map(|status| format!(" Kod odpowiedzi: {status}."))
-        .unwrap_or_default();
-
-    match kind {
-        ErrorKind::DatabaseHttp => {
-            format!("Nie udało się pobrać informacji o bazie danych.{status}")
-        },
-        ErrorKind::ShindenHttp => format!("Nie udało się połączyć z Shindenem.{status}"),
-        ErrorKind::AnimeZoneHttp => format!("Nie udało się połączyć z AnimeZone.{status}"),
-        ErrorKind::OgladajAnimeHttp => {
-            format!("Nie udało się połączyć z Oglądaj Anime.{status}")
-        },
-        _ => format!("Nie udało się wykonać żądania HTTP.{status}"),
+impl From<ShindenError> for ServiceError {
+    fn from(error: ShindenError) -> Self {
+        let (kind, status) = match &error {
+            ShindenError::Io(_) => (ErrorKind::ShindenIo, None),
+            ShindenError::Json(_) => (ErrorKind::ShindenJson, None),
+            ShindenError::Request(source) => (request_kind(ErrorKind::ShindenHttp, source), source.status()),
+            ShindenError::Http {
+                status, cf_mitigated, ..
+            } if cf_mitigated.eq_ignore_ascii_case("challenge") => {
+                (ErrorKind::CloudflareChallenge, Some(*status))
+            },
+            ShindenError::Http {
+                status: reqwest::StatusCode::NOT_FOUND,
+                ..
+            } => (
+                ErrorKind::SourceListNotFound,
+                Some(reqwest::StatusCode::NOT_FOUND),
+            ),
+            ShindenError::Http { status, .. } => (ErrorKind::ShindenHttp, Some(*status)),
+            ShindenError::Shinden(_) => (ErrorKind::ShindenApi, None),
+        };
+        Self::caused_by(kind, "fetch Shinden list", error).with_http_status(status)
     }
 }
 
-fn shinden_api_user_message(message: &str) -> String {
-    let normalized = message.to_ascii_lowercase();
-    if normalized.contains("private") || normalized.contains("prywat") {
-        return "Lista użytkownika Shinden jest prywatna albo niedostępna.".to_string();
+impl From<AnimeZoneError> for ServiceError {
+    fn from(error: AnimeZoneError) -> Self {
+        let (kind, status) = match &error {
+            AnimeZoneError::Io(_) => (ErrorKind::AnimeZoneIo, None),
+            AnimeZoneError::Request(source) => {
+                (request_kind(ErrorKind::AnimeZoneHttp, source), source.status())
+            },
+            AnimeZoneError::RetryExhausted { source, .. } => {
+                (ErrorKind::AnimeZoneRetryExhausted, source.status())
+            },
+            AnimeZoneError::Parse { .. } => (ErrorKind::AnimeZoneParse, None),
+        };
+        Self::caused_by(kind, "fetch AnimeZone list", error).with_http_status(status)
     }
-
-    if normalized.contains("not found") || normalized.contains("nie znaleziono") {
-        return "Nie znaleziono listy użytkownika Shinden.".to_string();
-    }
-
-    format!("Shinden zwrócił błąd: {message}")
 }
 
-fn animezone_parse_user_message(_path: &str, message: &str) -> String {
-    let normalized = message.to_ascii_lowercase();
-    if normalized.contains("missing title link") && normalized.contains("anime card") {
-        return "Nie udało się odczytać listy AnimeZone. Sprawdź nazwę użytkownika albo widoczność listy."
-            .to_string();
+impl From<OgladajAnimeError> for ServiceError {
+    fn from(error: OgladajAnimeError) -> Self {
+        let (kind, status) = match &error {
+            OgladajAnimeError::Io(_) => (ErrorKind::OgladajAnimeIo, None),
+            OgladajAnimeError::Request(source) => {
+                (request_kind(ErrorKind::OgladajAnimeHttp, source), source.status())
+            },
+            OgladajAnimeError::RetryExhausted { source, .. } => {
+                (ErrorKind::OgladajAnimeRetryExhausted, source.status())
+            },
+            OgladajAnimeError::PrivateList { .. } => (ErrorKind::SourceListPrivate, None),
+            OgladajAnimeError::Parse { .. } => (ErrorKind::OgladajAnimeParse, None),
+        };
+        Self::caused_by(kind, "fetch Oglądaj Anime list", error).with_http_status(status)
     }
-
-    "Nie udało się odczytać listy AnimeZone. Strona mogła zmienić format danych.".to_string()
 }
 
-fn ogladajanime_parse_user_message(_path: &str, message: &str) -> String {
-    let normalized = message.to_ascii_lowercase();
-    if normalized.contains("private") || normalized.contains("prywat") {
-        return "Lista użytkownika Oglądaj Anime jest prywatna albo niedostępna.".to_string();
+impl From<XmlExportError> for ServiceError {
+    fn from(error: XmlExportError) -> Self {
+        let kind = match error {
+            XmlExportError::Xml(_) => ErrorKind::ExportXml,
+            XmlExportError::OutOfIndex(..) => ErrorKind::ExportOutOfIndex,
+        };
+        Self::caused_by(kind, "write export XML", error)
     }
+}
 
-    "Nie udało się odczytać listy Oglądaj Anime. Strona mogła zmienić format danych.".to_string()
+impl From<ClearanceError> for ServiceError {
+    fn from(error: ClearanceError) -> Self {
+        let kind = match error {
+            ClearanceError::Expired => ErrorKind::ClearanceExpired,
+            ClearanceError::Client(_) | ClearanceError::InvalidCookieUrl => ErrorKind::Unknown,
+            _ => ErrorKind::ClearanceInvalid,
+        };
+        Self::caused_by(kind, "apply Shinden verification", error)
+    }
+}
+
+fn request_kind(default: ErrorKind, source: &reqwest::Error) -> ErrorKind {
+    if source.is_timeout() {
+        ErrorKind::DeadlineExceeded
+    } else {
+        default
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::io;
-
-    use prost::Message;
-    use shinden_to_anilist_core::{
-        database::DatabaseError,
-        providers::shinden::ShindenError,
-    };
-    use tonic::Code;
-
     use super::*;
-    use crate::pb::app_error::Details;
 
     #[test]
-    fn database_errors_map_to_expected_kinds() {
-        let cases = [
-            (
-                database_error(DatabaseError::Io(io::Error::from(io::ErrorKind::NotFound))),
-                ErrorKind::DatabaseIo,
-            ),
-            (
-                database_error(DatabaseError::Json(
-                    serde_json::from_str::<serde_json::Value>("{").unwrap_err(),
-                )),
-                ErrorKind::DatabaseJson,
-            ),
-            (database_error(DatabaseError::Empty), ErrorKind::DatabaseEmpty),
-            (
-                database_error(DatabaseError::MissingReleaseAsset {
-                    asset: "database.jsonl.zst",
-                }),
-                ErrorKind::DatabaseMissingReleaseAsset,
-            ),
-            (
-                database_error(DatabaseError::DigestMismatch {
-                    expected: "expected".to_string(),
-                    actual: "actual".to_string(),
-                }),
-                ErrorKind::DatabaseDigestMismatch,
-            ),
-        ];
-
-        for (error, kind) in cases {
-            assert_eq!(error.kind(), kind);
-        }
-    }
-
-    #[test]
-    fn shinden_errors_map_to_expected_kinds() {
-        let cases = [
-            (
-                shinden_error(ShindenError::Io(io::Error::from(io::ErrorKind::PermissionDenied))),
-                ErrorKind::ShindenIo,
-            ),
-            (
-                shinden_error(ShindenError::Json(
-                    serde_json::from_str::<serde_json::Value>("{").unwrap_err(),
-                )),
-                ErrorKind::ShindenJson,
-            ),
-            (
-                shinden_error(ShindenError::Shinden("private list".to_string())),
-                ErrorKind::ShindenApi,
-            ),
-            (
-                shinden_error(ShindenError::Http {
-                    status: reqwest::StatusCode::FORBIDDEN,
-                    url: "https://lista.shinden.pl/api/userlist/1/anime?limit=1&offset=0".to_string(),
-                    content_type: "text/html".to_string(),
-                    cf_mitigated: "challenge".to_string(),
-                    body_preview: "<html>challenge</html>".to_string(),
-                }),
-                ErrorKind::ShindenHttp,
-            ),
-        ];
-
-        for (error, kind) in cases {
-            assert_eq!(error.kind(), kind);
-        }
-    }
-
-    #[test]
-    fn shinden_http_error_preserves_response_details() {
-        let url = "https://lista.shinden.pl/api/userlist/1/anime?limit=1&offset=0";
-        let error = shinden_error(ShindenError::Http {
-            status: reqwest::StatusCode::FORBIDDEN,
-            url: url.to_string(),
-            content_type: "text/html".to_string(),
-            cf_mitigated: "challenge".to_string(),
-            body_preview: "<html>challenge</html>".to_string(),
-        });
-
-        assert_eq!(error.kind(), ErrorKind::ShindenHttp);
-        let Some(Details::Http(details)) = error.details else {
-            panic!("expected HTTP details");
+    fn grpc_encodes_status_and_app_error_separately() {
+        let failure = database_not_loaded().into_status();
+        let status = RpcStatus::decode(failure.details()).unwrap();
+        assert_eq!(failure.code(), Code::FailedPrecondition);
+        assert_eq!(status.code, failure.code() as i32);
+        let [detail] = status.details.as_slice() else {
+            panic!("expected one detail")
         };
-        assert_eq!(details.status, u32::from(reqwest::StatusCode::FORBIDDEN.as_u16()));
-        assert_eq!(details.url, url);
-        assert!(details.message.contains("cf-mitigated: challenge"));
-    }
-
-    #[tokio::test]
-    async fn request_errors_map_to_expected_kinds() {
-        let database_request_error = reqwest::Client::new()
-            .get("http://[::1")
-            .send()
-            .await
-            .unwrap_err();
-        let shinden_request_error = reqwest::Client::new()
-            .get("http://[::1")
-            .send()
-            .await
-            .unwrap_err();
-
         assert_eq!(
-            database_error(DatabaseError::Request(database_request_error)).kind(),
-            ErrorKind::DatabaseHttp
+            detail.type_url,
+            "type.googleapis.com/shinden_to_anilist.v1.AppError"
         );
-        assert_eq!(
-            shinden_error(ShindenError::Request(shinden_request_error)).kind(),
-            ErrorKind::ShindenHttp
-        );
-    }
-
-    #[test]
-    fn unloaded_errors_encode_as_internal_status_details() {
-        let status = shinden_list_not_loaded().into_status();
-
-        assert_eq!(status.code(), Code::Internal);
-
-        let error = AppError::decode(status.details()).expect("status details should decode as AppError");
-        assert_eq!(error.kind(), ErrorKind::ShindenListNotLoaded);
-        assert!(matches!(error.details, Some(Details::UnloadedResource(_))));
-
-        let status = database_not_loaded().into_status();
-        let error = AppError::decode(status.details()).expect("status details should decode as AppError");
-        assert_eq!(status.code(), Code::Internal);
+        let error = AppError::decode(detail.value.as_slice()).unwrap();
         assert_eq!(error.kind(), ErrorKind::DatabaseNotLoaded);
     }
 
     #[test]
-    fn sidecar_errors_include_typed_details() {
-        let error = database_sidecar_io_error(
-            io::Error::from(io::ErrorKind::PermissionDenied),
-            "/tmp/database.info.json",
-            "open",
-        );
-
-        assert_eq!(error.kind(), ErrorKind::DatabaseSidecarIo);
-        match error.details {
-            Some(Details::Io(details)) => {
-                assert_eq!(details.path, "/tmp/database.info.json");
-                assert_eq!(details.operation, "open");
-                assert_eq!(details.os_error_kind, "PermissionDenied");
-            },
-            details => panic!("expected io details, got {details:?}"),
+    fn cloudflare_is_classified_from_the_header() {
+        for (header, expected) in [
+            ("challenge", ErrorKind::CloudflareChallenge),
+            ("", ErrorKind::ShindenHttp),
+        ] {
+            let failure = ServiceError::from(ShindenError::Http {
+                status: reqwest::StatusCode::FORBIDDEN,
+                url: "https://lista.shinden.pl/".to_owned(),
+                content_type: "text/html".to_owned(),
+                cf_mitigated: header.to_owned(),
+            });
+            assert_eq!(failure.kind, expected);
+            assert_eq!(failure.http_status, Some(403));
         }
+    }
+
+    #[test]
+    fn local_permission_errors_keep_the_cause_and_operation() {
+        let failure = export_xml_io_error(
+            io::ErrorKind::PermissionDenied.into(),
+            Path::new("example.xml"),
+            "create",
+        );
+        assert_eq!(failure.kind, ErrorKind::ExportPermissionDenied);
+        assert_eq!(failure.context, "create export at example.xml");
+        assert!(failure.source.unwrap().is::<io::Error>());
     }
 }

@@ -12,7 +12,6 @@ use reqwest::{
     cookie::Jar,
     header::HeaderMap,
 };
-use tracing::info;
 
 use crate::cloudflare::{
     AppliedShindenCloudflareClearance,
@@ -62,10 +61,6 @@ impl ShindenHttpClient {
     ) -> Result<AppliedShindenCloudflareClearance, ClearanceError> {
         let clearance_client = shinden_client_from_cloudflare_clearance(clearance)?;
         *self.inner.write().expect("shinden HTTP client lock poisoned") = clearance_client.client;
-        info!(
-            accepted = clearance_client.applied.accepted,
-            "applied Shinden Cloudflare clearance to HTTP client"
-        );
 
         Ok(clearance_client.applied)
     }

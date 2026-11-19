@@ -11,10 +11,7 @@ use futures_util::{
 };
 use reqwest::Client;
 use thiserror::Error;
-use tracing::{
-    debug,
-    warn,
-};
+use tracing::debug;
 
 pub use self::models::*;
 use self::{
@@ -205,6 +202,10 @@ pub enum OgladajAnimeError {
         #[source]
         source: reqwest::Error,
     },
+    #[error("Oglądaj Anime list at {path} is private")]
+    PrivateList {
+        path: String,
+    },
     #[error("ogladajanime parse error at {path}: {message}")]
     Parse {
         path: String,
@@ -251,7 +252,7 @@ async fn fetch_ogladajanime_detail(
             Ok(detail) => Ok((item, Some(detail))),
             Err(error) => match fetch_tooltip_detail(&client, &user_id, item.id).await {
                 Ok(detail) => {
-                    warn!(
+                    debug!(
                         %path,
                         anime_id = item.id,
                         error = %error,
@@ -260,7 +261,7 @@ async fn fetch_ogladajanime_detail(
                     Ok((item, Some(detail)))
                 },
                 Err(tooltip_error) if options.fail_on_detail_error => {
-                    warn!(
+                    debug!(
                         %path,
                         anime_id = item.id,
                         error = %error,
@@ -270,7 +271,7 @@ async fn fetch_ogladajanime_detail(
                     Err(error)
                 },
                 Err(tooltip_error) => {
-                    warn!(
+                    debug!(
                         %path,
                         anime_id = item.id,
                         error = %error,
@@ -292,7 +293,7 @@ async fn fetch_ogladajanime_detail(
                 Ok((item, Some(detail)))
             },
             Err(tooltip_error) if options.fail_on_detail_error => {
-                warn!(
+                debug!(
                     %path,
                     anime_id = item.id,
                     error = %error,
@@ -302,7 +303,7 @@ async fn fetch_ogladajanime_detail(
                 Err(error.into())
             },
             Err(tooltip_error) => {
-                warn!(
+                debug!(
                     %path,
                     anime_id = item.id,
                     error = %error,
@@ -325,7 +326,7 @@ async fn fetch_tooltip_detail(
     let html = client.post_form_html(TOOLTIP_PATH, &referer, form).await?;
 
     parse_tooltip_page(TOOLTIP_PATH, &html)
-        .inspect_err(|error| warn!(anime_id, error = %error, "ogladajanime tooltip parse failed"))
+        .inspect_err(|error| debug!(anime_id, error = %error, "ogladajanime tooltip parse failed"))
 }
 
 struct OgladajAnimeProvider;

@@ -25,7 +25,6 @@ use shinden_to_anilist_core::{
 };
 use tap::Conv;
 use tokio::time::timeout;
-use tonic::Status;
 use tracing::{
     info,
     instrument,
@@ -38,7 +37,7 @@ use super::{
 use crate::{
     DatabaseState,
     error::{
-        IntoStatus,
+        ServiceError,
         database_not_loaded,
         database_sidecar_io_error,
         database_sidecar_json_error,
@@ -59,16 +58,12 @@ impl ShindenToAnilist {
     pub async fn check_database_update(
         &self,
         request: CheckDatabaseUpdateRequest,
-    ) -> Result<CheckDatabaseUpdateResponse, Status> {
-        info!(path = %request.path, "checking database update");
-
+    ) -> Result<CheckDatabaseUpdateResponse, ServiceError> {
         let remote = latest_database_archive_asset(self.http_clients.database.clone())
             .await
-            .map_err(IntoStatus::into_status)?
+            .map_err(|error| ServiceError::from(error).with_context("check upstream database release"))?
             .conv::<CoreDatabaseReleaseInfo>();
         let local = read_database_sidecar_blocking(&request.path).await?;
-        let needs_update = local.as_ref() != Some(&remote);
-        info!(path = %request.path, needs_update, "database update check finished");
 
         Ok(CheckDatabaseUpdateResponse {
             status: Some(database_update_check(local, remote)),
@@ -79,25 +74,28 @@ impl ShindenToAnilist {
     pub async fn download_database(
         &self,
         request: DownloadDatabaseRequest,
-    ) -> Result<DownloadDatabaseResponse, Status> {
-        info!(path = %request.path, "waiting for database download lock");
+    ) -> Result<DownloadDatabaseResponse, ServiceError> {
         let _download_guard = timeout(DATABASE_DOWNLOAD_LOCK_TIMEOUT, self.database_download_lock.lock())
             .await
             .map_err(|_| {
-                Status::deadline_exceeded(format!(
-                    "database download lock could not be acquired within {} seconds",
-                    DATABASE_DOWNLOAD_LOCK_TIMEOUT.as_secs()
-                ))
+                ServiceError::new(
+                    ErrorKind::DeadlineExceeded,
+                    format!(
+                        "database download lock could not be acquired within {} seconds",
+                        DATABASE_DOWNLOAD_LOCK_TIMEOUT.as_secs()
+                    ),
+                )
             })?;
-        info!(path = %request.path, "database download lock acquired");
 
         let status = update_latest_jsonl_from_github(self.http_clients.database.clone(), &request.path)
             .await
-            .map_err(IntoStatus::into_status)?
+            .map_err(|error| {
+                ServiceError::from(error).with_context(format!("download database to {}", request.path))
+            })?
             .conv::<CoreDatabaseReleaseInfo>();
 
         let status = write_database_sidecar_blocking(&request.path, status).await?;
-        info!(path = %request.path, "database downloaded");
+        info!(release = %status.release, sha256 = %status.sha256, "database installed");
 
         Ok(DownloadDatabaseResponse {
             status: Some(status.into()),
@@ -105,12 +103,14 @@ impl ShindenToAnilist {
     }
 
     #[instrument(skip_all, name = "app.load_database")]
-    pub async fn load_database(&self, request: LoadDatabaseRequest) -> Result<LoadDatabaseResponse, Status> {
-        info!(path = %request.path, "loading database");
-
+    pub async fn load_database(
+        &self,
+        request: LoadDatabaseRequest,
+    ) -> Result<LoadDatabaseResponse, ServiceError> {
         let path = request.path;
-        let database = spawn_blocking_status("database loading", move || {
-            DatabaseState::load(path).map_err(IntoStatus::into_status)
+        let database = run_blocking("database loading", move || {
+            DatabaseState::load(&path)
+                .map_err(|error| ServiceError::from(error).with_context(format!("load database at {path}")))
         })
         .await?;
         let entries = database.database.len();
@@ -125,15 +125,14 @@ impl ShindenToAnilist {
     pub async fn get_database_metadata(
         &self,
         request: GetDatabaseMetadataRequest,
-    ) -> Result<GetDatabaseMetadataResponse, Status> {
-        info!(path = %request.path, "loading database metadata");
-
+    ) -> Result<GetDatabaseMetadataResponse, ServiceError> {
         let path = request.path;
-        let metadata = spawn_blocking_status("database metadata loading", move || {
-            root_metadata_from_path(path).map_err(IntoStatus::into_status)
+        let metadata = run_blocking("database metadata loading", move || {
+            root_metadata_from_path(&path).map_err(|error| {
+                ServiceError::from(error).with_context(format!("read database header at {path}"))
+            })
         })
         .await?;
-        info!("database metadata loaded");
 
         Ok(GetDatabaseMetadataResponse {
             metadata: Some(metadata.into()),
@@ -144,16 +143,13 @@ impl ShindenToAnilist {
     pub async fn get_database_ids(
         &self,
         _request: GetDatabaseIdsRequest,
-    ) -> Result<GetDatabaseIdsResponse, Status> {
-        info!("loading database ids");
-
+    ) -> Result<GetDatabaseIdsResponse, ServiceError> {
         let guard = self.database.load();
 
         let database_version = guard.version();
-        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
+        let database = guard.get().ok_or_else(database_not_loaded)?;
 
         let ids: Vec<u64> = database.database.values().map(|entry| entry.id()).collect();
-        info!(database_version, ids = ids.len(), "database ids loaded");
 
         Ok(GetDatabaseIdsResponse {
             database_version,
@@ -165,14 +161,11 @@ impl ShindenToAnilist {
     pub async fn get_database_entries(
         &self,
         request: GetDatabaseEntriesRequest,
-    ) -> Result<GetDatabaseEntriesResponse, Status> {
-        let requested_ids = request.ids.len();
-        info!(requested_ids, ?request.ids, "loading database entries");
-
+    ) -> Result<GetDatabaseEntriesResponse, ServiceError> {
         let guard = self.database.load();
 
         let database_version = guard.version();
-        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
+        let database = guard.get().ok_or_else(database_not_loaded)?;
 
         let entries: Vec<DatabaseEntry> = request
             .ids
@@ -190,18 +183,17 @@ impl ShindenToAnilist {
     pub async fn get_database_full(
         &self,
         _request: GetDatabaseFullRequest,
-    ) -> Result<GetDatabaseFullResponse, Status> {
+    ) -> Result<GetDatabaseFullResponse, ServiceError> {
         let guard = self.database.load();
 
         let database_version = guard.version();
-        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
+        let database = guard.get().ok_or_else(database_not_loaded)?;
 
         let entries = database
             .database
             .values()
             .map(DatabaseEntry::from)
             .collect::<Vec<_>>();
-        info!(database_version, entries = entries.len(), "loading full database");
 
         Ok(GetDatabaseFullResponse {
             database_version,
@@ -210,17 +202,16 @@ impl ShindenToAnilist {
     }
 }
 
-pub(super) async fn spawn_blocking_status<T>(
+pub(super) async fn run_blocking<T>(
     operation: &'static str,
-    f: impl FnOnce() -> Result<T, Status> + Send + 'static,
-) -> Result<T, Status>
+    f: impl FnOnce() -> Result<T, ServiceError> + Send + 'static,
+) -> Result<T, ServiceError>
 where
     T: Send + 'static,
 {
-    tokio::task::spawn_blocking(f).await.map_err(|err| {
-        tracing::warn!(operation, error = %err, "database blocking task failed");
-        Status::internal("Operacja na bazie danych nie powiodła się.")
-    })?
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|error| ServiceError::caused_by(ErrorKind::Unknown, operation, error))?
 }
 
 fn database_sidecar_path(path: impl AsRef<Path>) -> PathBuf {
@@ -229,10 +220,11 @@ fn database_sidecar_path(path: impl AsRef<Path>) -> PathBuf {
     sidecar_path
 }
 
-fn read_database_sidecar(database_path: impl AsRef<Path>) -> Result<Option<CoreDatabaseReleaseInfo>, Status> {
+fn read_database_sidecar(
+    database_path: impl AsRef<Path>,
+) -> Result<Option<CoreDatabaseReleaseInfo>, ServiceError> {
     let database_path = database_path.as_ref();
     if !database_path.exists() {
-        info!(path = %database_path.display(), "database file does not exist; no sidecar to read");
         return Ok(None);
     }
 
@@ -240,19 +232,16 @@ fn read_database_sidecar(database_path: impl AsRef<Path>) -> Result<Option<CoreD
     let sidecar = match File::open(&sidecar_path) {
         Ok(sidecar) => sidecar,
         Err(err) if err.kind() == io::ErrorKind::NotFound => {
-            info!(path = %sidecar_path.display(), "database sidecar not found");
             return Ok(None);
         },
         Err(err) => {
-            return Err(database_sidecar_io_error(err, &sidecar_path, "open").into_status());
+            return Err(database_sidecar_io_error(err, &sidecar_path, "open"));
         },
     };
 
     let status = serde_json::from_reader(BufReader::new(sidecar))
         .map(Some)
-        .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())?;
-
-    info!(path = %sidecar_path.display(), "database sidecar loaded");
+        .map_err(|err| database_sidecar_json_error(err, &sidecar_path))?;
 
     Ok(status)
 }
@@ -260,47 +249,45 @@ fn read_database_sidecar(database_path: impl AsRef<Path>) -> Result<Option<CoreD
 fn write_database_sidecar(
     database_path: impl AsRef<Path>,
     status: &CoreDatabaseReleaseInfo,
-) -> Result<(), Status> {
+) -> Result<(), ServiceError> {
     let sidecar_path = database_sidecar_path(database_path);
     let (mut temp_file, temp_path) = create_unique_temp_file(&sidecar_path)
-        .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "create").into_status())?;
+        .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "create"))?;
 
     let result = (|| {
         {
             let mut writer = BufWriter::new(&mut temp_file);
             serde_json::to_writer_pretty(&mut writer, status)
-                .map_err(|err| database_sidecar_json_error(err, &sidecar_path).into_status())?;
+                .map_err(|err| database_sidecar_json_error(err, &sidecar_path))?;
             writer
                 .flush()
-                .map_err(|err| database_sidecar_io_error(err, &temp_path, "write").into_status())?;
+                .map_err(|err| database_sidecar_io_error(err, &temp_path, "write"))?;
         }
 
         temp_file
             .sync_all()
-            .map_err(|err| database_sidecar_io_error(err, &temp_path, "write").into_status())?;
+            .map_err(|err| database_sidecar_io_error(err, &temp_path, "write"))?;
         drop(temp_file);
 
         std::fs::rename(&temp_path, &sidecar_path)
             .and_then(|_| sync_parent_dir(&sidecar_path))
-            .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "rename").into_status())
+            .map_err(|err| database_sidecar_io_error(err, &sidecar_path, "rename"))
     })();
 
     if result.is_err() {
         let _ = std::fs::remove_file(&temp_path);
     }
 
-    if result.is_ok() {
-        info!(path = %sidecar_path.display(), "database sidecar written");
-    }
+    if result.is_ok() {}
 
     result
 }
 
 async fn read_database_sidecar_blocking(
     database_path: impl AsRef<Path>,
-) -> Result<Option<CoreDatabaseReleaseInfo>, Status> {
+) -> Result<Option<CoreDatabaseReleaseInfo>, ServiceError> {
     let database_path = PathBuf::from(database_path.as_ref());
-    spawn_blocking_status("database sidecar read", move || {
+    run_blocking("database sidecar read", move || {
         read_database_sidecar(database_path)
     })
     .await
@@ -309,9 +296,9 @@ async fn read_database_sidecar_blocking(
 async fn write_database_sidecar_blocking(
     database_path: impl AsRef<Path>,
     status: CoreDatabaseReleaseInfo,
-) -> Result<CoreDatabaseReleaseInfo, Status> {
+) -> Result<CoreDatabaseReleaseInfo, ServiceError> {
     let database_path = PathBuf::from(database_path.as_ref());
-    spawn_blocking_status("database sidecar write", move || {
+    run_blocking("database sidecar write", move || {
         write_database_sidecar(database_path, &status)?;
         Ok(status)
     })

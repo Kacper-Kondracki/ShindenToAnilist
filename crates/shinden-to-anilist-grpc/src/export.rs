@@ -21,7 +21,7 @@ use shinden_to_anilist_core::{
 
 use crate::{
     error::{
-        IntoStatus,
+        ServiceError,
         export_xml_io_error,
     },
     source::SourceList,
@@ -31,21 +31,21 @@ pub(crate) fn export_xml_to_path(
     source: &SourceList,
     matches: impl Iterator<Item = (AnimeId, AnimeId)>,
     path: impl AsRef<Path>,
-) -> Result<(), tonic::Status> {
+) -> Result<(), ServiceError> {
     let path = path.as_ref();
-    let (mut temp_file, temp_path) = create_unique_temp_file(path)
-        .map_err(|err| export_xml_io_error(err, path, "create").into_status())?;
+    let (mut temp_file, temp_path) =
+        create_unique_temp_file(path).map_err(|err| export_xml_io_error(err, path, "create"))?;
 
     let result = write_source_xml(source, matches, &mut temp_file)
         .and_then(|_| temp_file.sync_all().map_err(ExportWriteError::Io))
         .map_err(|err| match err {
-            ExportWriteError::Xml(err) => err.into_status(),
-            ExportWriteError::Io(err) => export_xml_io_error(err, &temp_path, "write").into_status(),
+            ExportWriteError::Xml(err) => err.into(),
+            ExportWriteError::Io(err) => export_xml_io_error(err, &temp_path, "write"),
         })
         .and_then(|_| {
             fs::rename(&temp_path, path)
                 .and_then(|_| sync_parent_dir(path))
-                .map_err(|err| export_xml_io_error(err, path, "rename").into_status())
+                .map_err(|err| export_xml_io_error(err, path, "rename"))
         });
 
     if result.is_err() {

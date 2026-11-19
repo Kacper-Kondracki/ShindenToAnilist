@@ -1,10 +1,12 @@
-use shinden_to_anilist_grpc::pb;
+use shinden_to_anilist_grpc::{
+    error::ServiceError,
+    pb,
+};
 use tauri::{
     State,
     ipc::Channel,
 };
 use tokio_util::sync::CancellationToken;
-use tonic::Status;
 
 use crate::{
     dto::{
@@ -12,7 +14,6 @@ use crate::{
         GetSourceFullResponseDto,
         GetSourceIdsResponseDto,
         SourceFetchProgressDto,
-        command_app_error,
         command_error,
         wire_numbers,
     },
@@ -29,10 +30,12 @@ pub(crate) async fn fetch_source_list(
 ) -> Result<FetchSourceListResponseDto, crate::dto::CommandErrorDto> {
     let cancellation_token = CancellationToken::new();
     {
-        let mut cancellations = state
-            .source_fetch_cancellations
-            .lock()
-            .map_err(|err| crate::dto::command_simple_error(err.to_string()))?;
+        let mut cancellations = state.source_fetch_cancellations.lock().map_err(|_| {
+            command_error(ServiceError::new(
+                pb::ErrorKind::Unknown,
+                "source cancellation registry lock poisoned",
+            ))
+        })?;
 
         if let Some(previous) = cancellations.insert(request_id, cancellation_token.clone()) {
             previous.cancel();
@@ -45,32 +48,49 @@ pub(crate) async fn fetch_source_list(
             pb::FetchSourceListRequest { provider, user },
             cancellation_token,
             move |progress| {
-                on_progress
-                    .send(progress.into())
-                    .map_err(|err| Status::internal(err.to_string()))
+                on_progress.send(progress.into()).map_err(|err| {
+                    ServiceError::caused_by(
+                        pb::ErrorKind::Cancelled,
+                        "source progress receiver disconnected",
+                        err,
+                    )
+                })
             },
         )
         .await
         .map(|response| FetchSourceListResponseDto {
             source_version: response.source_version.into(),
         })
-        .map_err(command_app_error);
+        .map_err(command_error);
 
     state
         .source_fetch_cancellations
         .lock()
-        .map_err(|err| crate::dto::command_simple_error(err.to_string()))?
+        .map_err(|_| {
+            command_error(ServiceError::new(
+                pb::ErrorKind::Unknown,
+                "source cancellation registry lock poisoned",
+            ))
+        })?
         .remove(&request_id);
 
     result
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) fn cancel_source_list_fetch(state: State<'_, AppState>, request_id: u64) -> Result<(), String> {
+pub(crate) fn cancel_source_list_fetch(
+    state: State<'_, AppState>,
+    request_id: u64,
+) -> Result<(), crate::dto::CommandErrorDto> {
     if let Some(cancellation_token) = state
         .source_fetch_cancellations
         .lock()
-        .map_err(|err| err.to_string())?
+        .map_err(|_| {
+            command_error(ServiceError::new(
+                pb::ErrorKind::Unknown,
+                "source cancellation registry lock poisoned",
+            ))
+        })?
         .remove(&request_id)
     {
         cancellation_token.cancel();
@@ -83,7 +103,7 @@ pub(crate) fn cancel_source_list_fetch(state: State<'_, AppState>, request_id: u
 pub(crate) async fn get_source_ids(
     state: State<'_, AppState>,
     sorted_by: Option<i32>,
-) -> Result<GetSourceIdsResponseDto, String> {
+) -> Result<GetSourceIdsResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .get_source_ids(pb::GetSourceIdsRequest {
@@ -98,7 +118,9 @@ pub(crate) async fn get_source_ids(
 }
 
 #[tauri::command]
-pub(crate) async fn get_source_full(state: State<'_, AppState>) -> Result<GetSourceFullResponseDto, String> {
+pub(crate) async fn get_source_full(
+    state: State<'_, AppState>,
+) -> Result<GetSourceFullResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .get_source_full(pb::GetSourceFullRequest {})

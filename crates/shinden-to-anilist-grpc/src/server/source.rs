@@ -3,11 +3,9 @@ use std::cmp::Ordering;
 use shinden_to_anilist_core::common::AnimeList;
 use tap::Tap;
 use tokio_util::sync::CancellationToken;
-use tonic::Status;
 use tracing::{
     info,
     instrument,
-    warn,
 };
 
 use super::{
@@ -16,7 +14,10 @@ use super::{
 };
 use crate::{
     cloudflare::ShindenCloudflareClearance,
-    error::shinden_list_not_loaded,
+    error::{
+        ServiceError,
+        shinden_list_not_loaded,
+    },
     pb::*,
     source::SourceList,
 };
@@ -27,14 +28,17 @@ impl ShindenToAnilist {
         &self,
         request: FetchSourceListRequest,
         cancellation_token: CancellationToken,
-        mut emit_progress: impl FnMut(SourceFetchProgress) -> Result<(), Status>,
-    ) -> Result<FetchSourceListResponse, Status> {
+        mut emit_progress: impl FnMut(SourceFetchProgress) -> Result<(), ServiceError>,
+    ) -> Result<FetchSourceListResponse, ServiceError> {
         let provider = request.provider();
-        info!(?provider, user = %request.user, "fetching source list");
 
         match provider {
-            SourceProvider::Shinden => {
-                providers::shinden::fetch_source_list(self, request, emit_progress).await
+            SourceProvider::Shinden => tokio::select! {
+                biased;
+                () = cancellation_token.cancelled() => {
+                    Err(ServiceError::new(ErrorKind::Cancelled, "Shinden import cancelled"))
+                },
+                result = providers::shinden::fetch_source_list(self, request, emit_progress) => result,
             },
             SourceProvider::AnimeZone => {
                 let (source, total_entries) = providers::animezone::fetch_source_list(
@@ -56,9 +60,10 @@ impl ShindenToAnilist {
                 .await?;
                 self.store_source_list(source, total_entries, emit_progress)
             },
-            SourceProvider::Unspecified => {
-                Err(Status::invalid_argument("Wybrane źródło nie jest obsługiwane."))
-            },
+            SourceProvider::Unspecified => Err(ServiceError::new(
+                ErrorKind::InvalidSource,
+                "unsupported source provider",
+            )),
         }
     }
 
@@ -66,8 +71,8 @@ impl ShindenToAnilist {
         &self,
         source: SourceList,
         total_entries: u64,
-        mut emit_progress: impl FnMut(SourceFetchProgress) -> Result<(), Status>,
-    ) -> Result<FetchSourceListResponse, Status> {
+        mut emit_progress: impl FnMut(SourceFetchProgress) -> Result<(), ServiceError>,
+    ) -> Result<FetchSourceListResponse, ServiceError> {
         let provider = source.provider();
         emit_progress(source_progress(
             provider,
@@ -88,7 +93,7 @@ impl ShindenToAnilist {
             "",
         ))?;
 
-        info!(source_version, total_entries, "source list fetched");
+        info!(?provider, source_version, total_entries, "source list fetched");
         Ok(FetchSourceListResponse {
             source_version,
             progress: Some(source_progress(
@@ -106,17 +111,10 @@ impl ShindenToAnilist {
     pub fn set_shinden_cloudflare_clearance(
         &self,
         request: SetShindenCloudflareClearanceRequest,
-    ) -> Result<SetShindenCloudflareClearanceResponse, Status> {
+    ) -> Result<SetShindenCloudflareClearanceResponse, ServiceError> {
         let clearance = request
             .clearance
-            .ok_or_else(|| Status::invalid_argument("Brak danych weryfikacji Cloudflare."))?;
-        info!(
-            user_agent_len = clearance.user_agent.len(),
-            cookie_len = clearance.cf_clearance.len(),
-            domain = %clearance.domain,
-            path = %clearance.path,
-            "applying Shinden Cloudflare clearance"
-        );
+            .ok_or_else(|| ServiceError::new(ErrorKind::ClearanceInvalid, "missing Shinden clearance"))?;
 
         let applied = self
             .http_clients
@@ -127,10 +125,6 @@ impl ShindenToAnilist {
                 path: clearance.path,
                 expires_unix_seconds: clearance.expires_unix_seconds,
                 captured_at_ms: clearance.captured_at_ms,
-            })
-            .map_err(|error| {
-                warn!(error = %error, "rejected Shinden Cloudflare clearance");
-                Status::invalid_argument(error.to_string())
             })?;
 
         Ok(SetShindenCloudflareClearanceResponse {
@@ -139,12 +133,13 @@ impl ShindenToAnilist {
     }
 
     #[instrument(skip_all, name = "app.get_source_ids")]
-    pub async fn get_source_ids(&self, request: GetSourceIdsRequest) -> Result<GetSourceIdsResponse, Status> {
+    pub async fn get_source_ids(
+        &self,
+        request: GetSourceIdsRequest,
+    ) -> Result<GetSourceIdsResponse, ServiceError> {
         let sorted_by = request.sorted_by();
         let guard = self.source_list.load();
-        let source = guard
-            .get()
-            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+        let source = guard.get().ok_or_else(shinden_list_not_loaded)?;
 
         let source_version = guard.version();
         let ids = if sorted_by == AnimeListSortedBy::Urgency {
@@ -153,12 +148,6 @@ impl ShindenToAnilist {
             source.ids()
         };
 
-        info!(
-            source_version,
-            provider = ?source.provider(),
-            ids = ids.len(),
-            "source ids loaded"
-        );
         Ok(GetSourceIdsResponse { source_version, ids })
     }
 
@@ -166,20 +155,12 @@ impl ShindenToAnilist {
     pub async fn get_source_full(
         &self,
         _request: GetSourceFullRequest,
-    ) -> Result<GetSourceFullResponse, Status> {
+    ) -> Result<GetSourceFullResponse, ServiceError> {
         let guard = self.source_list.load();
-        let source = guard
-            .get()
-            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+        let source = guard.get().ok_or_else(shinden_list_not_loaded)?;
 
         let source_version = guard.version();
         let entries = source.entries();
-        info!(
-            source_version,
-            provider = ?source.provider(),
-            entries = entries.len(),
-            "loading full source list"
-        );
 
         Ok(GetSourceFullResponse {
             source_version,
@@ -191,8 +172,7 @@ impl ShindenToAnilist {
     pub async fn fetch_shinden_list(
         &self,
         request: FetchShindenListRequest,
-    ) -> Result<FetchShindenListResponse, Status> {
-        info!(shinden_id = request.id, "fetching shinden list");
+    ) -> Result<FetchShindenListResponse, ServiceError> {
         providers::shinden::fetch_legacy_list(self, request).await
     }
 
@@ -200,15 +180,12 @@ impl ShindenToAnilist {
     pub async fn get_shinden_ids(
         &self,
         request: GetShindenIdsRequest,
-    ) -> Result<GetShindenIdsResponse, Status> {
+    ) -> Result<GetShindenIdsResponse, ServiceError> {
         let sorted_by = request.sorted_by();
-        info!(?sorted_by, "loading shinden ids");
 
         let guard = self.shinden_list.load();
 
-        let shinden = guard
-            .get()
-            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+        let shinden = guard.get().ok_or_else(shinden_list_not_loaded)?;
 
         let shinden_version = guard.version();
         let ids: Vec<u64> = shinden
@@ -228,7 +205,6 @@ impl ShindenToAnilist {
             .into_iter()
             .map(|(id, _)| id)
             .collect();
-        info!(shinden_version, ids = ids.len(), "shinden ids loaded");
 
         Ok(GetShindenIdsResponse { shinden_version, ids })
     }
@@ -237,15 +213,10 @@ impl ShindenToAnilist {
     pub async fn get_shinden_entries(
         &self,
         request: GetShindenEntriesRequest,
-    ) -> Result<GetShindenEntriesResponse, Status> {
-        let requested_ids = request.ids.len();
-        info!(requested_ids, ?request.ids, "loading shinden entries");
-
+    ) -> Result<GetShindenEntriesResponse, ServiceError> {
         let guard = self.shinden_list.load();
 
-        let shinden = guard
-            .get()
-            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+        let shinden = guard.get().ok_or_else(shinden_list_not_loaded)?;
 
         let shinden_version = guard.version();
         let entries: Vec<ShindenEntry> = request
@@ -264,20 +235,13 @@ impl ShindenToAnilist {
     pub async fn get_shinden_full(
         &self,
         _request: GetShindenFullRequest,
-    ) -> Result<GetShindenFullResponse, Status> {
+    ) -> Result<GetShindenFullResponse, ServiceError> {
         let guard = self.shinden_list.load();
 
-        let shinden = guard
-            .get()
-            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+        let shinden = guard.get().ok_or_else(shinden_list_not_loaded)?;
 
         let shinden_version = guard.version();
         let entries: Vec<ShindenEntry> = shinden.values().map(ShindenEntry::from).collect();
-        info!(
-            shinden_version,
-            entries = entries.len(),
-            "loading full shinden list"
-        );
 
         Ok(GetShindenFullResponse {
             shinden_version,

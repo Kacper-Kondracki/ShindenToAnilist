@@ -1,5 +1,6 @@
+import { reportFailure } from '../../api/diagnostics';
 import { ensureDatabase, getDatabaseFull } from '../../api/appService';
-import { toUserFacingErrorMessage } from '../../api/runtime';
+import { AppFailure, ErrorKind, userErrorMessage } from '../../api/errors';
 import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
 import type { DatabaseState } from '../../domain/anime';
 
@@ -19,26 +20,40 @@ export async function initializeDatabaseState(
       const info = await ensureDatabase();
       const databaseFull = await getDatabaseFull();
       if (databaseFull.databaseVersion !== info.databaseVersion) {
-        throw new Error(
-          'Baza danych zmieniła się podczas wczytywania. Spróbuj ponownie.'
-        );
+        throw new AppFailure(ErrorKind.DATABASE_CHANGED);
       }
 
       animeData.replaceDatabaseFull(databaseFull);
       return { status: 'ready', info };
     } catch (error) {
       lastError = error;
-      if (attempt === databaseRetryDelays.length - 1) {
+      if (!canRetry(error) || attempt === databaseRetryDelays.length - 1) {
         break;
       }
     }
   }
 
-  return { status: 'error', message: errorMessage(lastError) };
+  reportFailure('initialize_database', lastError);
+  return {
+    status: 'error',
+    message: userErrorMessage(
+      lastError,
+      'Nie udało się wczytać bazy anime. Spróbuj ponownie.'
+    )
+  };
 }
 
-export function errorMessage(error: unknown) {
-  return toUserFacingErrorMessage(error, 'Nie udało się wczytać bazy danych');
+function canRetry(error: unknown): boolean {
+  if (!(error instanceof AppFailure)) return false;
+
+  return (
+    error.kind === ErrorKind.DATABASE_CHANGED ||
+    error.kind === ErrorKind.DEADLINE_EXCEEDED ||
+    (error.kind === ErrorKind.DATABASE_HTTP &&
+      (error.httpStatus === undefined ||
+        error.httpStatus === 429 ||
+        error.httpStatus >= 500))
+  );
 }
 
 function delay(ms: number) {

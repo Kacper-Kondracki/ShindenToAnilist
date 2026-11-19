@@ -10,9 +10,7 @@ use crate::{
         SetShindenCloudflareClearanceResponseDto,
         ShindenCloudflareClearanceDto,
         WireNumberDto,
-        command_app_error,
         command_error,
-        command_simple_error,
         wire_numbers,
     },
     state::AppState,
@@ -30,7 +28,7 @@ pub(crate) async fn fetch_shinden_list(
         .map(|response| FetchShindenListResponseDto {
             shinden_version: response.shinden_version.into(),
         })
-        .map_err(command_app_error)
+        .map_err(command_error)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -46,14 +44,14 @@ pub(crate) fn set_shinden_cloudflare_clearance(
         .map(|response| SetShindenCloudflareClearanceResponseDto {
             accepted: response.accepted,
         })
-        .map_err(|status| command_simple_error(status.message().to_owned()))
+        .map_err(command_error)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn get_shinden_ids(
     state: State<'_, AppState>,
     sorted_by: Option<i32>,
-) -> Result<GetShindenIdsResponseDto, String> {
+) -> Result<GetShindenIdsResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .get_shinden_ids(pb::GetShindenIdsRequest {
@@ -71,7 +69,7 @@ pub(crate) async fn get_shinden_ids(
 pub(crate) async fn get_shinden_entries(
     state: State<'_, AppState>,
     ids: Vec<WireNumberDto>,
-) -> Result<GetShindenEntriesResponseDto, String> {
+) -> Result<GetShindenEntriesResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .get_shinden_entries(pb::GetShindenEntriesRequest {
@@ -88,7 +86,7 @@ pub(crate) async fn get_shinden_entries(
 #[tauri::command]
 pub(crate) async fn get_shinden_full(
     state: State<'_, AppState>,
-) -> Result<GetShindenFullResponseDto, String> {
+) -> Result<GetShindenFullResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .get_shinden_full(pb::GetShindenFullRequest {})

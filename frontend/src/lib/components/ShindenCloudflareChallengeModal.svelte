@@ -22,9 +22,10 @@
       case 'retrying':
         return 'Ponawianie importu';
       case 'failed':
+      case 'blocked':
         return state.message;
-      default:
-        return 'Shinden wymaga weryfikacji Cloudflare';
+      case 'idle':
+        return '';
     }
   });
 </script>
@@ -46,10 +47,9 @@
 
         <p class="text-sm leading-6">
           <strong>
-            Otwórz stronę Shindena, poczekaj aż się w pełni załaduje, a potem
-            zamknij okno weryfikacji.
+            W otwartym oknie wykonaj instrukcje wyświetlone przez Shinden.
           </strong>
-          Import zostanie wznowiony automatycznie po odczytaniu weryfikacji.
+          Po udanej weryfikacji aplikacja zamknie okno i ponowi import.
         </p>
 
         <div class="modal-action">

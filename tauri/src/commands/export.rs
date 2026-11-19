@@ -15,7 +15,7 @@ pub(crate) async fn export_xml(
     state: State<'_, AppState>,
     path: String,
     matches: Vec<SourceIdPairDto>,
-) -> Result<ExportXmlResponseDto, String> {
+) -> Result<ExportXmlResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .export_xml(pb::ExportXmlRequest {

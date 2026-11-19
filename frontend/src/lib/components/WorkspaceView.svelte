@@ -6,7 +6,6 @@
   import type { WorkspaceController } from '../features/workspace/workspaceController.svelte';
   import AnimeListPane from './workspace/AnimeListPane.svelte';
   import AnimeListTabs from './workspace/AnimeListTabs.svelte';
-  import ContextMenuLayer from './workspace/ContextMenuLayer.svelte';
   import WorkspaceEditorPane from './workspace/WorkspaceEditorPane.svelte';
   import WorkspaceStatusBar from './workspace/WorkspaceStatusBar.svelte';
   import { closeContextMenu } from './workspace/contextMenuState.svelte';
@@ -172,8 +171,6 @@
     </div>
   </div>
 </section>
-
-<ContextMenuLayer />
 
 <WorkspaceStatusBar
   entryIds={workspace.entryIdsByView.all}

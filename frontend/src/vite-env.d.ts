@@ -1,31 +1,35 @@
 /// <reference types="svelte" />
 /// <reference types="vite/client" />
 
+type DesktopIpcResult<T> =
+  import('../../electron/src/ipcTypes.js').DesktopIpcResult<T>;
+
 interface Window {
   isTauri?: boolean;
   __TAURI__?: unknown;
   __TAURI_INTERNALS__?: unknown;
   shindenToAnilist?: {
-    paths: {
-      base: string;
-      database: string;
-      export: string;
-    };
-    getGrpcBaseUrl?: () => Promise<string>;
+    reportFailure?: (operation: string, detail: string) => void;
+    getAppPaths?: () => Promise<
+      DesktopIpcResult<import('../../electron/src/ipcTypes.js').RendererPaths>
+    >;
+    getGrpcBaseUrl?: () => Promise<DesktopIpcResult<string>>;
     openShindenCloudflareVerification?: (options?: {
       mode?: 'clearance' | 'autocloseTest';
-    }) => Promise<{
-      userAgent: string;
-      cfClearance: string;
-      domain: string;
-      path: string;
-      expiresUnixSeconds?: number;
-      capturedAtMs: number;
-    }>;
-    openExternalUrl?: (url: string) => Promise<void>;
+    }) => Promise<
+      DesktopIpcResult<{
+        userAgent: string;
+        cfClearance: string;
+        domain: string;
+        path: string;
+        expiresUnixSeconds?: number;
+        capturedAtMs: number;
+      }>
+    >;
+    openExternalUrl?: (url: string) => Promise<DesktopIpcResult<void>>;
     selectExportPath?: (options?: {
       defaultPath?: string;
-    }) => Promise<string | null>;
+    }) => Promise<DesktopIpcResult<string | null>>;
   };
 }
 

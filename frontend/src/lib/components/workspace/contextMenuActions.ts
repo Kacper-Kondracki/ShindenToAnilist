@@ -1,4 +1,4 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { openDesktopLink } from '../../api/runtime';
 import type { DatabaseEntry, WireNumber } from '../../domain/anime';
 
 export async function copyText(text: string) {
@@ -23,23 +23,8 @@ export async function copyText(text: string) {
   }
 }
 
-export function openExternalUrl(url: string) {
-  const externalUrl = validatedExternalUrl(url);
-  const openExternalUrl = globalThis.shindenToAnilist?.openExternalUrl;
-
-  if (openExternalUrl !== undefined) {
-    void openExternalUrl(externalUrl);
-    return;
-  }
-
-  if (isTauri() || globalThis.__TAURI_INTERNALS__ !== undefined) {
-    void import('@tauri-apps/plugin-opener').then(({ openUrl }) =>
-      openUrl(externalUrl)
-    );
-    return;
-  }
-
-  window.open(externalUrl, '_blank', 'noopener,noreferrer');
+export async function openExternalUrl(url: string) {
+  await openDesktopLink(validatedExternalUrl(url));
 }
 
 export function shindenEntryUrl(entryId: WireNumber) {

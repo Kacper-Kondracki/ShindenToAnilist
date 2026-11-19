@@ -1,16 +1,19 @@
+import { reportFailure } from '../../api/diagnostics';
 import {
-  isShindenCloudflareChallengeError,
   openShindenCloudflareAutoCloseTest,
   openShindenCloudflareVerification,
   setShindenCloudflareClearance
 } from '../../api/appService';
+import {
+  ErrorKind,
+  isFailure,
+  isInvalidClearance,
+  userErrorMessage
+} from '../../api/errors';
 import { providerById, providers, type Provider } from '../../config/providers';
 import { createLoadedAnimeData } from '../../data/loadedAnimeData.svelte';
 import type { DatabaseState } from '../../domain/anime';
-import {
-  errorMessage,
-  initializeDatabaseState
-} from '../database/initializeDatabase';
+import { initializeDatabaseState } from '../database/initializeDatabase';
 import { createNotificationController } from '../notifications/notificationController.svelte';
 import {
   clearShindenCloudflareClearance,
@@ -35,20 +38,13 @@ export function createAppController() {
     openVerification: openShindenCloudflareVerification,
     applyClearance: setShindenCloudflareClearance,
     saveClearance: writeShindenCloudflareClearance,
-    retry: async (request) => {
-      await sourceImport.loadParsedSourceUser(
+    retry: (request) =>
+      sourceImport.loadParsedSourceUser(
         request.provider,
         request.query,
         request.sourceUser,
-        { throwErrors: true, handleProviderErrors: false }
-      );
-    },
-    onResolved: () => {
-      notifications.success(
-        'Weryfikacja Shindena zakończona',
-        'Import został wznowiony po weryfikacji Cloudflare.'
-      );
-    }
+        { afterVerification: true }
+      )
   });
 
   let selectedProvider = $state<Provider>('shinden');
@@ -62,17 +58,10 @@ export function createAppController() {
     workspace,
     notifications,
     waitForReadyDatabase,
-    providerHooks: {
-      shinden: {
-        beforeFetch: applySavedShindenCloudflareClearance,
-        canHandleError: isShindenCloudflareChallengeError,
-        handleBlockedImport: (request) => {
-          clearShindenCloudflareClearance();
-          shindenCloudflare.block(request);
-        },
-        retryBlockedMessage:
-          'Shinden nadal wymaga weryfikacji Cloudflare. Spróbuj ponownie przejść weryfikację.'
-      }
+    applySavedShindenVerification: applySavedShindenCloudflareClearance,
+    onShindenChallenge: (request) => {
+      clearShindenCloudflareClearance();
+      shindenCloudflare.block(request);
     }
   });
 
@@ -119,7 +108,9 @@ export function createAppController() {
   let isLoadButtonBusy = $derived(
     isUserListLoading || isWaitingForDatabase || shindenCloudflare.isBusy
   );
-  let hasUserListError = $derived(userListRequestState.status === 'error');
+  let hasInvalidUserInput = $derived(
+    userListRequestState.status === 'error' && userListRequestState.invalidInput
+  );
   let userListErrorMessage = $derived(
     userListRequestState.status === 'error'
       ? userListRequestState.message
@@ -133,9 +124,14 @@ export function createAppController() {
   );
 
   async function initializeDatabase() {
+    if (databaseInitializationPromise !== null) {
+      return databaseInitializationPromise;
+    }
+
     databaseState = { status: 'loading' };
     databaseInitializationPromise = initializeDatabaseState(animeData);
     databaseState = await databaseInitializationPromise;
+    databaseInitializationPromise = null;
     if (
       databaseState.status === 'error' &&
       databaseState.message !== lastDatabaseNotificationMessage
@@ -221,11 +217,8 @@ export function createAppController() {
         clearShindenCloudflareClearance();
       }
     } catch (error) {
+      if (!isInvalidClearance(error)) throw error;
       clearShindenCloudflareClearance();
-      console.warn(
-        'Unable to apply persisted Shinden Cloudflare clearance',
-        error
-      );
     }
   }
 
@@ -263,7 +256,12 @@ export function createAppController() {
         'Okno Shindena zamknęło się po wykryciu ciasteczka sess_shinden.'
       );
     } catch (error) {
-      const message = errorMessage(error);
+      if (isFailure(error, ErrorKind.CANCELLED)) return;
+      reportFailure('shinden_verification_test', error);
+      const message = userErrorMessage(
+        error,
+        'Nie udało się sprawdzić okna Shindena.'
+      );
       sourceImport.setError('shinden', trimmedQuery, message);
       notifications.error('Test okna Shindena nie powiódł się', message);
     }
@@ -317,8 +315,8 @@ export function createAppController() {
     get isUserListLoading() {
       return isUserListLoading;
     },
-    get hasUserListError() {
-      return hasUserListError;
+    get hasInvalidUserInput() {
+      return hasInvalidUserInput;
     },
     get userListErrorMessage() {
       return userListErrorMessage;

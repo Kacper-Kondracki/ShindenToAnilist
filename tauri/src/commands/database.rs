@@ -21,7 +21,7 @@ use crate::{
 pub(crate) async fn check_database_update(
     state: State<'_, AppState>,
     path: String,
-) -> Result<CheckDatabaseUpdateResponseDto, String> {
+) -> Result<CheckDatabaseUpdateResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .check_database_update(pb::CheckDatabaseUpdateRequest { path })
@@ -36,7 +36,7 @@ pub(crate) async fn check_database_update(
 pub(crate) async fn download_database(
     state: State<'_, AppState>,
     path: String,
-) -> Result<DownloadDatabaseResponseDto, String> {
+) -> Result<DownloadDatabaseResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .download_database(pb::DownloadDatabaseRequest { path })
@@ -51,7 +51,7 @@ pub(crate) async fn download_database(
 pub(crate) async fn load_database(
     state: State<'_, AppState>,
     path: String,
-) -> Result<LoadDatabaseResponseDto, String> {
+) -> Result<LoadDatabaseResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .load_database(pb::LoadDatabaseRequest { path })
@@ -66,7 +66,7 @@ pub(crate) async fn load_database(
 pub(crate) async fn get_database_metadata(
     state: State<'_, AppState>,
     path: String,
-) -> Result<GetDatabaseMetadataResponseDto, String> {
+) -> Result<GetDatabaseMetadataResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .get_database_metadata(pb::GetDatabaseMetadataRequest { path })
@@ -81,7 +81,7 @@ pub(crate) async fn get_database_metadata(
 pub(crate) async fn get_database_ids(
     state: State<'_, AppState>,
     sorted_by: Option<i32>,
-) -> Result<GetDatabaseIdsResponseDto, String> {
+) -> Result<GetDatabaseIdsResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .get_database_ids(pb::GetDatabaseIdsRequest {
@@ -99,7 +99,7 @@ pub(crate) async fn get_database_ids(
 pub(crate) async fn get_database_entries(
     state: State<'_, AppState>,
     ids: Vec<WireNumberDto>,
-) -> Result<GetDatabaseEntriesResponseDto, String> {
+) -> Result<GetDatabaseEntriesResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .get_database_entries(pb::GetDatabaseEntriesRequest {
@@ -116,7 +116,7 @@ pub(crate) async fn get_database_entries(
 #[tauri::command]
 pub(crate) async fn get_database_full(
     state: State<'_, AppState>,
-) -> Result<GetDatabaseFullResponseDto, String> {
+) -> Result<GetDatabaseFullResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .get_database_full(pb::GetDatabaseFullRequest {})

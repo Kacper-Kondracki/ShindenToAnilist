@@ -13,7 +13,11 @@ use std::{
     time::Duration,
 };
 
-use shinden_to_anilist_grpc::cloudflare::SHINDEN_ORIGIN;
+use shinden_to_anilist_grpc::{
+    cloudflare::SHINDEN_ORIGIN,
+    error::ServiceError,
+    pb::ErrorKind,
+};
 use tauri::{
     AppHandle,
     Manager,
@@ -27,15 +31,13 @@ use tauri::{
         WebviewWindowBuilder,
     },
 };
-use tracing::{
-    info,
-    warn,
-};
 
 use crate::{
     dto::{
+        CommandErrorDto,
         ShindenCloudflareClearanceDto,
         ShindenCloudflareVerificationOptionsDto,
+        command_error,
     },
     state::PRODUCT_NAME,
 };
@@ -47,33 +49,44 @@ const AUTO_CLOSE_TEST_COOKIE: &str = "sess_shinden";
 const CLEARANCE_POLLING_INTERVAL: Duration = Duration::from_millis(750);
 const BLOCKED_SHINDEN_AD_HOST: &str = "reklama.shinden.eu";
 
-type ClearanceResult = Result<ShindenCloudflareClearanceDto, String>;
+type ClearanceResult = Result<ShindenCloudflareClearanceDto, ServiceError>;
 type ClearanceSender = Sender<ClearanceResult>;
 
 #[tauri::command]
 pub(crate) async fn open_shinden_cloudflare_verification(
     app: AppHandle,
     options: Option<ShindenCloudflareVerificationOptionsDto>,
-) -> Result<ShindenCloudflareClearanceDto, String> {
+) -> Result<ShindenCloudflareClearanceDto, CommandErrorDto> {
+    open_verification(app, options).await.map_err(command_error)
+}
+
+async fn open_verification(
+    app: AppHandle,
+    options: Option<ShindenCloudflareVerificationOptionsDto>,
+) -> ClearanceResult {
     if let Some(window) = app.get_webview_window(SHINDEN_VERIFICATION_LABEL) {
         let _ = window.set_focus();
-        return Err("Okno weryfikacji Shinden jest już otwarte.".to_string());
+        return Err(ServiceError::new(
+            ErrorKind::VerificationWindowAlreadyOpen,
+            "Shinden verification window already open",
+        ));
     }
 
     let (tx, rx) = std::sync::mpsc::channel::<ClearanceResult>();
     let tx = Arc::new(Mutex::new(Some(tx)));
     let capture_started = Arc::new(AtomicBool::new(false));
     let cookie_name = verification_cookie_name(options.as_ref()).to_string();
-    let shinden_url = Url::parse(SHINDEN_HOMEPAGE_URL).map_err(|err| err.to_string())?;
+    let shinden_url = Url::parse(SHINDEN_HOMEPAGE_URL)
+        .map_err(|error| verification_failure("parse Shinden homepage URL", error))?;
     let data_directory = app
         .path()
         .data_dir()
-        .map_err(|err| err.to_string())?
+        .map_err(|error| verification_failure("resolve verification data directory", error))?
         .join(PRODUCT_NAME)
         .join("shinden-cloudflare-webview");
-    fs::create_dir_all(&data_directory).map_err(|err| err.to_string())?;
+    fs::create_dir_all(&data_directory)
+        .map_err(|error| verification_failure("create verification data directory", error))?;
 
-    info!(path = %data_directory.display(), cookie_name, "opening Shinden Cloudflare verification webview");
     let window = WebviewWindowBuilder::new(
         &app,
         SHINDEN_VERIFICATION_LABEL,
@@ -85,18 +98,14 @@ pub(crate) async fn open_shinden_cloudflare_verification(
     .data_directory(data_directory)
     .on_navigation(|url| {
         if is_blocked_shinden_ad_url(url) {
-            info!(url = %url, "blocked Shinden ad navigation");
             false
         } else {
             true
         }
     })
-    .on_new_window(|url, _features| {
-        info!(url = %url, "blocked popup from Shinden verification webview");
-        NewWindowResponse::Deny
-    })
+    .on_new_window(|_url, _features| NewWindowResponse::Deny)
     .build()
-    .map_err(|err| err.to_string())?;
+    .map_err(|error| verification_failure("build verification window", error))?;
 
     poll_for_tauri_clearance(
         window.clone(),
@@ -116,7 +125,7 @@ pub(crate) async fn open_shinden_cloudflare_verification(
         }
 
         api.prevent_close();
-        info!("Shinden Cloudflare verification window closed by user; capturing cookies");
+
         let tx = Arc::clone(&tx);
         let window = capture_window.clone();
         let cookie_name = cookie_name.clone();
@@ -130,11 +139,16 @@ pub(crate) async fn open_shinden_cloudflare_verification(
     });
 
     tauri::async_runtime::spawn_blocking(move || {
-        rx.recv()
-            .map_err(|_| "Okno weryfikacji Shinden zostało zamknięte bez wyniku.".to_string())?
+        rx.recv().map_err(|error| {
+            ServiceError::caused_by(
+                ErrorKind::VerificationWindowFailed,
+                "receive verification window result",
+                error,
+            )
+        })?
     })
     .await
-    .map_err(|err| err.to_string())?
+    .map_err(|error| verification_failure("join verification result task", error))?
 }
 
 fn poll_for_tauri_clearance(
@@ -160,10 +174,6 @@ fn poll_for_tauri_clearance(
                 continue;
             }
 
-            info!(
-                cookie_name,
-                "Shinden Cloudflare verification completed automatically; closing window"
-            );
             if let Some(tx) = tx.lock().expect("Shinden Cloudflare sender lock poisoned").take() {
                 let _ = tx.send(result);
             }
@@ -188,42 +198,14 @@ async fn has_tauri_clearance_cookie(window: WebviewWindow, cookie_name: String) 
     .unwrap_or(false)
 }
 
-async fn capture_tauri_clearance(
-    window: WebviewWindow,
-    cookie_name: String,
-) -> Result<ShindenCloudflareClearanceDto, String> {
-    let user_agent = webview_user_agent(&window).await.unwrap_or_else(|error| {
-        warn!(error = %error, "failed to read Shinden verification user agent");
-        String::new()
-    });
-
-    tauri::async_runtime::spawn_blocking(move || capture_tauri_cookies(&window, user_agent, &cookie_name))
-        .await
-        .map_err(|err| err.to_string())?
-}
-
-fn capture_tauri_cookies(
-    window: &WebviewWindow,
-    user_agent: String,
-    cookie_name: &str,
-) -> Result<ShindenCloudflareClearanceDto, String> {
-    let cookie = capture_tauri_clearance_cookie(window, cookie_name)?;
-
-    info!(
-        cookie_name,
-        user_agent_len = user_agent.len(),
-        cookie_len = cookie.value().len(),
-        domain = ?cookie.domain(),
-        path = ?cookie.path(),
-        "captured Shinden Cloudflare clearance from Tauri webview"
-    );
-    if cookie_name == AUTO_CLOSE_TEST_COOKIE {
-        info!(
-            cookie_name,
-            cookie_value = cookie.value(),
-            "captured Shinden autoclose test cookie value"
-        );
-    }
+async fn capture_tauri_clearance(window: WebviewWindow, cookie_name: String) -> ClearanceResult {
+    let cookie_window = window.clone();
+    let cookie = tauri::async_runtime::spawn_blocking(move || {
+        capture_tauri_clearance_cookie(&cookie_window, &cookie_name)
+    })
+    .await
+    .map_err(|error| verification_failure("join verification cookie task", error))??;
+    let user_agent = webview_user_agent(&window).await?;
 
     Ok(ShindenCloudflareClearanceDto {
         user_agent,
@@ -240,20 +222,26 @@ fn capture_tauri_cookies(
 fn capture_tauri_clearance_cookie(
     window: &WebviewWindow,
     cookie_name: &str,
-) -> Result<Cookie<'static>, String> {
-    let url = Url::parse(SHINDEN_ORIGIN).map_err(|err| err.to_string())?;
-    let homepage_url = Url::parse(SHINDEN_HOMEPAGE_URL).map_err(|err| err.to_string())?;
+) -> Result<Cookie<'static>, ServiceError> {
+    let url = Url::parse(SHINDEN_ORIGIN)
+        .map_err(|error| verification_failure("parse Shinden origin URL", error))?;
+    let homepage_url = Url::parse(SHINDEN_HOMEPAGE_URL)
+        .map_err(|error| verification_failure("parse Shinden homepage URL", error))?;
     let mut cookies = window
         .cookies_for_url(homepage_url)
-        .map_err(|err| format!("Nie udało się odczytać ciasteczek Shinden: {err}"))?;
+        .map_err(|error| verification_failure("read Shinden verification cookies", error))?;
     cookies.extend(
         window
             .cookies_for_url(url)
-            .map_err(|err| format!("Nie udało się odczytać ciasteczek Shinden: {err}"))?,
+            .map_err(|error| verification_failure("read Shinden verification cookies", error))?,
     );
 
-    best_cookie(cookies, cookie_name)
-        .ok_or_else(|| format!("Nie udało się odczytać ciasteczka {cookie_name} z okna weryfikacji."))
+    best_cookie(cookies, cookie_name).ok_or_else(|| {
+        ServiceError::new(
+            ErrorKind::Cancelled,
+            format!("verification closed before receiving {cookie_name}"),
+        )
+    })
 }
 
 fn best_cookie(cookies: Vec<Cookie<'static>>, cookie_name: &str) -> Option<Cookie<'static>> {
@@ -309,20 +297,20 @@ fn shinden_domain_score(domain: &str) -> usize {
     }
 }
 
-async fn webview_user_agent(window: &WebviewWindow) -> Result<String, String> {
+async fn webview_user_agent(window: &WebviewWindow) -> Result<String, ServiceError> {
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     window
         .eval_with_callback("navigator.userAgent", move |value| {
             let _ = tx.send(value);
         })
-        .map_err(|err| format!("Nie udało się odczytać user agenta Shindena: {err}"))?;
+        .map_err(|error| verification_failure("request verification browser user agent", error))?;
 
     let value = tauri::async_runtime::spawn_blocking(move || {
-        rx.recv()
-            .map_err(|_| "Nie udało się odebrać user agenta Shindena.".to_string())
+        rx.recv_timeout(Duration::from_secs(5))
+            .map_err(|error| verification_failure("receive verification browser user agent", error))
     })
     .await
-    .map_err(|err| err.to_string())??;
+    .map_err(|error| verification_failure("join verification user agent task", error))??;
 
     serde_json::from_str::<String>(&value).or(Ok(value))
 }
@@ -332,4 +320,11 @@ fn current_timestamp_ms() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| u64::try_from(duration.as_millis()).unwrap_or(u64::MAX))
         .unwrap_or_default()
+}
+
+fn verification_failure(
+    context: &str,
+    error: impl std::error::Error + Send + Sync + 'static,
+) -> ServiceError {
+    ServiceError::caused_by(ErrorKind::VerificationWindowFailed, context, error)
 }

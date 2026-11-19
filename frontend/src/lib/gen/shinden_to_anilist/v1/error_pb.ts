@@ -10,9 +10,11 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shinden_to_anilist/v1/error.proto.
  */
 export const file_shinden_to_anilist_v1_error: GenFile = /*@__PURE__*/
-  fileDesc("CiFzaGluZGVuX3RvX2FuaWxpc3QvdjEvZXJyb3IucHJvdG8SFXNoaW5kZW5fdG9fYW5pbGlzdC52MSKIBQoIQXBwRXJyb3ISLgoEa2luZBgBIAEoDjIgLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5FcnJvcktpbmQSDwoHbWVzc2FnZRgCIAEoCRJJChF1bmxvYWRlZF9yZXNvdXJjZRgDIAEoCzIsLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5VbmxvYWRlZFJlc291cmNlRXJyb3JIABIsCgJpbxgEIAEoCzIeLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5Jb0Vycm9ySAASMAoEanNvbhgFIAEoCzIgLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5Kc29uRXJyb3JIABIwCgRodHRwGAYgASgLMiAuc2hpbmRlbl90b19hbmlsaXN0LnYxLkh0dHBFcnJvckgAEj0KC3NoaW5kZW5fYXBpGAcgASgLMiYuc2hpbmRlbl90b19hbmlsaXN0LnYxLlNoaW5kZW5BcGlFcnJvckgAElAKFW1pc3NpbmdfcmVsZWFzZV9hc3NldBgIIAEoCzIvLnNoaW5kZW5fdG9fYW5pbGlzdC52MS5NaXNzaW5nUmVsZWFzZUFzc2V0RXJyb3JIABJFCg9kaWdlc3RfbWlzbWF0Y2gYCSABKAsyKi5zaGluZGVuX3RvX2FuaWxpc3QudjEuRGlnZXN0TWlzbWF0Y2hFcnJvckgAEjsKCnhtbF9leHBvcnQYCiABKAsyJS5zaGluZGVuX3RvX2FuaWxpc3QudjEuWG1sRXhwb3J0RXJyb3JIABI+CgxvdXRfb2ZfaW5kZXgYCyABKAsyJi5zaGluZGVuX3RvX2FuaWxpc3QudjEuT3V0T2ZJbmRleEVycm9ySABCCQoHZGV0YWlscyIpChVVbmxvYWRlZFJlc291cmNlRXJyb3ISEAoIcmVzb3VyY2UYASABKAkiUgoHSW9FcnJvchIPCgdtZXNzYWdlGAEgASgJEgwKBHBhdGgYAiABKAkSEQoJb3BlcmF0aW9uGAMgASgJEhUKDW9zX2Vycm9yX2tpbmQYBCABKAkiWgoJSnNvbkVycm9yEg8KB21lc3NhZ2UYASABKAkSDAoEcGF0aBgCIAEoCRIMCgRsaW5lGAMgASgEEg4KBmNvbHVtbhgEIAEoBBIQCghjYXRlZ29yeRgFIAEoCSI5CglIdHRwRXJyb3ISDwoHbWVzc2FnZRgBIAEoCRILCgN1cmwYAiABKAkSDgoGc3RhdHVzGAMgASgNIiIKD1NoaW5kZW5BcGlFcnJvchIPCgdtZXNzYWdlGAEgASgJIikKGE1pc3NpbmdSZWxlYXNlQXNzZXRFcnJvchINCgVhc3NldBgBIAEoCSI3ChNEaWdlc3RNaXNtYXRjaEVycm9yEhAKCGV4cGVjdGVkGAEgASgJEg4KBmFjdHVhbBgCIAEoCSIhCg5YbWxFeHBvcnRFcnJvchIPCgdtZXNzYWdlGAEgASgJIjEKD091dE9mSW5kZXhFcnJvchIKCgJpZBgBIAEoBBISCgpjb2xsZWN0aW9uGAIgASgJKo4HCglFcnJvcktpbmQSGgoWRVJST1JfS0lORF9VTlNQRUNJRklFRBAAEiYKIkVSUk9SX0tJTkRfU0hJTkRFTl9MSVNUX05PVF9MT0FERUQQARIiCh5FUlJPUl9LSU5EX0RBVEFCQVNFX05PVF9MT0FERUQQAhIZChVFUlJPUl9LSU5EX1NISU5ERU5fSU8QAxIbChdFUlJPUl9LSU5EX1NISU5ERU5fSlNPThAEEhsKF0VSUk9SX0tJTkRfU0hJTkRFTl9IVFRQEAUSGgoWRVJST1JfS0lORF9TSElOREVOX0FQSRAGEhoKFkVSUk9SX0tJTkRfREFUQUJBU0VfSU8QBxIcChhFUlJPUl9LSU5EX0RBVEFCQVNFX0pTT04QCBIcChhFUlJPUl9LSU5EX0RBVEFCQVNFX0hUVFAQCRIdChlFUlJPUl9LSU5EX0RBVEFCQVNFX0VNUFRZEAoSLQopRVJST1JfS0lORF9EQVRBQkFTRV9NSVNTSU5HX1JFTEVBU0VfQVNTRVQQCxInCiNFUlJPUl9LSU5EX0RBVEFCQVNFX0RJR0VTVF9NSVNNQVRDSBAMEiIKHkVSUk9SX0tJTkRfREFUQUJBU0VfU0lERUNBUl9JTxANEiQKIEVSUk9SX0tJTkRfREFUQUJBU0VfU0lERUNBUl9KU09OEA4SGQoVRVJST1JfS0lORF9FWFBPUlRfWE1MEA8SIgoeRVJST1JfS0lORF9FWFBPUlRfT1VUX09GX0lOREVYEBASGAoURVJST1JfS0lORF9FWFBPUlRfSU8QERIcChhFUlJPUl9LSU5EX0FOSU1FX1pPTkVfSU8QEhIeChpFUlJPUl9LSU5EX0FOSU1FX1pPTkVfSFRUUBATEh8KG0VSUk9SX0tJTkRfQU5JTUVfWk9ORV9QQVJTRRAUEikKJUVSUk9SX0tJTkRfQU5JTUVfWk9ORV9SRVRSWV9FWEhBVVNURUQQFRIfChtFUlJPUl9LSU5EX09HTEFEQUpfQU5JTUVfSU8QFhIhCh1FUlJPUl9LSU5EX09HTEFEQUpfQU5JTUVfSFRUUBAXEiIKHkVSUk9SX0tJTkRfT0dMQURBSl9BTklNRV9QQVJTRRAYEiwKKEVSUk9SX0tJTkRfT0dMQURBSl9BTklNRV9SRVRSWV9FWEhBVVNURUQQGRIWChJFUlJPUl9LSU5EX1VOS05PV04QGmIGcHJvdG8z");
+  fileDesc("CiFzaGluZGVuX3RvX2FuaWxpc3QvdjEvZXJyb3IucHJvdG8SFXNoaW5kZW5fdG9fYW5pbGlzdC52MSJkCghBcHBFcnJvchIuCgRraW5kGAEgASgOMiAuc2hpbmRlbl90b19hbmlsaXN0LnYxLkVycm9yS2luZBIYCgtodHRwX3N0YXR1cxgCIAEoDUgAiAEBQg4KDF9odHRwX3N0YXR1cyrPDAoJRXJyb3JLaW5kEhoKFkVSUk9SX0tJTkRfVU5TUEVDSUZJRUQQABImCiJFUlJPUl9LSU5EX1NISU5ERU5fTElTVF9OT1RfTE9BREVEEAESIgoeRVJST1JfS0lORF9EQVRBQkFTRV9OT1RfTE9BREVEEAISGQoVRVJST1JfS0lORF9TSElOREVOX0lPEAMSGwoXRVJST1JfS0lORF9TSElOREVOX0pTT04QBBIbChdFUlJPUl9LSU5EX1NISU5ERU5fSFRUUBAFEhoKFkVSUk9SX0tJTkRfU0hJTkRFTl9BUEkQBhIaChZFUlJPUl9LSU5EX0RBVEFCQVNFX0lPEAcSHAoYRVJST1JfS0lORF9EQVRBQkFTRV9KU09OEAgSHAoYRVJST1JfS0lORF9EQVRBQkFTRV9IVFRQEAkSHQoZRVJST1JfS0lORF9EQVRBQkFTRV9FTVBUWRAKEi0KKUVSUk9SX0tJTkRfREFUQUJBU0VfTUlTU0lOR19SRUxFQVNFX0FTU0VUEAsSJwojRVJST1JfS0lORF9EQVRBQkFTRV9ESUdFU1RfTUlTTUFUQ0gQDBIiCh5FUlJPUl9LSU5EX0RBVEFCQVNFX1NJREVDQVJfSU8QDRIkCiBFUlJPUl9LSU5EX0RBVEFCQVNFX1NJREVDQVJfSlNPThAOEhkKFUVSUk9SX0tJTkRfRVhQT1JUX1hNTBAPEiIKHkVSUk9SX0tJTkRfRVhQT1JUX09VVF9PRl9JTkRFWBAQEhgKFEVSUk9SX0tJTkRfRVhQT1JUX0lPEBESHAoYRVJST1JfS0lORF9BTklNRV9aT05FX0lPEBISHgoaRVJST1JfS0lORF9BTklNRV9aT05FX0hUVFAQExIfChtFUlJPUl9LSU5EX0FOSU1FX1pPTkVfUEFSU0UQFBIpCiVFUlJPUl9LSU5EX0FOSU1FX1pPTkVfUkVUUllfRVhIQVVTVEVEEBUSHwobRVJST1JfS0lORF9PR0xBREFKX0FOSU1FX0lPEBYSIQodRVJST1JfS0lORF9PR0xBREFKX0FOSU1FX0hUVFAQFxIiCh5FUlJPUl9LSU5EX09HTEFEQUpfQU5JTUVfUEFSU0UQGBIsCihFUlJPUl9LSU5EX09HTEFEQUpfQU5JTUVfUkVUUllfRVhIQVVTVEVEEBkSFgoSRVJST1JfS0lORF9VTktOT1dOEBoSHQoZRVJST1JfS0lORF9JTlZBTElEX1NPVVJDRRAbEiIKHkVSUk9SX0tJTkRfSU5WQUxJRF9TT1VSQ0VfVVNFUhAcEhgKFEVSUk9SX0tJTkRfQ0FOQ0VMTEVEEB0SIAocRVJST1JfS0lORF9ERUFETElORV9FWENFRURFRBAeEiMKH0VSUk9SX0tJTkRfQ0xPVURGTEFSRV9DSEFMTEVOR0UQHxIgChxFUlJPUl9LSU5EX0NMRUFSQU5DRV9JTlZBTElEECASIAocRVJST1JfS0lORF9DTEVBUkFOQ0VfRVhQSVJFRBAhEiIKHkVSUk9SX0tJTkRfU09VUkNFX0xJU1RfUFJJVkFURRAiEiQKIEVSUk9SX0tJTkRfU09VUkNFX0xJU1RfTk9UX0ZPVU5EECMSKQolRVJST1JfS0lORF9EQVRBQkFTRV9QRVJNSVNTSU9OX0RFTklFRBAkEicKI0VSUk9SX0tJTkRfRVhQT1JUX1BFUk1JU1NJT05fREVOSUVEECUSKQolRVJST1JfS0lORF9WRVJJRklDQVRJT05fV0lORE9XX0ZBSUxFRBAmEi8KK0VSUk9SX0tJTkRfVkVSSUZJQ0FUSU9OX1dJTkRPV19BTFJFQURZX09QRU4QJxIfChtFUlJPUl9LSU5EX0FQUF9QQVRIU19GQUlMRUQQKBIiCh5FUlJPUl9LSU5EX1NFUlZJQ0VfVU5BVkFJTEFCTEUQKRIuCipFUlJPUl9LSU5EX1ZFUklGSUNBVElPTl9XSU5ET1dfVU5BVkFJTEFCTEUQKhIjCh9FUlJPUl9LSU5EX0VYUE9SVF9ESUFMT0dfRkFJTEVEECsSHwobRVJST1JfS0lORF9EQVRBQkFTRV9DSEFOR0VEECwSIgoeRVJST1JfS0lORF9TT1VSQ0VfTElTVF9DSEFOR0VEEC1iBnByb3RvMw");
 
 /**
+ * Stable, renderer-safe information shared by the desktop transports.
+ *
  * @generated from message shinden_to_anilist.v1.AppError
  */
 export type AppError = Message<"shinden_to_anilist.v1.AppError"> & {
@@ -22,68 +24,9 @@ export type AppError = Message<"shinden_to_anilist.v1.AppError"> & {
   kind: ErrorKind;
 
   /**
-   * @generated from field: string message = 2;
+   * @generated from field: optional uint32 http_status = 2;
    */
-  message: string;
-
-  /**
-   * @generated from oneof shinden_to_anilist.v1.AppError.details
-   */
-  details: {
-    /**
-     * @generated from field: shinden_to_anilist.v1.UnloadedResourceError unloaded_resource = 3;
-     */
-    value: UnloadedResourceError;
-    case: "unloadedResource";
-  } | {
-    /**
-     * @generated from field: shinden_to_anilist.v1.IoError io = 4;
-     */
-    value: IoError;
-    case: "io";
-  } | {
-    /**
-     * @generated from field: shinden_to_anilist.v1.JsonError json = 5;
-     */
-    value: JsonError;
-    case: "json";
-  } | {
-    /**
-     * @generated from field: shinden_to_anilist.v1.HttpError http = 6;
-     */
-    value: HttpError;
-    case: "http";
-  } | {
-    /**
-     * @generated from field: shinden_to_anilist.v1.ShindenApiError shinden_api = 7;
-     */
-    value: ShindenApiError;
-    case: "shindenApi";
-  } | {
-    /**
-     * @generated from field: shinden_to_anilist.v1.MissingReleaseAssetError missing_release_asset = 8;
-     */
-    value: MissingReleaseAssetError;
-    case: "missingReleaseAsset";
-  } | {
-    /**
-     * @generated from field: shinden_to_anilist.v1.DigestMismatchError digest_mismatch = 9;
-     */
-    value: DigestMismatchError;
-    case: "digestMismatch";
-  } | {
-    /**
-     * @generated from field: shinden_to_anilist.v1.XmlExportError xml_export = 10;
-     */
-    value: XmlExportError;
-    case: "xmlExport";
-  } | {
-    /**
-     * @generated from field: shinden_to_anilist.v1.OutOfIndexError out_of_index = 11;
-     */
-    value: OutOfIndexError;
-    case: "outOfIndex";
-  } | { case: undefined; value?: undefined };
+  httpStatus?: number | undefined;
 };
 
 /**
@@ -92,214 +35,6 @@ export type AppError = Message<"shinden_to_anilist.v1.AppError"> & {
  */
 export const AppErrorSchema: GenMessage<AppError> = /*@__PURE__*/
   messageDesc(file_shinden_to_anilist_v1_error, 0);
-
-/**
- * @generated from message shinden_to_anilist.v1.UnloadedResourceError
- */
-export type UnloadedResourceError = Message<"shinden_to_anilist.v1.UnloadedResourceError"> & {
-  /**
-   * @generated from field: string resource = 1;
-   */
-  resource: string;
-};
-
-/**
- * Describes the message shinden_to_anilist.v1.UnloadedResourceError.
- * Use `create(UnloadedResourceErrorSchema)` to create a new message.
- */
-export const UnloadedResourceErrorSchema: GenMessage<UnloadedResourceError> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_error, 1);
-
-/**
- * @generated from message shinden_to_anilist.v1.IoError
- */
-export type IoError = Message<"shinden_to_anilist.v1.IoError"> & {
-  /**
-   * @generated from field: string message = 1;
-   */
-  message: string;
-
-  /**
-   * @generated from field: string path = 2;
-   */
-  path: string;
-
-  /**
-   * @generated from field: string operation = 3;
-   */
-  operation: string;
-
-  /**
-   * @generated from field: string os_error_kind = 4;
-   */
-  osErrorKind: string;
-};
-
-/**
- * Describes the message shinden_to_anilist.v1.IoError.
- * Use `create(IoErrorSchema)` to create a new message.
- */
-export const IoErrorSchema: GenMessage<IoError> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_error, 2);
-
-/**
- * @generated from message shinden_to_anilist.v1.JsonError
- */
-export type JsonError = Message<"shinden_to_anilist.v1.JsonError"> & {
-  /**
-   * @generated from field: string message = 1;
-   */
-  message: string;
-
-  /**
-   * @generated from field: string path = 2;
-   */
-  path: string;
-
-  /**
-   * @generated from field: uint64 line = 3;
-   */
-  line: bigint;
-
-  /**
-   * @generated from field: uint64 column = 4;
-   */
-  column: bigint;
-
-  /**
-   * @generated from field: string category = 5;
-   */
-  category: string;
-};
-
-/**
- * Describes the message shinden_to_anilist.v1.JsonError.
- * Use `create(JsonErrorSchema)` to create a new message.
- */
-export const JsonErrorSchema: GenMessage<JsonError> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_error, 3);
-
-/**
- * @generated from message shinden_to_anilist.v1.HttpError
- */
-export type HttpError = Message<"shinden_to_anilist.v1.HttpError"> & {
-  /**
-   * @generated from field: string message = 1;
-   */
-  message: string;
-
-  /**
-   * @generated from field: string url = 2;
-   */
-  url: string;
-
-  /**
-   * @generated from field: uint32 status = 3;
-   */
-  status: number;
-};
-
-/**
- * Describes the message shinden_to_anilist.v1.HttpError.
- * Use `create(HttpErrorSchema)` to create a new message.
- */
-export const HttpErrorSchema: GenMessage<HttpError> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_error, 4);
-
-/**
- * @generated from message shinden_to_anilist.v1.ShindenApiError
- */
-export type ShindenApiError = Message<"shinden_to_anilist.v1.ShindenApiError"> & {
-  /**
-   * @generated from field: string message = 1;
-   */
-  message: string;
-};
-
-/**
- * Describes the message shinden_to_anilist.v1.ShindenApiError.
- * Use `create(ShindenApiErrorSchema)` to create a new message.
- */
-export const ShindenApiErrorSchema: GenMessage<ShindenApiError> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_error, 5);
-
-/**
- * @generated from message shinden_to_anilist.v1.MissingReleaseAssetError
- */
-export type MissingReleaseAssetError = Message<"shinden_to_anilist.v1.MissingReleaseAssetError"> & {
-  /**
-   * @generated from field: string asset = 1;
-   */
-  asset: string;
-};
-
-/**
- * Describes the message shinden_to_anilist.v1.MissingReleaseAssetError.
- * Use `create(MissingReleaseAssetErrorSchema)` to create a new message.
- */
-export const MissingReleaseAssetErrorSchema: GenMessage<MissingReleaseAssetError> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_error, 6);
-
-/**
- * @generated from message shinden_to_anilist.v1.DigestMismatchError
- */
-export type DigestMismatchError = Message<"shinden_to_anilist.v1.DigestMismatchError"> & {
-  /**
-   * @generated from field: string expected = 1;
-   */
-  expected: string;
-
-  /**
-   * @generated from field: string actual = 2;
-   */
-  actual: string;
-};
-
-/**
- * Describes the message shinden_to_anilist.v1.DigestMismatchError.
- * Use `create(DigestMismatchErrorSchema)` to create a new message.
- */
-export const DigestMismatchErrorSchema: GenMessage<DigestMismatchError> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_error, 7);
-
-/**
- * @generated from message shinden_to_anilist.v1.XmlExportError
- */
-export type XmlExportError = Message<"shinden_to_anilist.v1.XmlExportError"> & {
-  /**
-   * @generated from field: string message = 1;
-   */
-  message: string;
-};
-
-/**
- * Describes the message shinden_to_anilist.v1.XmlExportError.
- * Use `create(XmlExportErrorSchema)` to create a new message.
- */
-export const XmlExportErrorSchema: GenMessage<XmlExportError> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_error, 8);
-
-/**
- * @generated from message shinden_to_anilist.v1.OutOfIndexError
- */
-export type OutOfIndexError = Message<"shinden_to_anilist.v1.OutOfIndexError"> & {
-  /**
-   * @generated from field: uint64 id = 1;
-   */
-  id: bigint;
-
-  /**
-   * @generated from field: string collection = 2;
-   */
-  collection: string;
-};
-
-/**
- * Describes the message shinden_to_anilist.v1.OutOfIndexError.
- * Use `create(OutOfIndexErrorSchema)` to create a new message.
- */
-export const OutOfIndexErrorSchema: GenMessage<OutOfIndexError> = /*@__PURE__*/
-  messageDesc(file_shinden_to_anilist_v1_error, 9);
 
 /**
  * @generated from enum shinden_to_anilist.v1.ErrorKind
@@ -439,6 +174,101 @@ export enum ErrorKind {
    * @generated from enum value: ERROR_KIND_UNKNOWN = 26;
    */
   UNKNOWN = 26,
+
+  /**
+   * @generated from enum value: ERROR_KIND_INVALID_SOURCE = 27;
+   */
+  INVALID_SOURCE = 27,
+
+  /**
+   * @generated from enum value: ERROR_KIND_INVALID_SOURCE_USER = 28;
+   */
+  INVALID_SOURCE_USER = 28,
+
+  /**
+   * @generated from enum value: ERROR_KIND_CANCELLED = 29;
+   */
+  CANCELLED = 29,
+
+  /**
+   * @generated from enum value: ERROR_KIND_DEADLINE_EXCEEDED = 30;
+   */
+  DEADLINE_EXCEEDED = 30,
+
+  /**
+   * @generated from enum value: ERROR_KIND_CLOUDFLARE_CHALLENGE = 31;
+   */
+  CLOUDFLARE_CHALLENGE = 31,
+
+  /**
+   * @generated from enum value: ERROR_KIND_CLEARANCE_INVALID = 32;
+   */
+  CLEARANCE_INVALID = 32,
+
+  /**
+   * @generated from enum value: ERROR_KIND_CLEARANCE_EXPIRED = 33;
+   */
+  CLEARANCE_EXPIRED = 33,
+
+  /**
+   * @generated from enum value: ERROR_KIND_SOURCE_LIST_PRIVATE = 34;
+   */
+  SOURCE_LIST_PRIVATE = 34,
+
+  /**
+   * @generated from enum value: ERROR_KIND_SOURCE_LIST_NOT_FOUND = 35;
+   */
+  SOURCE_LIST_NOT_FOUND = 35,
+
+  /**
+   * @generated from enum value: ERROR_KIND_DATABASE_PERMISSION_DENIED = 36;
+   */
+  DATABASE_PERMISSION_DENIED = 36,
+
+  /**
+   * @generated from enum value: ERROR_KIND_EXPORT_PERMISSION_DENIED = 37;
+   */
+  EXPORT_PERMISSION_DENIED = 37,
+
+  /**
+   * @generated from enum value: ERROR_KIND_VERIFICATION_WINDOW_FAILED = 38;
+   */
+  VERIFICATION_WINDOW_FAILED = 38,
+
+  /**
+   * @generated from enum value: ERROR_KIND_VERIFICATION_WINDOW_ALREADY_OPEN = 39;
+   */
+  VERIFICATION_WINDOW_ALREADY_OPEN = 39,
+
+  /**
+   * @generated from enum value: ERROR_KIND_APP_PATHS_FAILED = 40;
+   */
+  APP_PATHS_FAILED = 40,
+
+  /**
+   * @generated from enum value: ERROR_KIND_SERVICE_UNAVAILABLE = 41;
+   */
+  SERVICE_UNAVAILABLE = 41,
+
+  /**
+   * @generated from enum value: ERROR_KIND_VERIFICATION_WINDOW_UNAVAILABLE = 42;
+   */
+  VERIFICATION_WINDOW_UNAVAILABLE = 42,
+
+  /**
+   * @generated from enum value: ERROR_KIND_EXPORT_DIALOG_FAILED = 43;
+   */
+  EXPORT_DIALOG_FAILED = 43,
+
+  /**
+   * @generated from enum value: ERROR_KIND_DATABASE_CHANGED = 44;
+   */
+  DATABASE_CHANGED = 44,
+
+  /**
+   * @generated from enum value: ERROR_KIND_SOURCE_LIST_CHANGED = 45;
+   */
+  SOURCE_LIST_CHANGED = 45,
 }
 
 /**

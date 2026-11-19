@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:errors": "node --test --test-isolation=none tests/errors.test.mjs",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "proto:gen": "buf generate --template ../buf.gen.yaml ../proto",
     "format": "prettier --ignore-path ../.prettierignore --write .",

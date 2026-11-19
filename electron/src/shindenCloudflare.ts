@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain, session } from 'electron';
+import { DesktopIpcFailure, ipcResult } from './ipcResult.js';
 
 export const openShindenCloudflareVerificationChannel =
   'shinden-to-anilist:open-shinden-cloudflare-verification';
@@ -56,14 +57,15 @@ let verificationWindow: BrowserWindow | undefined;
 export function registerShindenCloudflareIpc(options: RegisterOptions): void {
   ipcMain.handle(
     openShindenCloudflareVerificationChannel,
-    async (event, verificationOptions?: VerificationOptions) => {
-      const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
-      return await openShindenCloudflareVerification(
-        parent,
-        options,
-        verificationOptions
-      );
-    }
+    (event, verificationOptions?: VerificationOptions) =>
+      ipcResult('verificationFailed', async () => {
+        const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+        return await openShindenCloudflareVerification(
+          parent,
+          options,
+          verificationOptions
+        );
+      })
   );
 }
 
@@ -74,7 +76,10 @@ async function openShindenCloudflareVerification(
 ): Promise<ShindenCloudflareClearance> {
   if (verificationWindow !== undefined && !verificationWindow.isDestroyed()) {
     verificationWindow.focus();
-    throw new Error('Okno weryfikacji Shinden jest już otwarte.');
+    throw new DesktopIpcFailure(
+      'verificationAlreadyOpen',
+      'Shinden verification window already open'
+    );
   }
 
   const userAgent = chromiumUserAgent();
@@ -85,11 +90,6 @@ async function openShindenCloudflareVerification(
   browserSession.setUserAgent(userAgent, acceptLanguages);
   configureShindenRequestHeaders(browserSession, userAgent);
   blockShindenAdRequests(browserSession);
-  console.info('Opening Shinden Cloudflare verification window', {
-    partition: shindenSessionPartition,
-    userAgentLength: userAgent.length,
-    cookieName
-  });
 
   return await new Promise((resolve, reject) => {
     const icon = options.getIconPath();
@@ -112,15 +112,11 @@ async function openShindenCloudflareVerification(
 
     verificationWindow = win;
     win.webContents.setUserAgent(userAgent);
-    win.webContents.setWindowOpenHandler((details) => {
-      console.info('Blocked popup from Shinden verification window', {
-        url: details.url
-      });
+    win.webContents.setWindowOpenHandler(() => {
       return { action: 'deny' };
     });
     win.webContents.on('will-navigate', (event, url) => {
       if (isBlockedShindenAdUrl(url)) {
-        console.info('Blocked Shinden ad navigation', { url });
         event.preventDefault();
       }
     });
@@ -133,10 +129,7 @@ async function openShindenCloudflareVerification(
       }
 
       pollInFlight = true;
-      void captureElectronClearance(win, {
-        cookieName,
-        warnOnMissingCookie: false
-      })
+      void captureElectronClearance(win, cookieName)
         .then((clearance) => {
           if (captureStarted || settled || win.isDestroyed()) {
             return;
@@ -145,9 +138,7 @@ async function openShindenCloudflareVerification(
           captureStarted = true;
           settled = true;
           clearInterval(clearancePoll);
-          console.info(
-            'Shinden Cloudflare verification completed automatically; closing window'
-          );
+
           resolve(clearance);
           win.destroy();
         })
@@ -166,20 +157,15 @@ async function openShindenCloudflareVerification(
 
       event.preventDefault();
       captureStarted = true;
-      console.info(
-        'Shinden Cloudflare verification window closed by user; capturing cookies'
-      );
-      void captureElectronClearance(win, {
-        cookieName,
-        warnOnMissingCookie: true
-      })
+
+      void captureElectronClearance(win, cookieName)
         .then((clearance) => {
           settled = true;
           resolve(clearance);
         })
         .catch((error: unknown) => {
           settled = true;
-          reject(error instanceof Error ? error : new Error(String(error)));
+          reject(error);
         })
         .finally(() => {
           clearInterval(clearancePoll);
@@ -197,7 +183,10 @@ async function openShindenCloudflareVerification(
       }
       if (!settled && !captureStarted) {
         reject(
-          new Error('Okno weryfikacji Shinden zostało zamknięte bez wyniku.')
+          new DesktopIpcFailure(
+            'verificationFailed',
+            'Verification window was destroyed without a result'
+          )
         );
       }
     });
@@ -210,7 +199,7 @@ async function openShindenCloudflareVerification(
       .catch((error: unknown) => {
         settled = true;
         clearInterval(clearancePoll);
-        reject(error instanceof Error ? error : new Error(String(error)));
+        reject(error);
         win.destroy();
       });
   });
@@ -218,50 +207,23 @@ async function openShindenCloudflareVerification(
 
 async function captureElectronClearance(
   win: BrowserWindow,
-  options: { cookieName: string; warnOnMissingCookie: boolean }
+  cookieName: string
 ): Promise<ShindenCloudflareClearance> {
   const userAgent = await browserWindowUserAgent(win);
   await win.webContents.session.cookies.flushStore();
   const cookies = await collectElectronCookies(
     win.webContents.session,
-    options.cookieName
+    cookieName
   );
   const cookie =
-    bestElectronCookie(cookies, options.cookieName) ??
-    (await browserWindowClearanceCookie(win, {
-      cookieName: options.cookieName,
-      warnOnReadError: options.warnOnMissingCookie
-    }));
+    bestElectronCookie(cookies, cookieName) ??
+    (await browserWindowClearanceCookie(win, cookieName));
 
   if (cookie === undefined) {
-    if (options.warnOnMissingCookie) {
-      console.warn(
-        'Shinden verification window did not produce the expected cookie',
-        {
-          cookieName: options.cookieName,
-          cookieCount: cookies.length,
-          currentUrl: win.webContents.getURL(),
-          cookies: summarizeCookies(cookies)
-        }
-      );
-    }
-    throw new Error(
-      `Nie udało się odczytać ciasteczka ${options.cookieName} z okna weryfikacji.`
+    throw new DesktopIpcFailure(
+      'cancelled',
+      `Verification closed before receiving ${cookieName}`
     );
-  }
-
-  console.info('Captured Shinden verification cookie from Electron window', {
-    cookieName: options.cookieName,
-    userAgentLength: userAgent.length,
-    cookieLength: cookie.value.length,
-    domain: cookie.domain,
-    path: cookie.path
-  });
-  if (options.cookieName === autoCloseTestCookie) {
-    console.info('Captured Shinden autoclose test cookie value', {
-      cookieName: options.cookieName,
-      cookieValue: cookie.value
-    });
   }
 
   return {
@@ -320,7 +282,7 @@ function bestElectronCookie(
 
 async function browserWindowClearanceCookie(
   win: BrowserWindow,
-  options: { cookieName: string; warnOnReadError: boolean }
+  cookieName: string
 ): Promise<CapturedClearanceCookie | undefined> {
   try {
     const value = (await win.webContents.executeJavaScript(
@@ -332,7 +294,7 @@ async function browserWindowClearanceCookie(
       return undefined;
     }
 
-    const cookie = parseDocumentCookie(value, options.cookieName);
+    const cookie = parseDocumentCookie(value, cookieName);
     if (cookie === undefined) {
       return undefined;
     }
@@ -342,13 +304,7 @@ async function browserWindowClearanceCookie(
       domain: 'shinden.pl',
       path: '/'
     };
-  } catch (error: unknown) {
-    if (options.warnOnReadError) {
-      console.warn(
-        'Unable to read Shinden verification document.cookie',
-        error
-      );
-    }
+  } catch {
     return undefined;
   }
 }
@@ -393,7 +349,6 @@ function blockShindenAdRequests(browserSession: Electron.Session) {
   browserSession.webRequest.onBeforeRequest(
     blockedShindenAdRequestFilter,
     (details, callback) => {
-      console.info('Blocked Shinden ad request', { url: details.url });
       callback({ cancel: true });
     }
   );
@@ -436,11 +391,8 @@ async function browserWindowUserAgent(win: BrowserWindow) {
     if (typeof value === 'string' && value.trim() !== '') {
       return value;
     }
-  } catch (error: unknown) {
-    console.warn(
-      'Unable to read Shinden verification navigator.userAgent',
-      error
-    );
+  } catch {
+    // Electron retains the window user agent when the document is unavailable.
   }
 
   return win.webContents.getUserAgent();
@@ -497,21 +449,6 @@ function isShindenCookieDomain(domain: string) {
     normalized === 'shinden.pl' ||
     normalized.endsWith('.shinden.pl')
   );
-}
-
-function summarizeCookies(cookies: Electron.Cookie[]) {
-  return cookies
-    .filter((cookie) => isShindenCookieDomain(cookie.domain ?? ''))
-    .map((cookie) => ({
-      name: cookie.name,
-      domain: cookie.domain,
-      path: cookie.path,
-      secure: cookie.secure,
-      httpOnly: cookie.httpOnly,
-      expirationDate: cookie.expirationDate,
-      partitionKey: cookiePartitionKey(cookie) || undefined,
-      valueLength: cookie.value.length
-    }));
 }
 
 function chromiumUserAgent() {

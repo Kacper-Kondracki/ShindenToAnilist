@@ -1,3 +1,4 @@
+pub mod diagnostics;
 use std::{
     path::Path,
     sync::Arc,

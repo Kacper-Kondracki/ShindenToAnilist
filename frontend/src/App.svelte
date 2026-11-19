@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
+  import { installRendererDiagnostics } from './lib/api/diagnostics';
   import AppHeader from './lib/components/AppHeader.svelte';
   import EmptyWorkspace from './lib/components/EmptyWorkspace.svelte';
   import NotificationLayer from './lib/components/NotificationLayer.svelte';
   import ShindenCloudflareChallengeModal from './lib/components/ShindenCloudflareChallengeModal.svelte';
+  import ContextMenuLayer from './lib/components/workspace/ContextMenuLayer.svelte';
   import WorkspaceView from './lib/components/WorkspaceView.svelte';
   import { createAppController } from './lib/features/app/appController.svelte';
 
@@ -12,7 +14,9 @@
   let enableViewEnterAnimations = $state(false);
 
   onMount(() => {
+    const cleanup = installRendererDiagnostics();
     void app.initializeDatabase();
+    return cleanup;
   });
 
   async function handleSubmit(event: SubmitEvent) {
@@ -34,9 +38,10 @@
     databaseStatusText={app.databaseStatusText}
     isUserListLoading={app.isUserListLoading}
     isLoadButtonBusy={app.isLoadButtonBusy}
-    hasUserListError={app.hasUserListError}
+    hasInvalidUserInput={app.hasInvalidUserInput}
     userListErrorMessage={app.userListErrorMessage}
     canSubmit={app.canSubmit}
+    onRetryDatabase={app.initializeDatabase}
     onSelectProvider={app.setSelectedProvider}
     onUserQueryInput={app.setUserQuery}
     onClearUserListError={app.clearUserListError}
@@ -77,6 +82,10 @@
     {/if}
   </div>
 
+  <ContextMenuLayer
+    onActionError={(message) =>
+      app.notifications.error('Menu kontekstowe', message)}
+  />
   <NotificationLayer controller={app.notifications} />
   <ShindenCloudflareChallengeModal
     state={app.shindenCloudflare.state}

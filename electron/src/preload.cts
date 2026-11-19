@@ -1,14 +1,10 @@
+import type { DesktopIpcResult, RendererPaths } from './ipcTypes.js' with {
+  'resolution-mode': 'import'
+};
+
 const { contextBridge, ipcRenderer } =
   require('electron') as typeof import('electron');
 
-type RendererPaths = {
-  base: string;
-  database: string;
-  export: string;
-};
-type AppConfig = {
-  paths: RendererPaths;
-};
 type SelectExportPathOptions = {
   defaultPath?: string;
 };
@@ -16,51 +12,47 @@ type ShindenCloudflareVerificationOptions = {
   mode?: 'clearance' | 'autocloseTest';
 };
 
-const configArgumentPrefix = '--shinden-to-anilist-config=';
+const getAppPathsChannel = 'shinden-to-anilist:get-app-paths';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
 const getGrpcBaseUrlChannel = 'shinden-to-anilist:get-grpc-base-url';
 const openExternalUrlChannel = 'shinden-to-anilist:open-external-url';
 const openShindenCloudflareVerificationChannel =
   'shinden-to-anilist:open-shinden-cloudflare-verification';
 
-function appConfig(): AppConfig {
-  const configArgument = process.argv.find((argument) =>
-    argument.startsWith(configArgumentPrefix)
-  );
-
-  if (configArgument === undefined) {
-    throw new Error('Missing ShindenToAnilist app config');
-  }
-
-  return JSON.parse(
-    configArgument.slice(configArgumentPrefix.length)
-  ) as AppConfig;
-}
-
-const config = appConfig();
-
 contextBridge.exposeInMainWorld('shindenToAnilist', {
-  paths: config.paths,
+  reportFailure: (operation: string, detail: string) => {
+    ipcRenderer.send('shinden-to-anilist:renderer-failure', operation, detail);
+  },
+  getAppPaths: () =>
+    ipcRenderer.invoke(getAppPathsChannel) as Promise<
+      DesktopIpcResult<RendererPaths>
+    >,
   getGrpcBaseUrl: () =>
-    ipcRenderer.invoke(getGrpcBaseUrlChannel) as Promise<string>,
+    ipcRenderer.invoke(getGrpcBaseUrlChannel) as Promise<
+      DesktopIpcResult<string>
+    >,
   openShindenCloudflareVerification: (
     options?: ShindenCloudflareVerificationOptions
   ) =>
     ipcRenderer.invoke(
       openShindenCloudflareVerificationChannel,
       options
-    ) as Promise<{
-      userAgent: string;
-      cfClearance: string;
-      domain: string;
-      path: string;
-      expiresUnixSeconds?: number;
-      capturedAtMs: number;
-    }>,
+    ) as Promise<
+      DesktopIpcResult<{
+        userAgent: string;
+        cfClearance: string;
+        domain: string;
+        path: string;
+        expiresUnixSeconds?: number;
+        capturedAtMs: number;
+      }>
+    >,
   openExternalUrl: (url: string) =>
-    ipcRenderer.invoke(openExternalUrlChannel, url) as Promise<void>,
+    ipcRenderer.invoke(openExternalUrlChannel, url) as Promise<
+      DesktopIpcResult<void>
+    >,
   selectExportPath: (options?: SelectExportPathOptions) =>
     ipcRenderer.invoke(selectExportPathChannel, options) as Promise<
-      string | null
+      DesktopIpcResult<string | null>
     >
 });

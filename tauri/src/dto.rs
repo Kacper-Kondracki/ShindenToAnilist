@@ -1,6 +1,5 @@
 use std::fmt;
 
-use prost::Message;
 use serde::{
     Deserialize,
     Deserializer,
@@ -11,9 +10,10 @@ use serde::{
         Visitor,
     },
 };
-use shinden_to_anilist_grpc::pb;
-use tonic::Status;
-use tracing::warn;
+use shinden_to_anilist_grpc::{
+    error::ServiceError,
+    pb,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct WireNumberDto(pub(crate) u64);
@@ -130,25 +130,10 @@ pub(crate) struct SetShindenCloudflareClearanceResponseDto {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct CommandHttpErrorDto {
-    pub(crate) message: String,
-    pub(crate) url: String,
-    pub(crate) status: u32,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct CommandAppErrorDto {
-    pub(crate) kind: i32,
-    pub(crate) message: String,
-    pub(crate) http: Option<CommandHttpErrorDto>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct CommandErrorDto {
-    pub(crate) message: String,
-    pub(crate) app_error: Option<CommandAppErrorDto>,
+    kind: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    http_status: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -602,52 +587,32 @@ impl From<ShindenCloudflareClearanceDto> for pb::ShindenCloudflareClearance {
     }
 }
 
-pub(crate) fn command_error(status: Status) -> String {
-    warn!(
-        code = ?status.code(),
-        message = %status.message(),
-        "tauri command failed"
-    );
-    status.message().to_owned()
-}
-
-pub(crate) fn command_app_error(status: Status) -> CommandErrorDto {
-    warn!(
-        code = ?status.code(),
-        message = %status.message(),
-        "tauri command failed"
-    );
-
+pub(crate) fn command_error(error: ServiceError) -> CommandErrorDto {
+    let error = error.report();
     CommandErrorDto {
-        message: status.message().to_owned(),
-        app_error: pb::AppError::decode(status.details())
-            .ok()
-            .map(command_app_error_dto),
-    }
-}
-
-pub(crate) fn command_simple_error(message: impl Into<String>) -> CommandErrorDto {
-    CommandErrorDto {
-        message: message.into(),
-        app_error: None,
-    }
-}
-
-fn command_app_error_dto(error: pb::AppError) -> CommandAppErrorDto {
-    CommandAppErrorDto {
         kind: error.kind,
-        message: error.message,
-        http: match error.details {
-            Some(pb::app_error::Details::Http(http)) => Some(CommandHttpErrorDto {
-                message: http.message,
-                url: http.url,
-                status: http.status,
-            }),
-            _ => None,
-        },
+        http_status: error.http_status,
     }
 }
 
 pub(crate) fn wire_numbers(values: Vec<u64>) -> Vec<WireNumberDto> {
     values.into_iter().map(Into::into).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_errors_send_safe_fields_only() {
+        let error = command_error(ServiceError::caused_by(
+            pb::ErrorKind::DatabasePermissionDenied,
+            "open private database path",
+            std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+        ));
+        assert_eq!(
+            serde_json::to_value(error).unwrap(),
+            serde_json::json!({"kind": pb::ErrorKind::DatabasePermissionDenied as i32}),
+        );
+    }
 }

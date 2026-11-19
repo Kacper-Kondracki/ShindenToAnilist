@@ -2,21 +2,10 @@ syntax = "proto3";
 
 package shinden_to_anilist.v1;
 
+// Stable, renderer-safe information shared by the desktop transports.
 message AppError {
   ErrorKind kind = 1;
-  string message = 2;
-
-  oneof details {
-    UnloadedResourceError unloaded_resource = 3;
-    IoError io = 4;
-    JsonError json = 5;
-    HttpError http = 6;
-    ShindenApiError shinden_api = 7;
-    MissingReleaseAssetError missing_release_asset = 8;
-    DigestMismatchError digest_mismatch = 9;
-    XmlExportError xml_export = 10;
-    OutOfIndexError out_of_index = 11;
-  }
+  optional uint32 http_status = 2;
 }
 
 enum ErrorKind {
@@ -55,51 +44,24 @@ enum ErrorKind {
   ERROR_KIND_OGLADAJ_ANIME_RETRY_EXHAUSTED = 25;
 
   ERROR_KIND_UNKNOWN = 26;
-}
 
-message UnloadedResourceError {
-  string resource = 1;
-}
-
-message IoError {
-  string message = 1;
-  string path = 2;
-  string operation = 3;
-  string os_error_kind = 4;
-}
-
-message JsonError {
-  string message = 1;
-  string path = 2;
-  uint64 line = 3;
-  uint64 column = 4;
-  string category = 5;
-}
-
-message HttpError {
-  string message = 1;
-  string url = 2;
-  uint32 status = 3;
-}
-
-message ShindenApiError {
-  string message = 1;
-}
-
-message MissingReleaseAssetError {
-  string asset = 1;
-}
-
-message DigestMismatchError {
-  string expected = 1;
-  string actual = 2;
-}
-
-message XmlExportError {
-  string message = 1;
-}
-
-message OutOfIndexError {
-  uint64 id = 1;
-  string collection = 2;
+  ERROR_KIND_INVALID_SOURCE = 27;
+  ERROR_KIND_INVALID_SOURCE_USER = 28;
+  ERROR_KIND_CANCELLED = 29;
+  ERROR_KIND_DEADLINE_EXCEEDED = 30;
+  ERROR_KIND_CLOUDFLARE_CHALLENGE = 31;
+  ERROR_KIND_CLEARANCE_INVALID = 32;
+  ERROR_KIND_CLEARANCE_EXPIRED = 33;
+  ERROR_KIND_SOURCE_LIST_PRIVATE = 34;
+  ERROR_KIND_SOURCE_LIST_NOT_FOUND = 35;
+  ERROR_KIND_DATABASE_PERMISSION_DENIED = 36;
+  ERROR_KIND_EXPORT_PERMISSION_DENIED = 37;
+  ERROR_KIND_VERIFICATION_WINDOW_FAILED = 38;
+  ERROR_KIND_VERIFICATION_WINDOW_ALREADY_OPEN = 39;
+  ERROR_KIND_APP_PATHS_FAILED = 40;
+  ERROR_KIND_SERVICE_UNAVAILABLE = 41;
+  ERROR_KIND_VERIFICATION_WINDOW_UNAVAILABLE = 42;
+  ERROR_KIND_EXPORT_DIALOG_FAILED = 43;
+  ERROR_KIND_DATABASE_CHANGED = 44;
+  ERROR_KIND_SOURCE_LIST_CHANGED = 45;
 }

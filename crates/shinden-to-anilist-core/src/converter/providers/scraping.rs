@@ -32,10 +32,7 @@ use scraper::{
     Html,
     Selector,
 };
-use tracing::{
-    debug,
-    warn,
-};
+use tracing::debug;
 
 use crate::converter::common::AnimeId;
 
@@ -268,7 +265,7 @@ where
         let first_path = P::section_path(username, section, 1);
         let first_html = client.get_html(&first_path).await?;
         let (mut page_items, page_count) = P::parse_list(&first_path, section, &first_html).inspect_err(
-            |error| warn!(path = %first_path, error = %error, "source list page parse failed"),
+            |error| debug!(path = %first_path, error = %error, "source list page parse failed"),
         )?;
         items.append(&mut page_items);
 
@@ -276,7 +273,7 @@ where
             let path = P::section_path(username, section, page);
             let html = client.get_html(&path).await?;
             let (mut page_items, _) = P::parse_list(&path, section, &html)
-                .inspect_err(|error| warn!(%path, page, error = %error, "source list page parse failed"))?;
+                .inspect_err(|error| debug!(%path, page, error = %error, "source list page parse failed"))?;
             items.append(&mut page_items);
         }
     }
@@ -303,20 +300,20 @@ where
                 Ok(html) => match P::parse_detail(&path, &html) {
                     Ok(detail) => Some(detail),
                     Err(error) if options.fail_on_detail_error => {
-                        warn!(%path, error = %error, "source detail page parse failed");
+                        debug!(%path, error = %error, "source detail page parse failed");
                         return Err(error);
                     },
                     Err(error) => {
-                        warn!(%path, error = %error, "source detail page parse failed; continuing without detail");
+                        debug!(%path, error = %error, "source detail page parse failed; continuing without detail");
                         None
                     },
                 },
                 Err(error) if options.fail_on_detail_error => {
-                    warn!(%path, error = %error, "source detail page request failed");
+                    debug!(%path, error = %error, "source detail page request failed");
                     return Err(error.into());
                 },
                 Err(error) => {
-                    warn!(%path, error = %error, "source detail page request failed; continuing without detail");
+                    debug!(%path, error = %error, "source detail page request failed; continuing without detail");
                     None
                 },
             };

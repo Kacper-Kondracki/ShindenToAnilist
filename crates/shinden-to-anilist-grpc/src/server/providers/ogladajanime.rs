@@ -14,7 +14,6 @@ use shinden_to_anilist_core::{
     },
 };
 use tokio_util::sync::CancellationToken;
-use tonic::Status;
 
 use super::{
     direct::source_results_with_direct_matches,
@@ -26,7 +25,9 @@ use super::{
 };
 use crate::{
     DatabaseState,
+    error::ServiceError,
     pb::{
+        ErrorKind,
         SourceFetchProgress,
         SourceMatchResult,
         SourceProvider,
@@ -39,12 +40,11 @@ pub(in crate::server) async fn fetch_source_list(
     service: &ShindenToAnilist,
     user: &str,
     cancellation_token: CancellationToken,
-    emit_progress: &mut impl FnMut(SourceFetchProgress) -> Result<(), Status>,
-) -> Result<(SourceList, u64), Status> {
-    let user_id = user
-        .trim()
-        .parse::<u64>()
-        .map_err(|_| Status::invalid_argument("Id użytkownika Oglądaj Anime musi być liczbą."))?;
+    emit_progress: &mut impl FnMut(SourceFetchProgress) -> Result<(), ServiceError>,
+) -> Result<(SourceList, u64), ServiceError> {
+    let user_id = user.trim().parse::<u64>().map_err(|error| {
+        ServiceError::caused_by(ErrorKind::InvalidSourceUser, "parse Oglądaj Anime user ID", error)
+    })?;
 
     let stream = OgladajAnimeList::stream_from_ogladajanime(
         service.http_clients.ogladajanime.clone(),

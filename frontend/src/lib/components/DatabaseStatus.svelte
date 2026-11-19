@@ -2,7 +2,11 @@
   import type { DatabaseState } from '../domain/anime';
   import { databaseStatusTitle } from '../domain/animeView';
 
-  let { state, text }: { state: DatabaseState; text: string } = $props();
+  let {
+    state,
+    text,
+    onRetry
+  }: { state: DatabaseState; text: string; onRetry: () => void } = $props();
 </script>
 
 <div
@@ -26,6 +30,11 @@
     ></span>
   {/if}
   <span>{text}</span>
+  {#if state.status === 'error'}
+    <button type="button" class="btn btn-ghost btn-xs" onclick={onRetry}>
+      Wczytaj ponownie
+    </button>
+  {/if}
 </div>
 
 <style>

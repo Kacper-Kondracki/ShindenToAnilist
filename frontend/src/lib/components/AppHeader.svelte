@@ -13,9 +13,10 @@
     databaseStatusText,
     isUserListLoading,
     isLoadButtonBusy,
-    hasUserListError,
+    hasInvalidUserInput,
     userListErrorMessage,
     canSubmit,
+    onRetryDatabase,
     onSelectProvider,
     onUserQueryInput,
     onClearUserListError,
@@ -28,9 +29,10 @@
     databaseStatusText: string;
     isUserListLoading: boolean;
     isLoadButtonBusy: boolean;
-    hasUserListError: boolean;
+    hasInvalidUserInput: boolean;
     userListErrorMessage: string | null;
     canSubmit: boolean;
+    onRetryDatabase: () => void;
     onSelectProvider: (provider: Provider) => void;
     onUserQueryInput: (value: string) => void;
     onClearUserListError: () => void;
@@ -45,7 +47,11 @@
     >
       <div class="min-w-52">
         <h1 class="text-xl font-bold">ShindenToAnilist</h1>
-        <DatabaseStatus state={databaseState} text={databaseStatusText} />
+        <DatabaseStatus
+          state={databaseState}
+          text={databaseStatusText}
+          onRetry={onRetryDatabase}
+        />
       </div>
 
       <ProviderSelector
@@ -61,7 +67,7 @@
       busy={isLoadButtonBusy}
       readonly={isLoadButtonBusy}
       {canSubmit}
-      hasError={hasUserListError}
+      invalidInput={hasInvalidUserInput}
       errorMessage={userListErrorMessage}
       onValueInput={onUserQueryInput}
       onClearError={onClearUserListError}

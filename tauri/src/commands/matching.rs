@@ -19,7 +19,7 @@ pub(crate) async fn fuzzy_search(
     state: State<'_, AppState>,
     query: String,
     options: Option<SearchOptionsDto>,
-) -> Result<FuzzySearchResponseDto, String> {
+) -> Result<FuzzySearchResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .fuzzy_search(pb::FuzzySearchRequest {
@@ -41,7 +41,7 @@ pub(crate) async fn fuzzy_match(
     options: Option<SearchOptionsDto>,
     shinden_id: Option<WireNumberDto>,
     source_id: Option<WireNumberDto>,
-) -> Result<FuzzyMatchResponseDto, String> {
+) -> Result<FuzzyMatchResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .fuzzy_match(pb::FuzzyMatchRequest {
@@ -62,7 +62,7 @@ pub(crate) async fn fuzzy_match(
 pub(crate) async fn match_shinden_list(
     state: State<'_, AppState>,
     options: Option<SearchOptionsDto>,
-) -> Result<MatchShindenListResponseDto, String> {
+) -> Result<MatchShindenListResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .match_shinden_list(pb::MatchShindenListRequest {
@@ -81,7 +81,7 @@ pub(crate) async fn match_shinden_list(
 pub(crate) async fn match_source_list(
     state: State<'_, AppState>,
     options: Option<SearchOptionsDto>,
-) -> Result<MatchSourceListResponseDto, String> {
+) -> Result<MatchSourceListResponseDto, crate::dto::CommandErrorDto> {
     state
         .service
         .match_source_list(pb::MatchSourceListRequest {

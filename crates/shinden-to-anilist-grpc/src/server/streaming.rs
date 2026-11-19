@@ -1,10 +1,7 @@
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::Status;
-use tracing::{
-    info,
-    warn,
-};
+use tracing::debug;
 
 const STREAM_CHUNK_SIZE: usize = 500;
 
@@ -31,7 +28,7 @@ where
 
             batches += 1;
             if tx.send(Ok(into_response(version, batch))).await.is_err() {
-                warn!(
+                debug!(
                     version,
                     total_entries,
                     batches_sent = batches,
@@ -40,13 +37,6 @@ where
                 break;
             }
         }
-
-        info!(
-            version,
-            total_entries,
-            batches_sent = batches,
-            "response stream finished"
-        );
     });
 
     ReceiverStream::new(rx)

@@ -1,3 +1,4 @@
+import { reportFailure } from '../../api/diagnostics';
 import {
   cancelSourceListFetch,
   fetchSourceList,
@@ -16,8 +17,14 @@ import type {
 } from '../../domain/anime';
 import { wireNumberEquals } from '../../domain/anime';
 import { SourceFetchPhase } from '../../gen/shinden_to_anilist/v1/source_pb';
-import { errorMessage } from '../database/initializeDatabase';
+import {
+  AppFailure,
+  ErrorKind,
+  isFailure,
+  userErrorMessage
+} from '../../api/errors';
 import type { NotificationController } from '../notifications/notificationController.svelte';
+import type { ShindenCloudflareRequest } from '../shinden/cloudflareController.svelte';
 import type { WorkspaceController } from '../workspace/workspaceController.svelte';
 import {
   parseSourceUser,
@@ -27,32 +34,13 @@ import {
   type ParsedSourceUser
 } from './providers';
 
-export type SourceImportBlockedRequest = {
-  provider: Provider;
-  query: string;
-  sourceUser: ParsedSourceUser;
-  message: string;
-};
-
-export type SourceImportProviderHooks = {
-  beforeFetch?: (request: {
-    provider: Provider;
-    query: string;
-    sourceUser: ParsedSourceUser;
-  }) => Promise<void> | void;
-  canHandleError?: (error: unknown) => boolean;
-  handleBlockedImport?: (
-    request: SourceImportBlockedRequest
-  ) => Promise<void> | void;
-  retryBlockedMessage?: string;
-};
-
 type SourceImportControllerInput = {
   animeData: LoadedAnimeData;
   workspace: WorkspaceController;
   notifications: NotificationController;
   waitForReadyDatabase: () => Promise<DatabaseState>;
-  providerHooks?: Partial<Record<Provider, SourceImportProviderHooks>>;
+  applySavedShindenVerification: () => Promise<void>;
+  onShindenChallenge: (request: ShindenCloudflareRequest) => void;
 };
 
 export type SourceImportController = ReturnType<
@@ -64,7 +52,8 @@ export function createSourceImportController({
   workspace,
   notifications,
   waitForReadyDatabase,
-  providerHooks = {}
+  applySavedShindenVerification,
+  onShindenChallenge
 }: SourceImportControllerInput) {
   let state = $state<UserListRequestState>({ status: 'idle' });
   let activeRequestId = 0;
@@ -95,12 +84,18 @@ export function createSourceImportController({
     }
   }
 
-  function setError(provider: Provider, query: string, message: string) {
+  function setError(
+    provider: Provider,
+    query: string,
+    message: string,
+    invalidInput = false
+  ) {
     state = {
       status: 'error',
       provider,
       query,
-      message
+      message,
+      invalidInput
     };
   }
 
@@ -116,13 +111,8 @@ export function createSourceImportController({
     const sourceUser = parseSourceUser(provider, query);
 
     if (sourceUser === null) {
-      const message = `Nie udało się rozpoznać użytkownika ${providerById(provider).label}`;
-      state = {
-        status: 'error',
-        provider,
-        query,
-        message
-      };
+      const message = `Sprawdź nazwę użytkownika lub adres listy w serwisie ${providerById(provider).label}.`;
+      setError(provider, query, message, true);
       notifications.error('Nieprawidłowy użytkownik', message);
       return;
     }
@@ -134,11 +124,8 @@ export function createSourceImportController({
     provider: Provider,
     query: string,
     sourceUser: ParsedSourceUser,
-    options: { throwErrors?: boolean; handleProviderErrors?: boolean } = {}
-  ) {
-    const throwErrors = options.throwErrors ?? false;
-    const handleProviderErrors = options.handleProviderErrors ?? true;
-    const providerHooksForRequest = providerHooks[provider];
+    options: { afterVerification?: boolean } = {}
+  ): Promise<'loaded' | 'cancelled' | 'failed' | 'challenge'> {
     const requestId = activeRequestId + 1;
     activeRequestId = requestId;
     activeAbortController?.abort();
@@ -153,17 +140,17 @@ export function createSourceImportController({
       progress: null
     };
 
+    let fetchingSource = false;
     try {
-      await providerHooksForRequest?.beforeFetch?.({
-        provider,
-        query,
-        sourceUser
-      });
+      if (provider === 'shinden' && !options.afterVerification) {
+        await applySavedShindenVerification();
+      }
       if (activeRequestId !== requestId) {
-        return false;
+        return 'cancelled';
       }
 
       const fetchStartedAt = performance.now();
+      fetchingSource = true;
       const fetchedList = await fetchSourceList(
         sourceUser.provider,
         sourceUser.user,
@@ -198,28 +185,32 @@ export function createSourceImportController({
       );
 
       if (activeRequestId !== requestId) {
-        return false;
+        return 'cancelled';
       }
 
+      fetchingSource = false;
       const readyDatabaseState = await waitForReadyDatabase();
 
-      if (readyDatabaseState.status !== 'ready') {
-        throw new Error(
-          readyDatabaseState.status === 'error'
-            ? readyDatabaseState.message
-            : 'Baza danych nie jest gotowa'
-        );
+      if (activeRequestId !== requestId) {
+        return 'cancelled';
       }
 
-      if (activeRequestId !== requestId) {
-        return false;
+      if (readyDatabaseState.status !== 'ready') {
+        return failImport(
+          readyDatabaseState.status === 'error'
+            ? readyDatabaseState.message
+            : userErrorMessage(
+                new AppFailure(ErrorKind.DATABASE_NOT_LOADED),
+                ''
+              )
+        );
       }
 
       const sourceFull = await getSourceFull();
       const nextFetchDurationMs = performance.now() - fetchStartedAt;
 
       if (activeRequestId !== requestId) {
-        return false;
+        return 'cancelled';
       }
 
       const matchStartedAt = performance.now();
@@ -228,7 +219,7 @@ export function createSourceImportController({
       const nextMatchDurationMs = performance.now() - matchStartedAt;
 
       if (activeRequestId !== requestId) {
-        return false;
+        return 'cancelled';
       }
 
       assertConsistentWorkspaceVersions(
@@ -266,50 +257,54 @@ export function createSourceImportController({
         matchDurationMs: nextMatchDurationMs,
         manualOverrideScopeKey: sourceUser.manualOverrideScopeKey
       });
-      return true;
+      return 'loaded';
     } catch (error) {
       if (activeRequestId !== requestId) {
-        return false;
+        return 'cancelled';
       }
 
-      console.error('Unable to load source user list', error);
-      const message = errorMessage(error);
-      if (
-        handleProviderErrors &&
-        providerHooksForRequest?.canHandleError?.(error) === true
-      ) {
+      if (isFailure(error, ErrorKind.CANCELLED)) {
+        resetProgressDebounce();
         state = { status: 'idle' };
-        await providerHooksForRequest.handleBlockedImport?.({
-          provider,
-          query,
-          sourceUser,
-          message
-        });
-        return false;
+        return 'cancelled';
       }
 
-      resetProgressDebounce();
-      if (throwErrors) {
-        throw providerHooksForRequest?.retryBlockedMessage === undefined
-          ? error
-          : new Error(providerHooksForRequest.retryBlockedMessage);
+      if (
+        fetchingSource &&
+        provider === 'shinden' &&
+        isFailure(error, ErrorKind.CLOUDFLARE_CHALLENGE)
+      ) {
+        resetProgressDebounce();
+        state = { status: 'idle' };
+        if (!options.afterVerification) {
+          onShindenChallenge({
+            provider,
+            query,
+            sourceUser,
+            message: userErrorMessage(error, '')
+          });
+        }
+        return 'challenge';
       }
 
-      state = {
-        status: 'error',
-        provider,
-        query,
-        message
-      };
-      notifications.error(
-        `Nie udało się wczytać listy z ${providerById(provider).label}`,
-        message
+      reportFailure('source_import', error);
+      return failImport(
+        userErrorMessage(error, 'Spróbuj wczytać listę ponownie.'),
+        isFailure(error, ErrorKind.INVALID_SOURCE_USER)
       );
-      return false;
     } finally {
       if (activeRequestId === requestId) {
         activeAbortController = null;
       }
+    }
+    function failImport(message: string, invalidInput = false) {
+      resetProgressDebounce();
+      setError(provider, query, message, invalidInput);
+      notifications.error(
+        `Nie udało się wczytać listy z ${providerById(provider).label}`,
+        message
+      );
+      return 'failed' as const;
     }
   }
 
@@ -330,7 +325,7 @@ export function createSourceImportController({
     activeAbortController = null;
     resetProgressDebounce();
     void cancelSourceListFetch(requestId).catch((error) => {
-      console.warn('Unable to cancel source list fetch', error);
+      reportFailure('cancel_source_import', error);
     });
     state = { status: 'idle' };
   }
@@ -468,15 +463,11 @@ function assertConsistentWorkspaceVersions(
     !wireNumberEquals(fullSourceVersion, matchedSourceVersion) ||
     !wireNumberEquals(sourceIdsVersion, matchedSourceVersion)
   ) {
-    throw new Error(
-      'Lista źródłowa zmieniła się podczas dopasowywania. Spróbuj ponownie.'
-    );
+    throw new AppFailure(ErrorKind.SOURCE_LIST_CHANGED);
   }
 
   if (!wireNumberEquals(readyDatabaseVersion, matchResult.databaseVersion)) {
-    throw new Error(
-      'Baza danych zmieniła się podczas dopasowywania. Spróbuj ponownie.'
-    );
+    throw new AppFailure(ErrorKind.DATABASE_CHANGED);
   }
 }
 

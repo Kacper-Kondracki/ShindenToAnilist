@@ -1,5 +1,6 @@
+import { reportFailure } from '../../api/diagnostics';
 import { fuzzyMatch } from '../../api/appService';
-import { toUserFacingErrorMessage } from '../../api/runtime';
+import { userErrorMessage } from '../../api/errors';
 import type {
   DatabaseEntry,
   MatchResult,
@@ -329,6 +330,7 @@ export async function loadInitialMatchSelectorSearch(
       result: response.result
     };
   } catch (error) {
+    reportFailure('match_search', error);
     return {
       status: 'error',
       shindenId: selectedEntry.id,
@@ -435,5 +437,5 @@ function orderCandidatesByIds(
 }
 
 function errorToMessage(error: unknown) {
-  return toUserFacingErrorMessage(error, 'Nie udało się wyszukać dopasowań');
+  return userErrorMessage(error, 'Nie udało się wyszukać dopasowań');
 }

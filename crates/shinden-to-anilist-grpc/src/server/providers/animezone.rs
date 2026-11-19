@@ -14,7 +14,6 @@ use shinden_to_anilist_core::{
     },
 };
 use tokio_util::sync::CancellationToken;
-use tonic::Status;
 
 use super::{
     direct::source_results_with_direct_matches,
@@ -26,7 +25,9 @@ use super::{
 };
 use crate::{
     DatabaseState,
+    error::ServiceError,
     pb::{
+        ErrorKind,
         SourceFetchProgress,
         SourceMatchResult,
         SourceProvider,
@@ -39,12 +40,13 @@ pub(in crate::server) async fn fetch_source_list(
     service: &ShindenToAnilist,
     user: &str,
     cancellation_token: CancellationToken,
-    emit_progress: &mut impl FnMut(SourceFetchProgress) -> Result<(), Status>,
-) -> Result<(SourceList, u64), Status> {
+    emit_progress: &mut impl FnMut(SourceFetchProgress) -> Result<(), ServiceError>,
+) -> Result<(SourceList, u64), ServiceError> {
     let username = user.trim();
     if username.is_empty() {
-        return Err(Status::invalid_argument(
-            "Nazwa użytkownika AnimeZone nie może być pusta.",
+        return Err(ServiceError::new(
+            ErrorKind::InvalidSourceUser,
+            "empty AnimeZone username",
         ));
     }
 

@@ -61,6 +61,16 @@ Po wyeksportowaniu XML-a z aplikacji zaimportuj go na jednej z tych stron:
 - AniList: <https://anilist.co/settings/import>
 - MyAnimeList: <https://myanimelist.net/import.php>
 
+## Logi diagnostyczne
+
+Aplikacja zapisuje logi lokalnie w folderze użytkownika.
+
+- Linux — `$XDG_STATE_HOME/ShindenToAnilist/logs`, domyślnie `~/.local/state/ShindenToAnilist/logs`
+- Windows — `%LOCALAPPDATA%\ShindenToAnilist\logs`
+- macOS — `~/Library/Logs/ShindenToAnilist`
+
+`tauri.log` zawiera zdarzenia aplikacji Tauri. W wersji Electron `electron.log` zawiera zdarzenia okna i interfejsu, a `sidecar.log` zdarzenia usługi Rust. Na początku sesji zapisywana jest wersja aplikacji i identyfikator commita, jeśli był dostępny podczas budowania. Każdy plik jest obracany po osiągnięciu 1 MiB. Poprzedni plik ma rozszerzenie `.log.1`.
+
 ## Dla developerów
 
 Instrukcje deweloperskie znajdują się tu

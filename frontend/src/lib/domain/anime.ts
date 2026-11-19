@@ -194,7 +194,13 @@ export type UserListRequestState =
       progress: SourceImportProgress | null;
     }
   | ({ status: 'loaded' } & LoadedUserList)
-  | { status: 'error'; provider: Provider; query: string; message: string };
+  | {
+      status: 'error';
+      provider: Provider;
+      query: string;
+      message: string;
+      invalidInput: boolean;
+    };
 
 export type WorkspaceState =
   { status: 'empty' } | ({ status: 'active' } & LoadedUserList);

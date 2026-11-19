@@ -75,12 +75,19 @@ impl fmt::Display for ClearanceError {
             Self::InvalidPath => formatter.write_str("cf_clearance cookie path is invalid"),
             Self::Expired => formatter.write_str("cf_clearance cookie is expired"),
             Self::InvalidCookieUrl => formatter.write_str("internal Shinden cookie URL is invalid"),
-            Self::Client(error) => write!(formatter, "failed to build Shinden HTTP client: {error}"),
+            Self::Client(_) => formatter.write_str("failed to build Shinden HTTP client"),
         }
     }
 }
 
-impl std::error::Error for ClearanceError {}
+impl std::error::Error for ClearanceError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Client(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<reqwest::Error> for ClearanceError {
     fn from(value: reqwest::Error) -> Self { Self::Client(value) }

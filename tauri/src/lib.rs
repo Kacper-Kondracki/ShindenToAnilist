@@ -36,24 +36,22 @@ use commands::{
     },
 };
 use state::AppState;
-use tracing_subscriber::{
-    EnvFilter,
-    fmt,
-};
-
-fn init_tracing() {
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        EnvFilter::new(
-            "shinden_to_anilist_core=info,shinden_to_anilist_grpc=info,shinden_to_anilist_tauri=info",
-        )
-    });
-
-    let _ = fmt().with_env_filter(filter).try_init();
+#[tauri::command]
+fn report_renderer_failure(operation: &str, detail: &str) {
+    if !operation.is_empty()
+        && operation.len() <= 64
+        && operation
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+    {
+        let detail: String = detail.chars().take(5000).collect();
+        tracing::error!(operation, ?detail, "renderer operation failed");
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    init_tracing();
+    shinden_to_anilist_grpc::diagnostics::init("tauri", env!("CARGO_PKG_VERSION"));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_wayland_nvidia_quirk::init())
@@ -62,6 +60,7 @@ pub fn run() {
         .manage(AppState::new().expect("failed to build app HTTP clients"))
         .invoke_handler(tauri::generate_handler![
             app_paths,
+            report_renderer_failure,
             fetch_source_list,
             cancel_source_list_fetch,
             get_source_ids,

@@ -29,6 +29,7 @@ use tonic::{
 use crate::{
     DatabaseState,
     VersionedArcOption,
+    error::ServiceError,
     http::AppHttpClients,
     pb::{
         shinden_to_anilist_service_server::ShindenToAnilistService,
@@ -86,7 +87,9 @@ impl ShindenToAnilistService for ShindenToAnilist {
                         progress: Some(progress),
                         done: false,
                     }))
-                    .map_err(|_| Status::cancelled("Odbiorca postępu importu został zamknięty."))
+                    .map_err(|_| {
+                        ServiceError::new(ErrorKind::Cancelled, "source progress receiver disconnected")
+                    })
             });
             tokio::pin!(fetch);
 
@@ -97,7 +100,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
                             let _ = tx.send(Ok(response));
                         },
                         Err(status) => {
-                            let _ = tx.send(Err(status));
+                            let _ = tx.send(Err(status.into()));
                         },
                     }
                 },
@@ -117,6 +120,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::get_source_ids(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     type GetSourceFullStream = ReceiverStream<Result<GetSourceFullResponse, Status>>;
@@ -143,13 +147,16 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::fetch_shinden_list(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     async fn set_shinden_cloudflare_clearance(
         &self,
         request: Request<SetShindenCloudflareClearanceRequest>,
     ) -> Result<Response<SetShindenCloudflareClearanceResponse>, Status> {
-        ShindenToAnilist::set_shinden_cloudflare_clearance(self, request.into_inner()).map(Response::new)
+        ShindenToAnilist::set_shinden_cloudflare_clearance(self, request.into_inner())
+            .map(Response::new)
+            .map_err(Into::into)
     }
 
     async fn get_shinden_ids(
@@ -159,6 +166,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::get_shinden_ids(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     async fn get_shinden_entries(
@@ -168,6 +176,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::get_shinden_entries(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     type GetShindenFullStream = ReceiverStream<Result<GetShindenFullResponse, Status>>;
@@ -194,6 +203,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::check_database_update(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     async fn download_database(
@@ -203,6 +213,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::download_database(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     async fn load_database(
@@ -212,6 +223,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::load_database(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     async fn get_database_metadata(
@@ -221,6 +233,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::get_database_metadata(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     async fn get_database_ids(
@@ -230,6 +243,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::get_database_ids(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     async fn get_database_entries(
@@ -239,6 +253,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::get_database_entries(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     type GetDatabaseFullStream = ReceiverStream<Result<GetDatabaseFullResponse, Status>>;
@@ -265,6 +280,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::fuzzy_search(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     async fn fuzzy_match(
@@ -274,6 +290,7 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::fuzzy_match(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 
     type MatchSourceListStream = ReceiverStream<Result<MatchSourceListResponse, Status>>;
@@ -321,5 +338,6 @@ impl ShindenToAnilistService for ShindenToAnilist {
         ShindenToAnilist::export_xml(self, request.into_inner())
             .await
             .map(Response::new)
+            .map_err(Into::into)
     }
 }

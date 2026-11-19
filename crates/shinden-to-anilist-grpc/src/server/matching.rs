@@ -1,5 +1,4 @@
 use shinden_to_anilist_core::{
-    common::AnimeList,
     matcher::{
         DefaultMatcher,
         Matcher,
@@ -10,7 +9,6 @@ use shinden_to_anilist_core::{
     },
     utils::normalize_str,
 };
-use tonic::Status;
 use tracing::{
     info,
     instrument,
@@ -18,11 +16,12 @@ use tracing::{
 
 use super::{
     ShindenToAnilist,
-    database::spawn_blocking_status,
+    database::run_blocking,
     providers,
 };
 use crate::{
     error::{
+        ServiceError,
         database_not_loaded,
         shinden_list_not_loaded,
     },
@@ -36,13 +35,14 @@ use crate::{
 
 impl ShindenToAnilist {
     #[instrument(skip_all, name = "app.fuzzy_search")]
-    pub async fn fuzzy_search(&self, request: FuzzySearchRequest) -> Result<FuzzySearchResponse, Status> {
-        let query_len = request.query.len();
-        info!(query_len, "running fuzzy search");
+    pub async fn fuzzy_search(
+        &self,
+        request: FuzzySearchRequest,
+    ) -> Result<FuzzySearchResponse, ServiceError> {
         let guard = self.database.load();
 
         let database_version = guard.version();
-        let database = guard.get().ok_or_else(|| database_not_loaded().into_status())?;
+        let database = guard.get().ok_or_else(database_not_loaded)?;
         let query = normalize_str(&request.query);
         let options = search_options(request.options, SearchMode::Fuzzy);
 
@@ -52,7 +52,6 @@ impl ShindenToAnilist {
             .into_iter()
             .map(|(id, score)| SearchResult { id, score })
             .collect();
-        info!(database_version, results = results.len(), "fuzzy search finished");
 
         Ok(FuzzySearchResponse {
             database_version,
@@ -61,20 +60,11 @@ impl ShindenToAnilist {
     }
 
     #[instrument(skip_all, name = "app.fuzzy_match")]
-    pub async fn fuzzy_match(&self, request: FuzzyMatchRequest) -> Result<FuzzyMatchResponse, Status> {
-        let query_len = request.query.len();
-        info!(
-            query_len,
-            shinden_id = request.shinden_id,
-            source_id = request.source_id,
-            "running fuzzy match"
-        );
+    pub async fn fuzzy_match(&self, request: FuzzyMatchRequest) -> Result<FuzzyMatchResponse, ServiceError> {
         let database_guard = self.database.load();
 
         let database_version = database_guard.version();
-        let database = database_guard
-            .get()
-            .ok_or_else(|| database_not_loaded().into_status())?;
+        let database = database_guard.get().ok_or_else(database_not_loaded)?;
         let source_guard = self.source_list.load();
         let source_entry_id = request.source_id.or(request.shinden_id);
         let source_entry =
@@ -110,12 +100,6 @@ impl ShindenToAnilist {
             .copied()
             .map(Into::into)
             .collect();
-        info!(
-            database_version,
-            candidates = candidates.len(),
-            results = results.len(),
-            "fuzzy match finished"
-        );
 
         Ok(FuzzyMatchResponse {
             database_version,
@@ -127,38 +111,23 @@ impl ShindenToAnilist {
     pub async fn match_shinden_list(
         &self,
         request: MatchShindenListRequest,
-    ) -> Result<MatchShindenListResponse, Status> {
-        info!("matching shinden list");
+    ) -> Result<MatchShindenListResponse, ServiceError> {
         let shinden_guard = self.shinden_list.load();
         let database_guard = self.database.load();
 
         let shinden_version = shinden_guard.version();
         let database_version = database_guard.version();
-        let shinden = shinden_guard
-            .get_arc()
-            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
-        let database = database_guard
-            .get_arc()
-            .ok_or_else(|| database_not_loaded().into_status())?;
+        let shinden = shinden_guard.get_arc().ok_or_else(shinden_list_not_loaded)?;
+        let database = database_guard.get_arc().ok_or_else(database_not_loaded)?;
         let options = search_options(request.options, SearchMode::Strict);
-        let shinden_entries = shinden.len();
-        let database_entries = database.database.len();
 
-        let results = spawn_blocking_status("shinden list matching", move || {
+        let results = run_blocking("shinden list matching", move || {
             let matcher = DefaultMatcher::strict_preset();
             Ok(providers::shinden::match_legacy_list(
                 &shinden, &database, options, &matcher,
             ))
         })
         .await?;
-        info!(
-            shinden_version,
-            database_version,
-            shinden_entries,
-            database_entries,
-            results = results.len(),
-            "shinden list matched"
-        );
 
         Ok(MatchShindenListResponse {
             shinden_version,
@@ -171,24 +140,18 @@ impl ShindenToAnilist {
     pub async fn match_source_list(
         &self,
         request: MatchSourceListRequest,
-    ) -> Result<MatchSourceListResponse, Status> {
-        info!("matching source list");
+    ) -> Result<MatchSourceListResponse, ServiceError> {
         let source_guard = self.source_list.load();
         let database_guard = self.database.load();
 
         let source_version = source_guard.version();
         let database_version = database_guard.version();
-        let source = source_guard
-            .get_arc()
-            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
-        let database = database_guard
-            .get_arc()
-            .ok_or_else(|| database_not_loaded().into_status())?;
+        let source = source_guard.get_arc().ok_or_else(shinden_list_not_loaded)?;
+        let database = database_guard.get_arc().ok_or_else(database_not_loaded)?;
         let options = search_options(request.options, SearchMode::Strict);
         let source_entries = source.len();
-        let database_entries = database.database.len();
 
-        let results = spawn_blocking_status("source list matching", move || {
+        let results = run_blocking("source list matching", move || {
             let matcher = DefaultMatcher::strict_preset();
             Ok(providers::match_source_list(
                 source.as_ref(),
@@ -202,7 +165,6 @@ impl ShindenToAnilist {
             source_version,
             database_version,
             source_entries,
-            database_entries,
             results = results.len(),
             "source list matched"
         );
@@ -215,15 +177,13 @@ impl ShindenToAnilist {
     }
 
     #[instrument(skip_all, name = "app.export_xml")]
-    pub async fn export_xml(&self, request: ExportXmlRequest) -> Result<ExportXmlResponse, Status> {
+    pub async fn export_xml(&self, request: ExportXmlRequest) -> Result<ExportXmlResponse, ServiceError> {
         let requested_matches = request.matches.len();
-        info!(path = %request.path, requested_matches, "exporting xml");
+
         let guard = self.source_list.load();
 
         let source_version = guard.version();
-        let source = guard
-            .get_arc()
-            .ok_or_else(|| shinden_list_not_loaded().into_status())?;
+        let source = guard.get_arc().ok_or_else(shinden_list_not_loaded)?;
         let path = request.path;
         let matches = request
             .matches
@@ -231,12 +191,12 @@ impl ShindenToAnilist {
             .map(|pair| (pair.source_id, pair.database_id))
             .collect::<Vec<_>>();
 
-        let path = spawn_blocking_status("xml export", move || {
+        let path = run_blocking("xml export", move || {
             export_xml_to_path(&source, matches.into_iter(), &path)?;
             Ok(path)
         })
         .await?;
-        info!(source_version, path = %path, requested_matches, "xml exported");
+        info!(source_version, requested_matches, "xml exported");
 
         Ok(ExportXmlResponse {
             source_version,

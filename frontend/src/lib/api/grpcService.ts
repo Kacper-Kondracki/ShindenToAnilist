@@ -72,7 +72,7 @@ export async function fetchSourceList(
   options?: { requestId?: number; signal?: AbortSignal }
 ) {
   return callRpc(async (client) => {
-    let nextSourceVersion = 0n;
+    let nextSourceVersion: bigint | undefined;
     const callOptions =
       options?.signal === undefined ? undefined : { signal: options.signal };
 
@@ -87,6 +87,12 @@ export async function fetchSourceList(
       if (chunk.done) {
         nextSourceVersion = chunk.sourceVersion;
       }
+    }
+
+    if (nextSourceVersion === undefined || nextSourceVersion === 0n) {
+      throw new Error(
+        'Source import stream ended without a valid completion event'
+      );
     }
 
     observeSourceVersion(nextSourceVersion);

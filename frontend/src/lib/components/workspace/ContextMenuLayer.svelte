@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reportFailure } from '../../api/diagnostics';
   import { tick } from 'svelte';
   import {
     closeContextMenu,
@@ -6,6 +7,9 @@
     positionContextMenu,
     type ContextMenuItem
   } from './contextMenuState.svelte';
+
+  let { onActionError }: { onActionError: (message: string) => void } =
+    $props();
 
   let menuElement = $state<HTMLUListElement | null>(null);
 
@@ -68,10 +72,14 @@
     }
   }
 
-  function selectItem(item: ContextMenuItem) {
-    const result = item.onSelect();
+  async function selectItem(item: ContextMenuItem) {
     closeContextMenu();
-    void result;
+    try {
+      await item.onSelect();
+    } catch (error) {
+      reportFailure('workspace_menu_action', error);
+      onActionError(`Nie udało się wykonać działania „${item.label}”.`);
+    }
   }
 
   function handleItemPointerdown(event: PointerEvent, item: ContextMenuItem) {

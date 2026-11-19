@@ -73,14 +73,13 @@ pub enum ShindenError {
     Request(#[from] reqwest::Error),
     /// HTTP response was not a successful JSON API response.
     #[error(
-        "shinden api returned HTTP {status} for {url}; content-type: {content_type}; cf-mitigated: {cf_mitigated}; body: {body_preview}"
+        "shinden api returned HTTP {status} for {url}; content-type: {content_type}; cf-mitigated: {cf_mitigated}"
     )]
     Http {
         status: reqwest::StatusCode,
         url: String,
         content_type: String,
         cf_mitigated: String,
-        body_preview: String,
     },
     /// API returned an application-level error message.
     #[error("shinden api returned error: {0}")]
@@ -88,8 +87,6 @@ pub enum ShindenError {
 }
 
 const SHINDEN_API_URL: &str = "https://lista.shinden.pl/api/userlist";
-const BODY_PREVIEW_READ_BYTES: usize = 8192;
-const BODY_PREVIEW_CHARS: usize = 200;
 
 fn shinden_url(user: u64, limit: u64, offset: u64) -> String {
     format!("{SHINDEN_API_URL}/{user}/anime?limit={limit}&offset={offset}")
@@ -103,45 +100,14 @@ fn header_value(headers: &HeaderMap, name: &'static str) -> String {
         .to_owned()
 }
 
-fn body_preview(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes)
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .chars()
-        .take(BODY_PREVIEW_CHARS)
-        .collect()
-}
-
-async fn response_body_preview(mut response: HttpResponse) -> Result<String, ShindenError> {
-    let mut bytes = Vec::with_capacity(BODY_PREVIEW_READ_BYTES);
-
-    while bytes.len() < BODY_PREVIEW_READ_BYTES {
-        let Some(chunk) = response.chunk().await? else {
-            break;
-        };
-        let remaining = BODY_PREVIEW_READ_BYTES - bytes.len();
-        let chunk_len = chunk.len().min(remaining);
-        bytes.extend_from_slice(&chunk[..chunk_len]);
-    }
-
-    Ok(body_preview(&bytes))
-}
-
-fn response_body_preview_blocking(response: BlockingHttpResponse) -> Result<String, ShindenError> {
-    let mut bytes = Vec::with_capacity(BODY_PREVIEW_READ_BYTES);
-    let mut limited = response.take(BODY_PREVIEW_READ_BYTES as u64);
-    limited.read_to_end(&mut bytes)?;
-
-    Ok(body_preview(&bytes))
-}
-
 async fn read_shinden_response(response: HttpResponse) -> Result<Vec<u8>, ShindenError> {
     let status = response.status();
     let url = response.url().to_string();
     let headers = response.headers().clone();
 
-    if status.is_success() {
+    let cf_mitigated = header_value(&headers, "cf-mitigated");
+
+    if status.is_success() && !cf_mitigated.eq_ignore_ascii_case("challenge") {
         return Ok(response.bytes().await?.to_vec());
     }
 
@@ -149,8 +115,7 @@ async fn read_shinden_response(response: HttpResponse) -> Result<Vec<u8>, Shinde
         status,
         url,
         content_type: header_value(&headers, CONTENT_TYPE.as_str()),
-        cf_mitigated: header_value(&headers, "cf-mitigated"),
-        body_preview: response_body_preview(response).await?,
+        cf_mitigated,
     })
 }
 
@@ -159,7 +124,9 @@ fn read_shinden_response_blocking(response: BlockingHttpResponse) -> Result<Vec<
     let url = response.url().to_string();
     let headers = response.headers().clone();
 
-    if status.is_success() {
+    let cf_mitigated = header_value(&headers, "cf-mitigated");
+
+    if status.is_success() && !cf_mitigated.eq_ignore_ascii_case("challenge") {
         return Ok(response.bytes()?.to_vec());
     }
 
@@ -167,8 +134,7 @@ fn read_shinden_response_blocking(response: BlockingHttpResponse) -> Result<Vec<
         status,
         url,
         content_type: header_value(&headers, CONTENT_TYPE.as_str()),
-        cf_mitigated: header_value(&headers, "cf-mitigated"),
-        body_preview: response_body_preview_blocking(response)?,
+        cf_mitigated,
     })
 }
 

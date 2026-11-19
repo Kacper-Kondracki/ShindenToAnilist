@@ -11,23 +11,20 @@ import type {
 import * as grpcService from './grpcService';
 import { toDatabaseInfo, type SourceFetchProgress } from './mapping';
 import {
-  appPathsPromise,
-  databasePath,
-  exportPath,
+  resolveAppPaths,
   isTauriRuntime,
   openShindenCloudflareVerification
 } from './runtime';
 import * as tauriService from './tauriService';
 import { currentVersions } from './versions';
 
-export { currentVersions, databasePath, exportPath };
-export { isShindenCloudflareChallengeError } from './runtime';
+export { currentVersions };
 export type { SourceFetchProgress };
 
 const backend = isTauriRuntime() ? tauriService : grpcService;
 
 export async function ensureDatabase() {
-  const paths = await appPathsPromise;
+  const paths = await resolveAppPaths();
   const update = await checkDatabaseUpdate(paths.database);
 
   let release = update.local ?? update.remote ?? null;
@@ -95,19 +92,23 @@ export function getShindenFull() {
 }
 
 export async function checkDatabaseUpdate(path?: string) {
-  return backend.checkDatabaseUpdate(path ?? (await appPathsPromise).database);
+  return backend.checkDatabaseUpdate(
+    path ?? (await resolveAppPaths()).database
+  );
 }
 
 export async function downloadDatabase(path?: string) {
-  return backend.downloadDatabase(path ?? (await appPathsPromise).database);
+  return backend.downloadDatabase(path ?? (await resolveAppPaths()).database);
 }
 
 export async function loadDatabase(path?: string) {
-  return backend.loadDatabase(path ?? (await appPathsPromise).database);
+  return backend.loadDatabase(path ?? (await resolveAppPaths()).database);
 }
 
 export async function getDatabaseMetadata(path?: string) {
-  return backend.getDatabaseMetadata(path ?? (await appPathsPromise).database);
+  return backend.getDatabaseMetadata(
+    path ?? (await resolveAppPaths()).database
+  );
 }
 
 export function getDatabaseFull() {
@@ -135,5 +136,5 @@ export function matchSourceList(options: SearchOptions = {}) {
 }
 
 export async function exportXml(matches: MatchSelection[], path?: string) {
-  return backend.exportXml(matches, path ?? (await appPathsPromise).export);
+  return backend.exportXml(matches, path ?? (await resolveAppPaths()).export);
 }

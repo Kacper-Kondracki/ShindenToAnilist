@@ -1,5 +1,6 @@
+import { reportFailure } from '../../api/diagnostics';
 import { exportXml } from '../../api/appService';
-import { toUserFacingErrorMessage } from '../../api/runtime';
+import { userErrorMessage } from '../../api/errors';
 import type { LoadedAnimeData } from '../../data/loadedAnimeData.svelte';
 import type {
   DatabaseEntry,
@@ -451,6 +452,7 @@ export function createWorkspaceController(animeData: LoadedAnimeData) {
             exportedCount: result.exportedCount
           };
     } catch (error) {
+      reportFailure('export_xml', error);
       exportState = { status: 'error', message: errorMessage(error) };
     }
   }
@@ -908,8 +910,5 @@ function stringifyWireNumberRecord(record: WireNumberRecord<WireNumber>) {
 }
 
 function errorMessage(error: unknown) {
-  return toUserFacingErrorMessage(
-    error,
-    'Nie udało się wyeksportować dopasowań'
-  );
+  return userErrorMessage(error, 'Nie udało się wyeksportować dopasowań');
 }

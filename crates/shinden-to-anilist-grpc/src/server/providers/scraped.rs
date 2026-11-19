@@ -4,11 +4,11 @@ use tokio_stream::{
     StreamExt,
 };
 use tokio_util::sync::CancellationToken;
-use tonic::Status;
 
 use crate::{
-    error::IntoStatus,
+    error::ServiceError,
     pb::{
+        ErrorKind,
         SourceFetchPhase,
         SourceFetchProgress,
         SourceProvider,
@@ -36,12 +36,12 @@ pub(super) async fn collect_entries<E, S, Err>(
     provider: SourceProvider,
     mut stream: S,
     cancellation_token: CancellationToken,
-    emit_progress: &mut impl FnMut(SourceFetchProgress) -> Result<(), Status>,
-) -> Result<(Vec<E::Entry>, u64), Status>
+    emit_progress: &mut impl FnMut(SourceFetchProgress) -> Result<(), ServiceError>,
+) -> Result<(Vec<E::Entry>, u64), ServiceError>
 where
     E: ScrapedSourceFetchEvent,
     S: Stream<Item = Result<E, Err>> + Unpin,
-    Err: IntoStatus,
+    Err: Into<ServiceError>,
 {
     emit_progress(super::super::source::source_progress(
         provider,
@@ -56,7 +56,7 @@ where
     loop {
         let event = tokio::select! {
             () = cancellation_token.cancelled() => {
-                return Err(Status::cancelled("Pobieranie listy zostało anulowane."));
+                return Err(ServiceError::new(ErrorKind::Cancelled, "source fetch cancelled"));
             },
             event = stream.next() => event,
         };
@@ -65,7 +65,7 @@ where
             break;
         };
 
-        match event.map_err(IntoStatus::into_status)?.into_parts() {
+        match event.map_err(Into::into)?.into_parts() {
             ScrapedSourceFetchEventParts::Started { total_entries: total } => {
                 total_entries = total as u64;
                 emit_progress(super::super::source::source_progress(

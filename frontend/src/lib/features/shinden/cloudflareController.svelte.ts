@@ -1,4 +1,10 @@
-import { toUserFacingErrorMessage } from '../../api/runtime';
+import { reportFailure } from '../../api/diagnostics';
+import {
+  AppFailure,
+  ErrorKind,
+  isFailure,
+  userErrorMessage
+} from '../../api/errors';
 import type { Provider } from '../../config/providers';
 import type { ShindenCloudflareClearance } from '../../domain/anime';
 import type { ParsedSourceUser } from '../source/userInput';
@@ -27,8 +33,9 @@ type ShindenCloudflareControllerInput = {
     clearance: ShindenCloudflareClearance
   ) => Promise<{ accepted: boolean }>;
   saveClearance?: (clearance: ShindenCloudflareClearance) => void;
-  retry: (request: ShindenCloudflareRequest) => Promise<void>;
-  onResolved?: () => void;
+  retry: (
+    request: ShindenCloudflareRequest
+  ) => Promise<'loaded' | 'cancelled' | 'failed' | 'challenge'>;
 };
 
 export function createShindenCloudflareController(
@@ -73,17 +80,47 @@ export function createShindenCloudflareController(
       const applied = await input.applyClearance(clearance);
 
       if (!applied.accepted) {
-        throw new Error('Nie udało się zastosować ciasteczka Cloudflare.');
+        throw new AppFailure(ErrorKind.CLEARANCE_INVALID);
       }
 
       state = { ...request, status: 'retrying' };
-      await input.retry(request);
+      const result = await input.retry(request);
+      if (result === 'challenge') {
+        state = {
+          ...request,
+          status: 'failed',
+          message:
+            'Shinden nadal wymaga weryfikacji. Otwórz okno i dokończ weryfikację na stronie.'
+        };
+        return;
+      }
+
+      if (result === 'cancelled') {
+        state = { status: 'idle' };
+        return;
+      }
       input.saveClearance?.(clearance);
       state = { status: 'idle' };
-      input.onResolved?.();
     } catch (error) {
-      const message = errorToMessage(error);
-      state = { ...request, status: 'failed', message };
+      if (isFailure(error, ErrorKind.CANCELLED)) {
+        state = {
+          ...request,
+          status: 'blocked',
+          message:
+            'Weryfikacja została przerwana. Otwórz okno ponownie, aby kontynuować.'
+        };
+        return;
+      }
+
+      reportFailure('shinden_verification', error);
+      state = {
+        ...request,
+        status: 'failed',
+        message: userErrorMessage(
+          error,
+          'Nie udało się zakończyć weryfikacji Shindena.'
+        )
+      };
     }
   }
 
@@ -101,11 +138,4 @@ export function createShindenCloudflareController(
     cancel,
     resolve
   };
-}
-
-function errorToMessage(error: unknown) {
-  return toUserFacingErrorMessage(
-    error,
-    'Nie udało się zakończyć weryfikacji Cloudflare.'
-  );
 }

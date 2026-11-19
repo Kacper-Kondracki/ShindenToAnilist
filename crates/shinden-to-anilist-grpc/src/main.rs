@@ -9,6 +9,7 @@ use std::{
 };
 
 use shinden_to_anilist_grpc::{
+    diagnostics,
     pb::shinden_to_anilist_service_server::ShindenToAnilistServiceServer,
     server::ShindenToAnilist,
 };
@@ -17,12 +18,6 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server;
 use tonic_web::GrpcWebLayer;
 use tower_http::cors::CorsLayer;
-use tracing::info;
-use tracing_subscriber::{
-    EnvFilter,
-    fmt,
-};
-
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:45187";
 const LISTEN_ADDR_ENV: &str = "SHINDEN_TO_ANILIST_GRPC_LISTEN_ADDR";
 const EXIT_ON_STDIN_CLOSE_ENV: &str = "SHINDEN_TO_ANILIST_GRPC_EXIT_ON_STDIN_CLOSE";
@@ -31,14 +26,6 @@ const EXIT_ON_STDIN_CLOSE_ENV: &str = "SHINDEN_TO_ANILIST_GRPC_EXIT_ON_STDIN_CLO
 struct Config {
     listen_addr: SocketAddr,
     exit_on_stdin_close: bool,
-}
-
-fn init_tracing() {
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        EnvFilter::new("shinden_to_anilist_core=info,shinden_to_anilist_grpc=info,tower_http=info")
-    });
-
-    fmt().with_env_filter(filter).init();
 }
 
 fn config() -> Result<Config, Box<dyn std::error::Error>> {
@@ -94,8 +81,15 @@ fn stdin_close_shutdown() -> tokio::sync::watch::Receiver<bool> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    init_tracing();
+    diagnostics::init("sidecar", env!("CARGO_PKG_VERSION"));
+    if let Err(error) = serve().await {
+        tracing::error!(%error, "sidecar stopped with an error");
+        return Err(error);
+    }
+    Ok(())
+}
 
+async fn serve() -> Result<(), Box<dyn std::error::Error>> {
     let config = config()?;
     let addr = config.listen_addr;
     let listener = TcpListener::bind(addr).await?;
@@ -103,7 +97,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service = ShindenToAnilist::new()?;
     let stdin_shutdown = config.exit_on_stdin_close.then(stdin_close_shutdown);
 
-    info!(%addr, "ShindenToAnilist gRPC listening");
     println!(r#"{{"event":"ready","addr":"{addr}"}}"#);
 
     let server = Server::builder()
@@ -116,7 +109,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         server
             .serve_with_incoming_shutdown(TcpListenerStream::new(listener), async move {
                 let _ = shutdown.changed().await;
-                info!("ShindenToAnilist gRPC shutting down after stdin closed");
             })
             .await?;
     } else {
