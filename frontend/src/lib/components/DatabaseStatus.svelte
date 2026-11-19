@@ -7,33 +7,49 @@
     text,
     onRetry
   }: { state: DatabaseState; text: string; onRetry: () => void } = $props();
+
+  let usingSavedDatabase = $derived(
+    state.status === 'ready' && state.updateWarning !== undefined
+  );
+  let retryLabel = $derived(
+    state.status === 'error'
+      ? 'Wczytaj ponownie bazę danych'
+      : 'Ponów aktualizację bazy danych'
+  );
 </script>
 
 <div
   class="database-status flex items-center gap-1 text-xs font-medium"
-  class:database-status--loaded={state.status === 'ready'}
+  class:database-status--loaded={state.status === 'ready' &&
+    !usingSavedDatabase}
+  class:database-status--warning={usingSavedDatabase}
   class:database-status--error={state.status === 'error'}
   aria-live="polite"
   title={databaseStatusTitle(state)}
 >
-  {#if state.status === 'loading'}
-    <span class="loading loading-xs loading-spinner" aria-hidden="true"></span>
-  {:else if state.status === 'ready'}
-    <span
-      class="database-status__icon database-status__icon--loaded"
-      aria-hidden="true"
-    ></span>
-  {:else}
-    <span
-      class="database-status__icon database-status__icon--error"
-      aria-hidden="true"
-    ></span>
-  {/if}
-  <span>{text}</span>
-  {#if state.status === 'error'}
-    <button type="button" class="btn btn-ghost btn-xs" onclick={onRetry}>
-      Wczytaj ponownie
+  {#if state.status === 'error' || usingSavedDatabase}
+    <button
+      type="button"
+      class="flex cursor-pointer items-center gap-1 rounded-sm text-left hover:underline focus-visible:outline focus-visible:outline-offset-2"
+      aria-label={usingSavedDatabase
+        ? `${text}. ${retryLabel}`
+        : `${retryLabel}. ${text}`}
+      onclick={onRetry}
+    >
+      <span
+        class={`size-4 shrink-0 ${usingSavedDatabase ? 'icon-[lucide--cloud-off]' : 'icon-[lucide--rotate-cw]'}`}
+        aria-hidden="true"
+      ></span>
+      <span>{usingSavedDatabase ? text : retryLabel}</span>
     </button>
+  {:else}
+    {#if state.status === 'loading'}
+      <span class="loading loading-xs loading-spinner" aria-hidden="true"
+      ></span>
+    {:else}
+      <span class="database-status__loaded-icon" aria-hidden="true"></span>
+    {/if}
+    <span>{text}</span>
   {/if}
 </div>
 
@@ -50,7 +66,11 @@
     color: var(--color-error);
   }
 
-  .database-status__icon {
+  .database-status--warning {
+    color: var(--color-warning);
+  }
+
+  .database-status__loaded-icon {
     display: inline-grid;
     position: relative;
     width: 1rem;
@@ -62,7 +82,7 @@
     background-color: currentColor;
   }
 
-  .database-status__icon--loaded::before {
+  .database-status__loaded-icon::before {
     position: absolute;
     width: 0.32rem;
     height: 0.58rem;
@@ -70,25 +90,5 @@
     border-bottom: 2px solid var(--color-base-300);
     content: '';
     transform: rotate(45deg) translate(-0.02rem, -0.08rem);
-  }
-
-  .database-status__icon--error::before,
-  .database-status__icon--error::after {
-    position: absolute;
-    border-radius: 999px;
-    background-color: var(--color-base-300);
-    content: '';
-  }
-
-  .database-status__icon--error::before {
-    width: 0.12rem;
-    height: 0.5rem;
-    transform: translateY(-0.12rem);
-  }
-
-  .database-status__icon--error::after {
-    width: 0.14rem;
-    height: 0.14rem;
-    transform: translateY(0.3rem);
   }
 </style>

@@ -17,13 +17,24 @@ export async function initializeDatabaseState(
     }
 
     try {
-      const info = await ensureDatabase();
+      const { info, updateFailure } = await ensureDatabase();
       const databaseFull = await getDatabaseFull();
       if (databaseFull.databaseVersion !== info.databaseVersion) {
         throw new AppFailure(ErrorKind.DATABASE_CHANGED);
       }
 
       animeData.replaceDatabaseFull(databaseFull);
+      if (updateFailure !== null) {
+        reportFailure('update_database', updateFailure.error);
+        return {
+          status: 'ready',
+          info,
+          updateWarning: userErrorMessage(
+            updateFailure.error,
+            'Nie udało się zaktualizować bazy anime.'
+          )
+        };
+      }
       return { status: 'ready', info };
     } catch (error) {
       lastError = error;

@@ -174,7 +174,7 @@ export type LoadedUserList = {
 
 export type DatabaseState =
   | { status: 'loading' }
-  | { status: 'ready'; info: DatabaseInfo }
+  | { status: 'ready'; info: DatabaseInfo; updateWarning?: string }
   | { status: 'error'; message: string };
 
 export type SourceImportProgress = {

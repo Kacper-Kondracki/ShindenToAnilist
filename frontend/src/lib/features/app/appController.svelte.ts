@@ -51,7 +51,7 @@ export function createAppController() {
   let userQuery = $state('');
   let databaseState = $state<DatabaseState>({ status: 'loading' });
   let databaseInitializationPromise: Promise<DatabaseState> | null = null;
-  let lastDatabaseNotificationMessage = '';
+  let databaseNotification: { id: number; key: string } | null = null;
 
   sourceImport = createSourceImportController({
     animeData,
@@ -79,6 +79,11 @@ export function createAppController() {
   });
   let databaseStatusText = $derived.by(() => {
     if (databaseState.status === 'ready') {
+      if (databaseState.updateWarning !== undefined) {
+        return databaseState.info.lastUpdate
+          ? `Zapisana baza: ${databaseState.info.lastUpdate}`
+          : 'Zapisana baza danych';
+      }
       return databaseState.info.lastUpdate
         ? `Baza danych: ${databaseState.info.lastUpdate}`
         : 'Baza danych załadowana';
@@ -132,18 +137,42 @@ export function createAppController() {
     databaseInitializationPromise = initializeDatabaseState(animeData);
     databaseState = await databaseInitializationPromise;
     databaseInitializationPromise = null;
-    if (
-      databaseState.status === 'error' &&
-      databaseState.message !== lastDatabaseNotificationMessage
-    ) {
-      lastDatabaseNotificationMessage = databaseState.message;
-      notifications.error(
+    if (databaseState.status === 'error') {
+      notifyDatabaseIssue(
+        'error',
         'Nie udało się wczytać bazy danych',
         databaseState.message
       );
+    } else if (databaseState.status === 'ready') {
+      if (databaseState.updateWarning !== undefined) {
+        notifyDatabaseIssue(
+          'warning',
+          'Używasz zapisanej bazy danych',
+          databaseState.updateWarning
+        );
+      } else if (databaseNotification !== null) {
+        notifications.dismiss(databaseNotification.id);
+        databaseNotification = null;
+      }
     }
 
     return databaseState;
+  }
+
+  function notifyDatabaseIssue(
+    tone: 'error' | 'warning',
+    title: string,
+    message: string
+  ) {
+    const key = `${tone}:${message}`;
+    if (databaseNotification?.key === key) return;
+    if (databaseNotification !== null) {
+      notifications.dismiss(databaseNotification.id);
+    }
+    databaseNotification = {
+      id: notifications.notify({ tone, title, message }),
+      key
+    };
   }
 
   function setSelectedProvider(provider: Provider) {

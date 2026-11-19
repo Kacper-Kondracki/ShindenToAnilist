@@ -210,6 +210,77 @@ test('desktop transports preserve failure kinds and developer diagnostics', asyn
     }
   );
   await t.test(
+    'database update failures keep a usable local database',
+    async (t) => {
+      let failedUpdateCommand = 'check_database_update';
+      let hasLocalDatabase = true;
+      let localDatabaseCorrupt = false;
+      const databasePath = '/tmp/test-database.jsonl';
+      const tauri = {
+        invoke: async (command, args) => {
+          if (command === failedUpdateCommand) {
+            throw { kind: ErrorKind.DATABASE_HTTP, httpStatus: 404 };
+          }
+          switch (command) {
+            case 'app_paths':
+              return { database: databasePath };
+            case 'check_database_update':
+              return { status: { needsUpdate: true } };
+            case 'get_database_metadata':
+              assert.equal(args.path, databasePath);
+              if (!hasLocalDatabase) throw { kind: ErrorKind.DATABASE_IO };
+              return {
+                metadata: { lastUpdate: { year: 2026, month: 7, day: 4 } }
+              };
+            case 'load_database':
+              assert.equal(args.path, databasePath);
+              if (localDatabaseCorrupt) throw { kind: ErrorKind.DATABASE_JSON };
+              return { databaseVersion: '1' };
+            case 'get_database_full':
+              return { databaseVersion: '1', entries: [] };
+            default:
+              assert.fail(`Unexpected command: ${command}`);
+          }
+        }
+      };
+      globalThis.window = { __TAURI_INTERNALS__: tauri };
+      globalThis.__TAURI_INTERNALS__ = tauri;
+      t.after(() => {
+        delete globalThis.window;
+        delete globalThis.__TAURI_INTERNALS__;
+      });
+
+      const { initializeDatabaseState } = await vite.ssrLoadModule(
+        '/src/lib/features/database/initializeDatabase.ts'
+      );
+      const hydratedVersions = [];
+      const animeData = {
+        replaceDatabaseFull: (database) =>
+          hydratedVersions.push(database.databaseVersion)
+      };
+
+      for (const command of ['check_database_update', 'download_database']) {
+        failedUpdateCommand = command;
+        const state = await initializeDatabaseState(animeData);
+        assert.equal(state.status, 'ready');
+        assert.equal(state.info.lastUpdate, '2026-07-04');
+        assert.equal(state.info.databaseVersion, 1n);
+        assert.equal(
+          state.updateWarning,
+          userErrorMessage(new AppFailure(ErrorKind.DATABASE_HTTP), '')
+        );
+      }
+
+      localDatabaseCorrupt = true;
+      assert.equal((await initializeDatabaseState(animeData)).status, 'error');
+
+      hasLocalDatabase = false;
+      assert.equal((await initializeDatabaseState(animeData)).status, 'error');
+      assert.deepEqual(hydratedVersions, [1n, 1n]);
+    }
+  );
+
+  await t.test(
     'Shinden retries preserve database failures and skip stale clearance',
     async (t) => {
       let rejectedByShinden = false;

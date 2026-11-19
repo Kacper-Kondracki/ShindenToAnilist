@@ -140,7 +140,9 @@ export function databaseStatusTitle(state: DatabaseState) {
   }
 
   if (state.status === 'ready') {
-    return state.info.path;
+    return state.updateWarning === undefined
+      ? state.info.path
+      : `${state.updateWarning} Ponów aktualizację bazy danych.`;
   }
 
   return null;

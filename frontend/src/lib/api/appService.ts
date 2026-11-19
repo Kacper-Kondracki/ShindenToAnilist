@@ -9,7 +9,11 @@ import type {
   WireNumber
 } from '../domain/anime';
 import * as grpcService from './grpcService';
-import { toDatabaseInfo, type SourceFetchProgress } from './mapping';
+import {
+  toDatabaseInfo,
+  type AppDatabaseReleaseInfo,
+  type SourceFetchProgress
+} from './mapping';
 import {
   resolveAppPaths,
   isTauriRuntime,
@@ -24,25 +28,44 @@ export type { SourceFetchProgress };
 const backend = isTauriRuntime() ? tauriService : grpcService;
 
 export async function ensureDatabase() {
-  const paths = await resolveAppPaths();
-  const update = await checkDatabaseUpdate(paths.database);
+  const { database: path } = await resolveAppPaths();
+  let release: AppDatabaseReleaseInfo | null;
+  let needsUpdate: boolean;
 
-  let release = update.local ?? update.remote ?? null;
-  if (update.needsUpdate || release === null) {
-    release = await downloadDatabase(paths.database);
+  try {
+    const update = await checkDatabaseUpdate(path);
+    needsUpdate = update.needsUpdate;
+    release = update.local ?? update.remote ?? null;
+    if (needsUpdate || release === null) {
+      release = await downloadDatabase(path);
+    }
+  } catch (error) {
+    try {
+      const info = await loadDatabaseInfo(path, null, false);
+      return { info, updateFailure: { error } };
+    } catch {
+      throw error;
+    }
   }
 
-  const [{ databaseVersion: loadedVersion }, metadata] = await Promise.all([
-    loadDatabase(paths.database),
-    getDatabaseMetadata(paths.database)
-  ]);
+  const info = await loadDatabaseInfo(path, release, needsUpdate);
+  return { info, updateFailure: null };
+}
+
+async function loadDatabaseInfo(
+  path: string,
+  release: AppDatabaseReleaseInfo | null,
+  needsUpdate: boolean
+) {
+  const metadata = await getDatabaseMetadata(path);
+  const { databaseVersion } = await loadDatabase(path);
 
   return toDatabaseInfo({
-    path: paths.database,
+    path,
     release,
     metadata,
-    needsUpdate: update.needsUpdate,
-    databaseVersion: loadedVersion
+    needsUpdate,
+    databaseVersion
   });
 }
 

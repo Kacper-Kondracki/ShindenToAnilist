@@ -55,7 +55,7 @@
     </button>
   </div>
   {#if errorMessage}
-    <p id="user-list-error" class="text-error mt-1 text-sm">{errorMessage}</p>
+    <p id="user-list-error" class="sr-only">{errorMessage}</p>
   {/if}
 </form>
 
