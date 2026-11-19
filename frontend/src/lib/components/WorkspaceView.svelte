@@ -4,6 +4,7 @@
   import { wireNumberEquals, wireNumberKey } from '../domain/anime';
   import { createAnimeListPaneController } from '../features/workspace/animeListPaneController.svelte';
   import type { WorkspaceController } from '../features/workspace/workspaceController.svelte';
+  import WorkflowHelp from './WorkflowHelp.svelte';
   import AnimeListPane from './workspace/AnimeListPane.svelte';
   import AnimeListTabs from './workspace/AnimeListTabs.svelte';
   import WorkspaceEditorPane from './workspace/WorkspaceEditorPane.svelte';
@@ -26,6 +27,12 @@
     animeData: LoadedAnimeData;
     workspace: WorkspaceController;
   } = $props();
+
+  let workflowHelp: ReturnType<typeof WorkflowHelp>;
+
+  function openWorkflowHelp() {
+    workflowHelp.openHelp();
+  }
 
   const listPane = createAnimeListPaneController({
     getEntryIdsByView: () => workspace.entryIdsByView,
@@ -137,6 +144,7 @@
         {listOverrideCount}
         onSelectTab={listPane.selectTab}
         onClearListOverrides={workspace.clearManualOverrides}
+        onOpenGuide={openWorkflowHelp}
       />
     </div>
     <div class="workspace-layout">
@@ -167,6 +175,7 @@
         onSetMatchSelectorQuery={workspace.setMatchSelectorQuery}
         onResetMatchSelectorQuery={workspace.resetMatchSelectorQuery}
         onGoToEntry={goToEntry}
+        onOpenGuide={openWorkflowHelp}
       />
     </div>
   </div>
@@ -186,6 +195,8 @@
   canExport={workspace.canExport}
   onExport={workspace.exportCurrentSelections}
 />
+
+<WorkflowHelp bind:this={workflowHelp} />
 
 <style>
   .workspace-shell {

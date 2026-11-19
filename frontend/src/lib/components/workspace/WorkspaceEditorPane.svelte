@@ -48,7 +48,8 @@
     winnerClaimsByDatabaseId,
     initialMatchSearch,
     selectedWinnerState,
-    onGoToEntry
+    onGoToEntry,
+    onOpenGuide
   }: {
     animeData: LoadedAnimeData;
     selectedEntryId: WireNumber | null;
@@ -69,6 +70,7 @@
     onSetMatchSelectorQuery: (shindenId: WireNumber, query: string) => void;
     onResetMatchSelectorQuery: (shindenId: WireNumber) => void;
     onGoToEntry: (entryId: WireNumber) => void;
+    onOpenGuide: () => void;
   } = $props();
 
   const compactPreviewPaneHeight = 42 * 16;
@@ -165,9 +167,26 @@
 >
   <div class="workspace-pane__body">
     {#if selectedWinnerState.status === 'no-selection'}
-      <p class="workspace-empty text-muted text-sm font-medium">
-        Wybierz wpis z listy
-      </p>
+      <div
+        class="workspace-empty workspace-empty--guide flex h-full flex-col items-center justify-center-safe gap-3 overflow-y-auto text-center"
+      >
+        <p class="shrink-0 text-xl leading-6 font-semibold">
+          Wybierz wpis z listy
+        </p>
+        <p class="text-muted max-w-sm shrink-0 text-base leading-5">
+          Pierwszy raz? Zobacz, co oznaczają kolory i jak korzystać z aplikacji.
+        </p>
+        <button
+          type="button"
+          class="btn btn-primary btn-soft shrink-0"
+          aria-haspopup="dialog"
+          onclick={onOpenGuide}
+        >
+          <span class="icon-[lucide--book-open] size-5" aria-hidden="true"
+          ></span>
+          Otwórz poradnik
+        </button>
+      </div>
     {:else if selectedShindenEntry === null}
       <p class="workspace-empty text-muted text-sm font-medium">
         Nie znaleziono wpisu źródłowego
@@ -262,6 +281,13 @@
     .editor-layout {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       grid-template-rows: minmax(0, 1fr);
+    }
+  }
+
+  @media (width <= 48rem) and (height <= 40rem) {
+    .workspace-empty--guide {
+      gap: var(--spacing);
+      padding-block: var(--spacing);
     }
   }
 </style>
