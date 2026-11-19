@@ -12,11 +12,50 @@ permissions:
 jobs:
   linux:
     name: Linux artifacts
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    # Keep the Ubuntu 22.04 glibc baseline for shipped Linux binaries.
+    container: ubuntu:22.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: '1'
 
     steps:
+      - name: Install Linux packaging tools
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y \
+            build-essential \
+            ca-certificates \
+            curl \
+            desktop-file-utils \
+            ffmpeg \
+            file \
+            gh \
+            git \
+            libasound2 \
+            libayatana-appindicator3-dev \
+            libfuse2 \
+            libgbm1 \
+            libgtk-3-dev \
+            libnss3 \
+            libssl-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            protobuf-compiler \
+            wget \
+            xdg-utils \
+            zstd
+
+          protoc --version
+          ffmpeg -version
+
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -25,7 +64,7 @@ jobs:
           run_install: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: pnpm
@@ -36,33 +75,17 @@ jobs:
       - name: Check release version
         run: pnpm version:check
 
-      - name: Install Linux packaging tools
+      - name: Install appimagetool
+        env:
+          APPIMAGETOOL_VERSION: '1.9.1'
+          APPIMAGETOOL_SHA256: ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            curl \
-            ffmpeg \
-            file \
-            libayatana-appindicator3-dev \
-            libfuse2 \
-            libgtk-3-dev \
-            libssl-dev \
-            librsvg2-dev \
-            libwebkit2gtk-4.1-dev \
-            patchelf \
-            protobuf-compiler \
-            wget
-
-          protoc --version
-          ffmpeg -version
-
-          curl -L -o "$RUNNER_TEMP/appimagetool" \
-            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x "$RUNNER_TEMP/appimagetool"
-
-          echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >> "$GITHUB_ENV"
-          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV"
+          tool="$RUNNER_TEMP/appimagetool"
+          curl --fail --silent --show-error --location --retry 3 --output "$tool" \
+            "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-x86_64.AppImage"
+          printf '%s  %s\n' "$APPIMAGETOOL_SHA256" "$tool" | sha256sum --check
+          chmod +x "$tool"
+          echo "APPIMAGETOOL=$tool" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -90,7 +113,7 @@ jobs:
         run: pnpm bundle:tauri:appimage
 
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: shindentoanilist-linux
           if-no-files-found: error
@@ -103,6 +126,7 @@ jobs:
       - name: Attach Linux assets to GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
@@ -124,7 +148,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -133,7 +157,7 @@ jobs:
           run_install: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: pnpm
@@ -159,7 +183,7 @@ jobs:
         run: pnpm bundle:tauri:windows
 
       - name: Upload Tauri Windows native executable
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: shindentoanilist-windows-tauri
           if-no-files-found: error

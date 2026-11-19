@@ -17,34 +17,52 @@ permissions:
 jobs:
   attach:
     name: Attach existing build artifacts
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      ARTIFACT_RUN_ID: ${{ inputs.run_id }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
 
     steps:
+      - name: Verify source build matches the release tag
+        shell: bash
+        run: |
+          if [[ ! "$ARTIFACT_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "Expected a numeric Production Builds run ID." >&2
+            exit 1
+          fi
+
+          workflow_id=$(gh api "repos/$GH_REPO/actions/workflows/production-builds.yml" --jq '.id')
+          release_ref=$(jq -nr --arg tag "$RELEASE_TAG" '"tags/" + $tag | @uri')
+          release_commit=$(gh api "repos/$GH_REPO/commits/$release_ref" --jq '.sha')
+
+          gh run view "$ARTIFACT_RUN_ID" --json workflowDatabaseId,status,conclusion,headSha |
+            jq -e --argjson workflow_id "$workflow_id" --arg release_commit "$release_commit" '
+              if .workflowDatabaseId != $workflow_id then
+                error("The run is from a different workflow.")
+              elif .status != "completed" or .conclusion != "success" then
+                error("The Production Builds run must have completed successfully.")
+              elif .headSha != $release_commit then
+                error("The build commit does not match the release tag.")
+              else
+                true
+              end
+            ' >/dev/null
+
       - name: Download Linux artifacts
-        env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-          ARTIFACT_RUN_ID: ${{ inputs.run_id }}
         run: |
           gh run download "$ARTIFACT_RUN_ID" \
             --name shindentoanilist-linux \
             --dir release-assets/linux
 
       - name: Download Windows artifacts
-        env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-          ARTIFACT_RUN_ID: ${{ inputs.run_id }}
         run: |
           gh run download "$ARTIFACT_RUN_ID" \
             --name shindentoanilist-windows-tauri \
             --dir release-assets/windows
 
       - name: Attach assets to GitHub Release
-        env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           shopt -s globstar nullglob
 
@@ -62,4 +80,4 @@ jobs:
 
           printf 'Attaching %s assets to %s:\n' "${#assets[@]}" "$RELEASE_TAG"
           printf '  %s\n' "${assets[@]}"
-          gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+          gh release upload --clobber -- "$RELEASE_TAG" "${assets[@]}"
