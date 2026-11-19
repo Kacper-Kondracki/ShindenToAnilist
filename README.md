@@ -79,3 +79,7 @@ Instrukcje deweloperskie znajdują się tu
 ## Licencja
 
 Projekt jest dostępny na licencji [Mozilla Public License 2.0](LICENSE).
+
+Baza anime jest pobierana z [cedya77/anime-offline-database](https://github.com/cedya77/anime-offline-database),
+kontynuacji projektu [manami-project/anime-offline-database](https://github.com/manami-project/anime-offline-database).
+Baza jest udostępniana na licencji ODbL 1.0, a jej zawartość na licencji DbCL 1.0.

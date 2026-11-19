@@ -26,7 +26,7 @@ use sha2::{
 use crate::database::DatabaseError;
 
 pub const ANIME_OFFLINE_DATABASE_RELEASE_API: &str =
-    "https://api.github.com/repos/manami-project/anime-offline-database/releases/latest";
+    "https://api.github.com/repos/cedya77/anime-offline-database/releases/latest";
 pub const ANIME_OFFLINE_DATABASE_ASSET: &str = "anime-offline-database.jsonl.zst";
 pub const GITHUB_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
