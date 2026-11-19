@@ -24,6 +24,8 @@ const productName = 'ShindenToAnilist';
 const selectExportPathChannel = 'shinden-to-anilist:select-export-path';
 const openExternalUrlChannel = 'shinden-to-anilist:open-external-url';
 const getAppPathsChannel = 'shinden-to-anilist:get-app-paths';
+const githubReleaseApi =
+  'https://api.github.com/repos/Kacper-Kondracki/ShindenToAnilist/releases/latest';
 const rendererContentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -33,8 +35,8 @@ const rendererContentSecurityPolicy = [
   "img-src 'self' data: https:",
   "font-src 'self' data:",
   rendererDevUrl() === undefined
-    ? "connect-src 'self'"
-    : "connect-src 'self' ws://127.0.0.1:4173"
+    ? `connect-src 'self' ${githubReleaseApi}`
+    : `connect-src 'self' ${githubReleaseApi} ws://127.0.0.1:4173`
 ].join('; ');
 
 type SelectExportPathOptions = {

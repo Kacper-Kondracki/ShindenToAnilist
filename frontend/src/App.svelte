@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
+  import { checkAppUpdate, type AppUpdate } from './lib/api/appUpdates';
   import { installRendererDiagnostics } from './lib/api/diagnostics';
   import AppHeader from './lib/components/AppHeader.svelte';
   import EmptyWorkspace from './lib/components/EmptyWorkspace.svelte';
@@ -12,11 +13,24 @@
 
   const app = createAppController();
   let enableViewEnterAnimations = $state(false);
+  let update = $state<AppUpdate | null>(null);
 
   onMount(() => {
     const cleanup = installRendererDiagnostics();
     void app.initializeDatabase();
-    return cleanup;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 5000);
+    void checkAppUpdate(controller.signal).then((release) => {
+      window.clearTimeout(timeout);
+      if (!controller.signal.aborted) update = release;
+    });
+
+    return () => {
+      cleanup();
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   });
 
   async function handleSubmit(event: SubmitEvent) {
@@ -58,6 +72,7 @@
         {#key app.shouldShowSourceImportProgress}
           <EmptyWorkspace
             provider={app.userListRequestProviderDetails}
+            {update}
             animateOnMount={enableViewEnterAnimations}
             canLoadProvider={app.isProviderSupported}
             sourceImportProgressDebounced={app.isSourceImportProgressDebounced}
