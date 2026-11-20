@@ -13,19 +13,18 @@
 Aplikacja pozwala przejrzeć albo ręcznie poprawić niepewne dopasowania, a na końcu zapisuje eksport
 XML zgodny z MAL.
 
-## Pobierz wersję 1.0.2 (x64)
+## Pobierz wersję 1.1.0 (x64)
 
-[![Pobierz Windows x64 (.exe)](https://img.shields.io/badge/Windows-Tauri%20(.exe)-0078D4?style=for-the-badge)][download-windows]
-[![Pobierz Linux Tauri (AppImage)](https://img.shields.io/badge/Linux-Tauri%20AppImage-E95420?style=for-the-badge)][download-linux-tauri-appimage]
-[![Pobierz Linux Tauri (plik wykonywalny)](https://img.shields.io/badge/Linux-Tauri%20(plik%20wykonywalny)-E95420?style=for-the-badge)][download-linux-tauri]
-[![Pobierz Linux Electron (AppImage z Electronem)](https://img.shields.io/badge/Linux-AppImage%20z%20Electronem-E95420?style=for-the-badge)][download-linux-electron]
-[![Pobierz Linux Electron (AppImage z systemowym Electronem)](https://img.shields.io/badge/Linux-AppImage%20z%20systemowym%20Electronem-E95420?style=for-the-badge)][download-linux-system-electron]
+| System | Pliki do pobrania |
+| --- | --- |
+| Windows | [![Pobierz Windows x64 (.exe)](https://img.shields.io/badge/Tauri-.exe-0078D4?style=flat-square)][download-windows] |
+| Linux | [![Pobierz Linux AppImage z Electronem](https://img.shields.io/badge/Electron-AppImage-E95420?style=flat-square)][download-linux-electron] [![Pobierz Linux AppImage z systemowym Electronem](https://img.shields.io/badge/Electron%20systemowy-AppImage-E95420?style=flat-square)][download-linux-system-electron]<br>[![Pobierz Linux Tauri AppImage](https://img.shields.io/badge/Tauri-AppImage-E95420?style=flat-square)][download-linux-tauri-appimage] [![Pobierz Linux Tauri jako plik wykonywalny](https://img.shields.io/badge/Tauri-plik%20wykonywalny-E95420?style=flat-square)][download-linux-tauri] |
 
-[download-windows]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.0.2/ShindenToAnilist-1.0.2-windows-x64-tauri.exe
-[download-linux-tauri-appimage]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.0.2/ShindenToAnilist-1.0.2-linux-x64-tauri.AppImage
-[download-linux-tauri]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.0.2/ShindenToAnilist-1.0.2-linux-x64-tauri
-[download-linux-electron]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.0.2/ShindenToAnilist-1.0.2-x86_64-bundled.AppImage
-[download-linux-system-electron]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.0.2/ShindenToAnilist-1.0.2-linux-x64-system-electron.AppImage
+[download-windows]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.1.0/ShindenToAnilist-1.1.0-windows-x64-tauri.exe
+[download-linux-tauri-appimage]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.1.0/ShindenToAnilist-1.1.0-linux-x64-tauri.AppImage
+[download-linux-tauri]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.1.0/ShindenToAnilist-1.1.0-linux-x64-tauri
+[download-linux-electron]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.1.0/ShindenToAnilist-1.1.0-x86_64-bundled.AppImage
+[download-linux-system-electron]: https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/download/v3-1.1.0/ShindenToAnilist-1.1.0-linux-x64-system-electron.AppImage
 
 [Najnowsze wydanie na GitHubie](https://github.com/Kacper-Kondracki/ShindenToAnilist/releases/latest)
 
